@@ -1,0 +1,202 @@
+model Cart {
+  id              String           @id @default(uuid()) @db.Uuid
+  customerId      String?          @unique @db.Uuid
+  guestId         String?          @unique @db.Uuid
+  merchantId      String?          @db.Uuid
+  branchId        String?          @db.Uuid
+  fulfillmentType FulfillmentType?
+  promoCodeId     String?          @db.Uuid
+  addressId       String?          @db.Uuid
+  tableId         String?          @db.Uuid
+  scheduledFor    DateTime?
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  customer        Customer?        @relation(fields: [customerId], references: [id])
+  guest           Guest?           @relation(fields: [guestId], references: [id])
+  merchant        Merchant?        @relation(fields: [merchantId], references: [id])
+  promoCode       PromoCode?       @relation(fields: [promoCodeId], references: [id])
+  items           CartItem[]
+}
+
+model CartItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  cartId    String   @db.Uuid
+  productId String   @db.Uuid
+  variantId String?  @db.Uuid
+  quantity  Int
+  notes     String?
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  addons    CartItemAddon[]
+
+  @@index([cartId])
+}
+
+model CartItemAddon {
+  cartItemId String @db.Uuid
+  addonId    String @db.Uuid
+  cartItem   CartItem @relation(fields: [cartItemId], references: [id], onDelete: Cascade)
+
+  @@id([cartItemId, addonId])
+}
+
+model Order {
+  id                   String          @id @default(uuid()) @db.Uuid
+  number               String          @unique
+  customerId           String          @db.Uuid
+  merchantId           String          @db.Uuid
+  branchId             String          @db.Uuid
+  fulfillmentType      FulfillmentType
+  status               OrderStatus     @default(PENDING)
+  addressSnapshot      Json?
+  tableId              String?         @db.Uuid
+  scheduledFor         DateTime?
+  notes                String?
+  cancellationReason   String?
+  subtotal             Decimal         @db.Decimal(19, 3)
+  discount             Decimal         @db.Decimal(19, 3)
+  deliveryFee          Decimal         @db.Decimal(19, 3)
+  deliveryFeeSaved     Decimal         @db.Decimal(19, 3)
+  tax                  Decimal         @db.Decimal(19, 3)
+  total                Decimal         @db.Decimal(19, 3)
+  currency             String          @default("BHD")
+  promoCodeId          String?         @db.Uuid
+  commissionPercent    Decimal         @db.Decimal(19, 3)
+  platformCommission   Decimal         @db.Decimal(19, 3)
+  merchantNet          Decimal         @db.Decimal(19, 3)
+  preparationMinutes   Int?
+  estimatedReadyAt     DateTime?
+  assignedStaffId      String?         @db.Uuid
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  createdById          String?         @db.Uuid
+  updatedById          String?         @db.Uuid
+  customer             Customer        @relation(fields: [customerId], references: [id])
+  merchant             Merchant        @relation(fields: [merchantId], references: [id])
+  branch               Branch          @relation(fields: [branchId], references: [id])
+  table                DiningTable?    @relation(fields: [tableId], references: [id])
+  promoCode            PromoCode?      @relation(fields: [promoCodeId], references: [id])
+  items                OrderItem[]
+  events               OrderStatusEvent[]
+  payments             Payment[]
+  refunds              Refund[]
+  complaints           Complaint[]
+  reviews              Review[]
+  dispatch             DispatchAssignment?
+  cashCollection       CashCollection?
+
+  @@index([merchantId, status])
+  @@index([customerId, createdAt])
+  @@index([status, createdAt])
+}
+
+model OrderItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  orderId    String   @db.Uuid
+  merchantId String   @db.Uuid
+  productId  String?  @db.Uuid
+  variantId  String?  @db.Uuid
+  name       Json
+  quantity   Int
+  unitPrice  Decimal  @db.Decimal(19, 3)
+  lineTotal  Decimal  @db.Decimal(19, 3)
+  notes      String?
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  addons     OrderItemAddon[]
+
+  @@index([merchantId])
+}
+
+model OrderItemAddon {
+  id          String    @id @default(uuid()) @db.Uuid
+  orderItemId String    @db.Uuid
+  addonId     String?   @db.Uuid
+  name        Json
+  price       Decimal   @db.Decimal(19, 3)
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+}
+
+model OrderStatusEvent {
+  id        String      @id @default(uuid()) @db.Uuid
+  orderId   String      @db.Uuid
+  status    OrderStatus
+  note      String?
+  actorId   String?     @db.Uuid
+  createdAt DateTime    @default(now())
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+model DispatchAssignment {
+  id         String   @id @default(uuid()) @db.Uuid
+  orderId    String   @unique @db.Uuid
+  driverId   String   @db.Uuid
+  merchantId String   @db.Uuid
+  assignedAt DateTime @default(now())
+  assignedById String? @db.Uuid
+  order      Order    @relation(fields: [orderId], references: [id])
+  driver     DriverProfile @relation("DispatchDriver", fields: [driverId], references: [id])
+
+  @@index([merchantId])
+}
+
+model Floor {
+  id         String   @id @default(uuid()) @db.Uuid
+  merchantId String   @db.Uuid
+  name       Json
+  createdAt  DateTime @default(now())
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  tables     DiningTable[]
+
+  @@index([merchantId])
+}
+
+model DiningTable {
+  id         String      @id @default(uuid()) @db.Uuid
+  merchantId String      @db.Uuid
+  branchId   String?     @db.Uuid
+  floorId    String      @db.Uuid
+  name       String
+  number     String
+  capacity   Int
+  status     TableStatus @default(AVAILABLE)
+  active     Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  deletedAt  DateTime?
+  merchant   Merchant    @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  floor      Floor       @relation(fields: [floorId], references: [id])
+  orders     Order[]
+  sessions   TableSession[]
+  qrCodes    QrCode[]
+
+  @@unique([merchantId, number])
+  @@index([merchantId])
+}
+
+model TableSession {
+  id         String   @id @default(uuid()) @db.Uuid
+  tableId    String   @db.Uuid
+  merchantId String   @db.Uuid
+  openedAt   DateTime @default(now())
+  closedAt   DateTime?
+  combinedIntoId String? @db.Uuid
+  table      DiningTable @relation(fields: [tableId], references: [id])
+
+  @@index([merchantId])
+}
+
+model QrCode {
+  id         String   @id @default(uuid()) @db.Uuid
+  code       String   @unique
+  type       QrType
+  merchantId String   @db.Uuid
+  tableId    String?  @db.Uuid
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  table      DiningTable? @relation(fields: [tableId], references: [id])
+
+  @@index([merchantId])
+}

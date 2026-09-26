@@ -1,0 +1,218 @@
+model User {
+  id               String        @id @default(uuid()) @db.Uuid
+  email            String?       @unique
+  phone            String?       @unique
+  passwordHash     String?
+  kind             UserKind
+  status           AccountStatus @default(PENDING_ACTIVATION)
+  firstName        String
+  lastName         String
+  locale           String        @default("en")
+  merchantId       String?       @db.Uuid
+  twoFactorEnabled Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  createdById      String?       @db.Uuid
+  updatedById      String?       @db.Uuid
+  deletedAt        DateTime?
+
+  merchant            Merchant?          @relation(fields: [merchantId], references: [id])
+  sessions            Session[]
+  passwordResets      PasswordResetToken[]
+  otpChallenges       OtpChallenge[]
+  userRoles           UserRole[]
+  customer            Customer?
+  driverProfile       DriverProfile?
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+  marketingProfile    MarketingProfile?  @relation("MarketingUser")
+  marketingReports    MarketingProfile[] @relation("MarketingHead")
+  referralsMade       MerchantReferral[]
+  complaintsAssigned  Complaint[]        @relation("ComplaintAssignee")
+  complaintsRaised    Complaint[]        @relation("ComplaintReporter")
+  reviews             Review[]
+  shiftNotes          ShiftNote[]
+  incidents           Incident[]
+  salaryRecords       SalaryRecord[]
+  managedBranches     Branch[]           @relation("BranchManager")
+
+  @@index([merchantId])
+  @@index([kind, status])
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  refreshTokenHash String    @unique
+  userAgent        String?
+  ipAddress        String?
+  rememberDevice   Boolean   @default(false)
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  replacedById     String?   @db.Uuid
+  createdAt        DateTime  @default(now())
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OtpChallenge {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String?    @db.Uuid
+  phone     String?
+  purpose   OtpPurpose
+  codeHash  String
+  expiresAt DateTime
+  consumedAt DateTime?
+  attempts  Int        @default(0)
+  createdAt DateTime   @default(now())
+  user      User?      @relation(fields: [userId], references: [id])
+
+  @@index([phone, purpose])
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique
+  name        Json
+  description Json?
+  isSystem    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  permissions RolePermission[]
+  users       UserRole[]
+}
+
+model Permission {
+  id    String @id @default(uuid()) @db.Uuid
+  key   String @unique
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  roleId     String   @db.Uuid
+  merchantId String?  @db.Uuid
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, roleId, merchantId])
+  @@index([merchantId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model Customer {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @unique @db.Uuid
+  rewardBalance Decimal   @default(0) @db.Decimal(19, 3)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  user          User      @relation(fields: [userId], references: [id])
+  addresses     Address[]
+  favourites    Favourite[]
+  paymentMethods SavedPaymentMethod[]
+  orders        Order[]
+  cart          Cart?
+  reviews       Review[]
+
+  @@index([deletedAt])
+}
+
+model Guest {
+  id                   String    @id @default(uuid()) @db.Uuid
+  tokenHash            String    @unique
+  mergedIntoCustomerId String?   @db.Uuid
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  cart                 Cart?
+  recentlyViewed       RecentlyViewed[]
+}
+
+model Address {
+  id           String   @id @default(uuid()) @db.Uuid
+  customerId   String   @db.Uuid
+  label        String
+  line1        String
+  line2        String?
+  city         String
+  latitude     Decimal  @db.Decimal(9, 6)
+  longitude    Decimal  @db.Decimal(9, 6)
+  instructions String?
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+model Favourite {
+  customerId String   @db.Uuid
+  merchantId String   @db.Uuid
+  createdAt  DateTime @default(now())
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@id([customerId, merchantId])
+}
+
+model RecentlyViewed {
+  id         String   @id @default(uuid()) @db.Uuid
+  guestId    String?  @db.Uuid
+  customerId String?  @db.Uuid
+  productId  String   @db.Uuid
+  viewedAt   DateTime @default(now())
+  guest      Guest?   @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([guestId, viewedAt])
+  @@index([customerId, viewedAt])
+}
+
+model SavedPaymentMethod {
+  id         String   @id @default(uuid()) @db.Uuid
+  customerId String   @db.Uuid
+  provider   PaymentProvider
+  brand      String
+  last4      String
+  token      String
+  createdAt  DateTime @default(now())
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}

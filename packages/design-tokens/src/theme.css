@@ -1,0 +1,95 @@
+:root {
+  --background: #f7f7f5;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --primary: #ffc400;
+  --primary-foreground: #111111;
+  --secondary: #111111;
+  --secondary-foreground: #ffffff;
+  --muted: #f7f7f5;
+  --muted-foreground: #696965;
+  --accent: #ffc400;
+  --accent-foreground: #111111;
+  --destructive: #d9342b;
+  --destructive-foreground: #ffffff;
+  --success: #168a52;
+  --info: #2563eb;
+  --border: #e2e2dc;
+  --input: #e2e2dc;
+  --ring: #111111;
+  --radius-control: 12px;
+  --radius-card: 16px;
+  --radius-feature: 24px;
+  --font-sans: var(--font-inter), var(--font-arabic), Arial, sans-serif;
+  --font-heading: var(--font-display), var(--font-kufi), var(--font-sans);
+}
+
+html[lang='ar'] {
+  --font-sans: var(--font-arabic), var(--font-inter), Arial, sans-serif;
+  --font-heading: var(--font-kufi), var(--font-display), var(--font-sans);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius-card);
+  --radius-xl: var(--radius-feature);
+  --font-sans: var(--font-sans);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+h1,
+h2,
+.font-display {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.lift {
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(17, 17, 17, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lift,
+  .lift:hover {
+    transform: none;
+    transition: none;
+  }
+}

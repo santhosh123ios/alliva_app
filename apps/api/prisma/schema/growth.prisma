@@ -1,0 +1,255 @@
+model PromoCode {
+  id               String            @id @default(uuid()) @db.Uuid
+  code             String            @unique
+  description      Json
+  scope            PromoScope
+  merchantId       String?           @db.Uuid
+  discountType     PromoDiscountType
+  discountValue    Decimal           @db.Decimal(19, 3)
+  maxDiscount      Decimal?          @db.Decimal(19, 3)
+  minimumOrder     Decimal?          @db.Decimal(19, 3)
+  usageLimit       Int?
+  perCustomerLimit Int?
+  startsAt         DateTime
+  endsAt           DateTime
+  firstOrderOnly   Boolean           @default(false)
+  budget           Decimal?          @db.Decimal(19, 3)
+  budgetSpent      Decimal           @default(0) @db.Decimal(19, 3)
+  categoryIds      Json?
+  merchantIds      Json?
+  active           Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  createdById      String?           @db.Uuid
+  deletedAt        DateTime?
+  merchant         Merchant?         @relation(fields: [merchantId], references: [id])
+  redemptions      PromoRedemption[]
+  carts            Cart[]
+  orders           Order[]
+
+  @@index([merchantId])
+}
+
+model PromoRedemption {
+  id         String    @id @default(uuid()) @db.Uuid
+  promoCodeId String   @db.Uuid
+  customerId String    @db.Uuid
+  orderId    String    @db.Uuid
+  amount     Decimal   @db.Decimal(19, 3)
+  createdAt  DateTime  @default(now())
+  promoCode  PromoCode @relation(fields: [promoCodeId], references: [id])
+
+  @@index([promoCodeId])
+  @@index([customerId])
+}
+
+model MarketingProfile {
+  id                        String   @id @default(uuid()) @db.Uuid
+  userId                    String   @unique @db.Uuid
+  parentUserId              String?  @db.Uuid
+  referralCode              String   @unique
+  staffCommissionPercent    Decimal  @db.Decimal(19, 3)
+  headOverridePercent       Decimal  @db.Decimal(19, 3)
+  renewalCommissionEnabled  Boolean  @default(false)
+  maxCommission             Decimal? @db.Decimal(19, 3)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  user                      User     @relation("MarketingUser", fields: [userId], references: [id])
+  parent                    User?    @relation("MarketingHead", fields: [parentUserId], references: [id])
+}
+
+model MerchantReferral {
+  id              String   @id @default(uuid()) @db.Uuid
+  merchantId      String   @unique @db.Uuid
+  marketingUserId String   @db.Uuid
+  codeUsed        String
+  createdAt       DateTime @default(now())
+  merchant        Merchant @relation(fields: [merchantId], references: [id])
+  marketingUser   User     @relation(fields: [marketingUserId], references: [id])
+}
+
+model CommissionEntry {
+  id                    String           @id @default(uuid()) @db.Uuid
+  subscriptionPaymentId String           @db.Uuid
+  merchantId            String           @db.Uuid
+  beneficiaryUserId     String           @db.Uuid
+  tier                  String
+  amount                Decimal          @db.Decimal(19, 3)
+  currency              String           @default("BHD")
+  status                CommissionStatus @default(PENDING)
+  pendingUntil          DateTime
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  subscriptionPayment   SubscriptionPayment @relation(fields: [subscriptionPaymentId], references: [id])
+
+  @@index([beneficiaryUserId, status])
+  @@index([merchantId])
+}
+
+model Complaint {
+  id           String            @id @default(uuid()) @db.Uuid
+  source       ComplaintSource
+  category     String
+  priority     ComplaintPriority @default(MEDIUM)
+  status       ComplaintStatus   @default(OPEN)
+  subject      String
+  description  String
+  orderId      String?           @db.Uuid
+  merchantId   String?           @db.Uuid
+  reporterId   String?           @db.Uuid
+  assigneeId   String?           @db.Uuid
+  satisfaction Int?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  createdById  String?           @db.Uuid
+  updatedById  String?           @db.Uuid
+  order        Order?            @relation(fields: [orderId], references: [id])
+  merchant     Merchant?         @relation(fields: [merchantId], references: [id])
+  reporter     User?             @relation("ComplaintReporter", fields: [reporterId], references: [id])
+  assignee     User?             @relation("ComplaintAssignee", fields: [assigneeId], references: [id])
+  notes        ComplaintNote[]
+  attachments  ComplaintAttachment[]
+
+  @@index([status, priority])
+}
+
+model ComplaintNote {
+  id          String    @id @default(uuid()) @db.Uuid
+  complaintId String    @db.Uuid
+  authorId    String?   @db.Uuid
+  body        String
+  internal    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+}
+
+model ComplaintAttachment {
+  id          String    @id @default(uuid()) @db.Uuid
+  complaintId String    @db.Uuid
+  fileUrl     String
+  createdAt   DateTime  @default(now())
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id         String   @id @default(uuid()) @db.Uuid
+  orderId    String   @db.Uuid
+  merchantId String   @db.Uuid
+  customerId String   @db.Uuid
+  authorId   String   @db.Uuid
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+  order      Order    @relation(fields: [orderId], references: [id])
+  merchant   Merchant @relation(fields: [merchantId], references: [id])
+  customer   Customer @relation(fields: [customerId], references: [id])
+  author     User     @relation(fields: [authorId], references: [id])
+
+  @@unique([orderId, authorId])
+  @@index([merchantId])
+}
+
+model Notification {
+  id        String              @id @default(uuid()) @db.Uuid
+  userId    String              @db.Uuid
+  channel   NotificationChannel
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime            @default(now())
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model NotificationTemplate {
+  id        String              @id @default(uuid()) @db.Uuid
+  key       String              @unique
+  channel   NotificationChannel
+  subject   Json
+  body      Json
+  updatedAt DateTime            @updatedAt
+}
+
+model PlatformSetting {
+  key         String   @id
+  value       Json
+  updatedAt   DateTime @updatedAt
+  updatedById String?  @db.Uuid
+}
+
+model ServiceArea {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      Json
+  city      String
+  latitude  Decimal  @db.Decimal(9, 6)
+  longitude Decimal  @db.Decimal(9, 6)
+  geoJson   Json
+  area      Unsupported("geography(MultiPolygon,4326)")?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DeliveryPricingRule {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          Json
+  merchantId    String?  @db.Uuid
+  baseFee       Decimal  @db.Decimal(19, 3)
+  perKmFee      Decimal  @db.Decimal(19, 3)
+  minDistanceKm Decimal  @default(0) @db.Decimal(8, 3)
+  maxDistanceKm Decimal? @db.Decimal(8, 3)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model FreeDeliveryRule {
+  id           String   @id @default(uuid()) @db.Uuid
+  merchantId   String?  @db.Uuid
+  minimumOrder Decimal  @db.Decimal(19, 3)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model PaymentGatewayConfig {
+  id        String  @id @default(uuid()) @db.Uuid
+  provider  String  @unique
+  enabled   Boolean @default(false)
+  publicConfig Json
+  updatedAt DateTime @updatedAt
+}
+
+model StoredFile {
+  id         String   @id @default(uuid()) @db.Uuid
+  ownerId    String?  @db.Uuid
+  merchantId String?  @db.Uuid
+  filename   String
+  mimeType   String
+  sizeBytes  Int
+  url        String
+  createdAt  DateTime @default(now())
+
+  @@index([merchantId])
+}
+
+model ShiftNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  authorId  String   @db.Uuid
+  note      String
+  createdAt DateTime @default(now())
+  author    User     @relation(fields: [authorId], references: [id])
+}
+
+model Incident {
+  id         String           @id @default(uuid()) @db.Uuid
+  title      String
+  details    String
+  severity   IncidentSeverity
+  status     String           @default("OPEN")
+  authorId   String           @db.Uuid
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  author     User             @relation(fields: [authorId], references: [id])
+}

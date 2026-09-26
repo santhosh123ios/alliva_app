@@ -1,0 +1,33 @@
+{
+  "name": "@alliva/ui",
+  "version": "0.0.0",
+  "private": true,
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./messages/en.json": "./messages/en.json",
+    "./messages/ar.json": "./messages/ar.json"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "1.1.23",
+    "@radix-ui/react-label": "2.1.15",
+    "@radix-ui/react-slot": "1.3.3",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "lucide-react": "1.47.0",
+    "sonner": "2.0.8",
+    "tailwind-merge": "3.7.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "react": "19.3.0",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "lint": "echo ok"
+  }
+}

@@ -1,0 +1,244 @@
+model Payment {
+  id             String          @id @default(uuid()) @db.Uuid
+  orderId        String?         @db.Uuid
+  customerId     String?         @db.Uuid
+  merchantId     String?         @db.Uuid
+  provider       PaymentProvider
+  method         PaymentMethod
+  status         PaymentStatus   @default(PENDING)
+  amount         Decimal         @db.Decimal(19, 3)
+  gatewayFee     Decimal         @default(0) @db.Decimal(19, 3)
+  currency       String          @default("BHD")
+  externalId     String?
+  idempotencyKey String          @unique
+  rawPayload     Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  createdById    String?         @db.Uuid
+  order          Order?          @relation(fields: [orderId], references: [id])
+  refunds        Refund[]
+
+  @@index([merchantId, status])
+  @@index([orderId])
+}
+
+model WebhookEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  provider   String
+  externalId String
+  payload    Json
+  createdAt  DateTime @default(now())
+
+  @@unique([provider, externalId])
+}
+
+model Refund {
+  id         String       @id @default(uuid()) @db.Uuid
+  orderId    String       @db.Uuid
+  paymentId  String?      @db.Uuid
+  merchantId String       @db.Uuid
+  amount     Decimal      @db.Decimal(19, 3)
+  currency   String       @default("BHD")
+  status     RefundStatus @default(REQUESTED)
+  reason     String
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  createdById String?     @db.Uuid
+  updatedById String?     @db.Uuid
+  order      Order        @relation(fields: [orderId], references: [id])
+  payment    Payment?     @relation(fields: [paymentId], references: [id])
+
+  @@index([merchantId, status])
+}
+
+model Settlement {
+  id          String           @id @default(uuid()) @db.Uuid
+  merchantId  String           @db.Uuid
+  amount      Decimal          @db.Decimal(19, 3)
+  currency    String           @default("BHD")
+  status      SettlementStatus @default(PENDING_APPROVAL)
+  periodStart DateTime
+  periodEnd   DateTime
+  note        String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  createdById String?          @db.Uuid
+  updatedById String?          @db.Uuid
+  merchant    Merchant         @relation(fields: [merchantId], references: [id])
+  lines       SettlementLine[]
+
+  @@index([merchantId, status])
+}
+
+model SettlementLine {
+  id           String     @id @default(uuid()) @db.Uuid
+  settlementId String     @db.Uuid
+  orderId      String?    @db.Uuid
+  description  String
+  amount       Decimal    @db.Decimal(19, 3)
+  settlement   Settlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id         String   @id @default(uuid()) @db.Uuid
+  merchantId String   @db.Uuid
+  kind       String
+  number     String   @unique
+  amount     Decimal  @db.Decimal(19, 3)
+  currency   String   @default("BHD")
+  status     String
+  issuedAt   DateTime @default(now())
+  merchant   Merchant @relation(fields: [merchantId], references: [id])
+
+  @@index([merchantId])
+}
+
+model CashCollection {
+  id         String               @id @default(uuid()) @db.Uuid
+  orderId    String               @unique @db.Uuid
+  merchantId String               @db.Uuid
+  driverId   String?              @db.Uuid
+  amount     Decimal              @db.Decimal(19, 3)
+  currency   String               @default("BHD")
+  status     CashCollectionStatus @default(PENDING)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  order      Order                @relation(fields: [orderId], references: [id])
+  merchant   Merchant             @relation(fields: [merchantId], references: [id])
+  driver     DriverProfile?       @relation(fields: [driverId], references: [id])
+
+  @@index([merchantId, status])
+}
+
+model LedgerEntry {
+  id             String     @id @default(uuid()) @db.Uuid
+  type           LedgerType
+  amount         Decimal    @db.Decimal(19, 3)
+  currency       String     @default("BHD")
+  debitAccount   String
+  creditAccount  String
+  referenceType  String
+  referenceId    String
+  merchantId     String?    @db.Uuid
+  idempotencyKey String     @unique
+  metadata       Json?
+  createdAt      DateTime   @default(now())
+  createdById    String?    @db.Uuid
+
+  @@index([merchantId, createdAt])
+  @@index([referenceType, referenceId])
+}
+
+model Expense {
+  id          String   @id @default(uuid()) @db.Uuid
+  merchantId  String?  @db.Uuid
+  category    String
+  amount      Decimal  @db.Decimal(19, 3)
+  currency    String   @default("BHD")
+  description String
+  incurredOn  DateTime
+  createdAt   DateTime @default(now())
+  createdById String?  @db.Uuid
+  merchant    Merchant? @relation(fields: [merchantId], references: [id])
+}
+
+model SalaryRecord {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  amount     Decimal  @db.Decimal(19, 3)
+  currency   String   @default("BHD")
+  period     String
+  createdAt  DateTime @default(now())
+  createdById String? @db.Uuid
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+model SubscriptionPlan {
+  id           String   @id @default(uuid()) @db.Uuid
+  code         String   @unique
+  name         Json
+  description  Json
+  priceMonthly Decimal  @db.Decimal(19, 3)
+  priceAnnual  Decimal  @db.Decimal(19, 3)
+  currency     String   @default("BHD")
+  status       String   @default("ACTIVE")
+  displayOrder Int      @default(0)
+  recommended  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdById  String?  @db.Uuid
+  updatedById  String?  @db.Uuid
+  entitlements PlanEntitlement[]
+  subscriptions MerchantSubscription[]
+  pendingFor    MerchantSubscription[] @relation("PendingPlan")
+  changesFrom   SubscriptionChange[]   @relation("ChangeFromPlan")
+  changesTo     SubscriptionChange[]   @relation("ChangeToPlan")
+}
+
+model PlanEntitlement {
+  id     String           @id @default(uuid()) @db.Uuid
+  planId String           @db.Uuid
+  key    String
+  value  Json
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, key])
+}
+
+model MerchantSubscription {
+  id              String             @id @default(uuid()) @db.Uuid
+  merchantId      String             @unique @db.Uuid
+  planId          String             @db.Uuid
+  status          SubscriptionStatus @default(ACTIVE)
+  billingInterval BillingInterval
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  entitlementSnapshot Json?
+  pendingPlanId   String?            @db.Uuid
+  pendingBillingInterval BillingInterval?
+  pendingEffectiveAt DateTime?
+  pendingMarkPaid Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  merchant        Merchant           @relation(fields: [merchantId], references: [id])
+  plan            SubscriptionPlan   @relation(fields: [planId], references: [id])
+  pendingPlan     SubscriptionPlan?  @relation("PendingPlan", fields: [pendingPlanId], references: [id])
+  payments        SubscriptionPayment[]
+  changes         SubscriptionChange[]
+}
+
+model SubscriptionChange {
+  id              String           @id @default(uuid()) @db.Uuid
+  merchantId      String           @db.Uuid
+  subscriptionId  String?          @db.Uuid
+  fromPlanId      String?          @db.Uuid
+  toPlanId        String           @db.Uuid
+  billingInterval BillingInterval
+  effectiveAt     DateTime
+  appliedAt       DateTime?
+  actorId         String?          @db.Uuid
+  createdAt       DateTime         @default(now())
+  merchant        Merchant         @relation(fields: [merchantId], references: [id])
+  subscription    MerchantSubscription? @relation(fields: [subscriptionId], references: [id])
+  fromPlan        SubscriptionPlan? @relation("ChangeFromPlan", fields: [fromPlanId], references: [id])
+  toPlan          SubscriptionPlan  @relation("ChangeToPlan", fields: [toPlanId], references: [id])
+
+  @@index([merchantId])
+}
+
+model SubscriptionPayment {
+  id             String   @id @default(uuid()) @db.Uuid
+  subscriptionId String   @db.Uuid
+  merchantId     String   @db.Uuid
+  amount         Decimal  @db.Decimal(19, 3)
+  currency       String   @default("BHD")
+  status         PaymentStatus @default(PENDING)
+  isRenewal      Boolean  @default(false)
+  verifiedAt     DateTime?
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+  subscription   MerchantSubscription @relation(fields: [subscriptionId], references: [id])
+  commissions    CommissionEntry[]
+
+  @@index([merchantId])
+}

@@ -1,0 +1,166 @@
+enum StoreAvailability {
+  OPEN
+  CLOSED
+  BUSY
+}
+
+model BusinessCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique
+  name      Json
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  merchants MerchantCategory[]
+}
+
+model Merchant {
+  id                  String         @id @default(uuid()) @db.Uuid
+  slug                String         @unique
+  name                Json
+  description         Json
+  businessType        String
+  status              MerchantStatus @default(PENDING_APPROVAL)
+  phone               String
+  email               String
+  websiteUrl          String?
+  registrationPromo   String?
+  logoUrl             String?
+  coverUrl            String?
+  minimumOrder        Decimal        @default(0) @db.Decimal(19, 3)
+  freeDeliveryEnabled Boolean        @default(false)
+  freeDeliveryKm      Decimal        @default(0) @db.Decimal(8, 3)
+  beyondFreeDeliveryFee Decimal      @default(0) @db.Decimal(19, 3)
+  maxDeliveryKm       Decimal        @default(0) @db.Decimal(8, 3)
+  preparationMinutes  Int            @default(20)
+  taxNumber           String?
+  deliveryEnabled     Boolean        @default(true)
+  takeawayEnabled     Boolean        @default(true)
+  dineInEnabled       Boolean        @default(false)
+  availability        StoreAvailability @default(OPEN)
+  temporaryClosedUntil DateTime?
+  closureReason       String?
+  ratingAverage       Decimal        @default(0) @db.Decimal(4, 2)
+  ratingCount         Int            @default(0)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  createdById         String?        @db.Uuid
+  updatedById         String?        @db.Uuid
+  deletedAt           DateTime?
+
+  users          User[]
+  categories     MerchantCategory[]
+  branches       Branch[]
+  documents      MerchantDocument[]
+  hours          OperatingHour[]
+  bankAccounts   BankAccount[]
+  productCategories ProductCategory[]
+  products       Product[]
+  addonGroups    AddonGroup[]
+  offers         Offer[]
+  banners        Banner[]
+  orders         Order[]
+  subscription   MerchantSubscription?
+  subscriptionChanges SubscriptionChange[]
+  promoCodes     PromoCode[]
+  complaints     Complaint[]
+  reviews        Review[]
+  settlements    Settlement[]
+  invoices       Invoice[]
+  referral       MerchantReferral?
+  favourites     Favourite[]
+  floors         Floor[]
+  tables         DiningTable[]
+  qrCodes        QrCode[]
+  carts          Cart[]
+  cashCollections CashCollection[]
+  expenses       Expense[]
+
+  @@index([status])
+}
+
+model MerchantCategory {
+  merchantId String @db.Uuid
+  categoryId String @db.Uuid
+  merchant   Merchant         @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  category   BusinessCategory @relation(fields: [categoryId], references: [id])
+
+  @@id([merchantId, categoryId])
+}
+
+model Branch {
+  id         String   @id @default(uuid()) @db.Uuid
+  merchantId String   @db.Uuid
+  name       Json
+  line1      String
+  city       String
+  latitude   Decimal  @db.Decimal(9, 6)
+  longitude  Decimal  @db.Decimal(9, 6)
+  location   Unsupported("geography(Point,4326)")?
+  phone      String?
+  active     Boolean  @default(true)
+  managerId  String?  @db.Uuid
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdById String? @db.Uuid
+  updatedById String? @db.Uuid
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  manager    User?    @relation("BranchManager", fields: [managerId], references: [id], onDelete: SetNull)
+  orders     Order[]
+  inventory  InventoryItem[]
+
+  @@index([merchantId])
+  @@index([managerId])
+}
+
+model MerchantDocument {
+  id         String         @id @default(uuid()) @db.Uuid
+  merchantId String         @db.Uuid
+  kind       String
+  fileUrl    String
+  status     DocumentStatus @default(PENDING)
+  note       String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  createdById String?       @db.Uuid
+  merchant   Merchant       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId, status])
+}
+
+model OperatingHour {
+  id         String  @id @default(uuid()) @db.Uuid
+  merchantId String  @db.Uuid
+  dayOfWeek  Int
+  opensAt    String
+  closesAt   String
+  closed     Boolean @default(false)
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, dayOfWeek])
+}
+
+model BankAccount {
+  id          String   @id @default(uuid()) @db.Uuid
+  merchantId  String   @db.Uuid
+  bankName    String
+  accountName String
+  ibanCipher  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+}
+
+model DriverProfile {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  merchantId String? @db.Uuid
+  vehicle   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  assignments     DispatchAssignment[] @relation("DispatchDriver")
+  cashCollections CashCollection[]
+}

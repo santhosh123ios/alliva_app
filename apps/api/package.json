@@ -1,0 +1,57 @@
+{
+  "name": "@alliva/api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/with-env.mjs tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node scripts/with-env.mjs node dist/main.js",
+    "lint": "echo ok",
+    "test": "node scripts/with-env.mjs jest --runInBand && node scripts/with-env.mjs node --import tsx --test test/orders.integration.spec.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "node scripts/with-env.mjs prisma migrate deploy",
+    "db:seed": "node scripts/with-env.mjs tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "schema": "prisma/schema",
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@alliva/types": "workspace:*",
+    "@alliva/validation": "workspace:*",
+    "@nestjs/common": "12.0.4",
+    "@nestjs/core": "12.0.4",
+    "@nestjs/jwt": "12.0.2",
+    "@nestjs/platform-express": "12.0.4",
+    "@nestjs/platform-socket.io": "12.0.4",
+    "@nestjs/swagger": "12.0.1",
+    "@nestjs/throttler": "6.7.0",
+    "@nestjs/websockets": "12.0.4",
+    "@prisma/client": "6.19.3",
+    "argon2": "0.45.1",
+    "cookie-parser": "1.4.7",
+    "decimal.js": "10.6.0",
+    "express": "5.1.0",
+    "helmet": "8.3.0",
+    "pdf-lib": "1.17.1",
+    "prisma": "6.19.3",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "socket.io": "4.8.3",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "12.0.4",
+    "supertest": "7.1.4",
+    "@types/supertest": "6.0.3",
+    "@types/cookie-parser": "1.4.10",
+    "@types/express": "5.0.3",
+    "@types/jest": "30.0.0",
+    "@types/multer": "2.0.0",
+    "@types/node": "24.5.2",
+    "jest": "30.5.2",
+    "ts-jest": "29.4.12",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}

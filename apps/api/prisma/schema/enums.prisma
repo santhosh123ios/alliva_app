@@ -1,0 +1,203 @@
+enum UserKind {
+  STAFF
+  MERCHANT_USER
+  CUSTOMER
+}
+
+enum AccountStatus {
+  PENDING_ACTIVATION
+  ACTIVE
+  SUSPENDED
+}
+
+enum MerchantStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum FulfillmentType {
+  DELIVERY
+  TAKEAWAY
+  DINE_IN
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  PREPARING
+  READY_FOR_PICKUP
+  ASSIGNED_TO_DRIVER
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentMethod {
+  CARD
+  BENEFIT
+  BENEFIT_PAY
+  CASH
+}
+
+enum PaymentProvider {
+  TAP
+  BENEFIT
+  MOCK
+  CASH
+}
+
+enum SettlementStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PAID
+  REJECTED
+}
+
+enum LedgerType {
+  CUSTOMER_PAYMENT
+  CASH_COLLECTION
+  GATEWAY_FEE
+  MERCHANT_AMOUNT
+  PLATFORM_COMMISSION
+  DRIVER_PAYMENT
+  MARKETING_COMMISSION
+  REFUND
+  SETTLEMENT_ADJUSTMENT
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum BillingInterval {
+  MONTHLY
+  ANNUAL
+}
+
+enum VisibilityMode {
+  MARKETPLACE
+  EXCLUSIVE_STOREFRONT
+}
+
+enum PromoDiscountType {
+  FIXED
+  PERCENTAGE
+}
+
+enum PromoScope {
+  GLOBAL
+  MERCHANT
+}
+
+enum ComplaintSource {
+  CUSTOMER
+  MERCHANT
+  DRIVER
+}
+
+enum ComplaintPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ComplaintStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  ESCALATED
+  RESOLVED
+  CLOSED
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  REVERSED
+}
+
+enum RefundStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  PROCESSED
+}
+
+enum ProductApprovalStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum BannerStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ACTIVE
+  PAUSED
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  INACTIVE
+}
+
+enum QrType {
+  MERCHANT
+  TABLE
+}
+
+enum NotificationChannel {
+  PUSH
+  EMAIL
+  SMS
+  IN_APP
+}
+
+enum CashCollectionStatus {
+  PENDING
+  COLLECTED
+  CONFIRMED
+  DISPUTED
+}
+
+enum OtpPurpose {
+  CUSTOMER_LOGIN
+  TWO_FACTOR
+  PASSWORD_RESET
+}

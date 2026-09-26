@@ -1,0 +1,26 @@
+{
+  "name": "alliva",
+  "private": true,
+  "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "format": "prettier --write .",
+    "db:generate": "pnpm --filter @alliva/api db:generate",
+    "db:migrate": "pnpm --filter @alliva/api db:migrate",
+    "db:seed": "pnpm --filter @alliva/api db:seed",
+    "docker:up": "docker compose up -d",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "prettier": "3.6.2",
+    "turbo": "2.11.2",
+    "typescript": "5.9.3"
+  }
+}

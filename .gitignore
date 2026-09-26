@@ -1,0 +1,16 @@
+node_modules
+dist
+.next
+.turbo
+coverage
+uploads
+.env
+.env.local
+*.tsbuildinfo
+playwright-report
+test-results
+blob-report
+.pnpm-store
+*.log
+.DS_Store
+apps/api/generated
