@@ -6,6 +6,7 @@ coverage
 uploads
 .env
 .env.local
+.env*.local
 *.tsbuildinfo
 playwright-report
 test-results
@@ -13,4 +14,10 @@ blob-report
 .pnpm-store
 *.log
 .DS_Store
+*.pem
+.vercel
+out
+build
+.pnp
+.pnp.js
 apps/api/generated
