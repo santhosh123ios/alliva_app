@@ -102,8 +102,8 @@ export class StorefrontController {
 
   @Public()
   @Patch('cart/items/:id')
-  async updateItem(@Param('id') id: string, @Body() body: { quantity: number }, @Req() request: Request, @CurrentUser() user?: RequestUser) {
-    return this.commerce.updateItem(await this.viewer(request, user), id, Number(body.quantity));
+  async updateItem(@Param('id') id: string, @Body() body: { quantity: number; variantId?: string | null }, @Req() request: Request, @CurrentUser() user?: RequestUser) {
+    return this.commerce.updateItem(await this.viewer(request, user), id, Number(body.quantity), body.variantId);
   }
 
   @Public()

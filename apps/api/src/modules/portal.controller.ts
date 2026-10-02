@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Param,
@@ -1049,6 +1050,13 @@ export class PortalController {
   async favourite(@CurrentUser() user: RequestUser, @Param('merchantId') merchantId: string) {
     const customer = await this.prisma.customer.findUniqueOrThrow({ where: { userId: user.id } });
     return this.prisma.favourite.upsert({ where: { customerId_merchantId: { customerId: customer.id, merchantId } }, update: {}, create: { customerId: customer.id, merchantId } });
+  }
+
+  @Delete('customers/me/favourites/:merchantId')
+  async unfavourite(@CurrentUser() user: RequestUser, @Param('merchantId') merchantId: string) {
+    const customer = await this.prisma.customer.findUniqueOrThrow({ where: { userId: user.id } });
+    await this.prisma.favourite.deleteMany({ where: { customerId: customer.id, merchantId } });
+    return { ok: true };
   }
 
   @Post('customers/me/delete')

@@ -50,12 +50,9 @@ export class CommerceService {
       : null;
     const merchants = await this.merchantCards(visible ? { id: { in: visible } } : { status: 'ACTIVE', deletedAt: null });
     const listed = visible ? [...merchants].sort((a, b) => visible.indexOf(a.id) - visible.indexOf(b.id)) : merchants;
-    const filtered = input.q
-      ? listed.filter((merchant) => `${merchant.name.en} ${merchant.name.ar}`.toLowerCase().includes(input.q!.toLowerCase()))
-      : listed;
-    const nearby = this.sortNearby(filtered, input.lat, input.lng);
+    const nearby = this.sortNearby(listed, input.lat, input.lng);
     const entryCard = entry ? nearby.find((merchant) => merchant.id === entry.id) : undefined;
-    const sorted = entryCard ? [entryCard, ...nearby.filter((merchant) => merchant.id !== entryCard.id)] : nearby;
+    const ordered = entryCard ? [entryCard, ...nearby.filter((merchant) => merchant.id !== entryCard.id)] : nearby;
     const scoped = visible ? { merchantId: { in: visible } } : {};
     const offers = await this.prisma.offer.findMany({
       where: { active: true, endsAt: { gt: new Date() }, ...scoped },
@@ -68,6 +65,35 @@ export class CommerceService {
       take: 6,
     });
     const products = await this.productCards(visible ? { merchantId: { in: visible }, deletedAt: null, available: true, approvalStatus: 'APPROVED' } : { deletedAt: null, available: true, approvalStatus: 'APPROVED' });
+    const needle = input.q?.trim().toLowerCase() ?? '';
+    const matchesText = (value: { en?: string; ar?: string } | null | undefined) =>
+      `${value?.en ?? ''} ${value?.ar ?? ''}`.toLowerCase().includes(needle);
+    const directMerchant = (merchant: (typeof ordered)[number]) =>
+      matchesText(merchant.name) ||
+      matchesText(merchant.description) ||
+      (merchant.city ?? '').toLowerCase().includes(needle) ||
+      merchant.categories.some((category) => matchesText(category)) ||
+      merchant.categorySlugs.some((slug) => slug.includes(needle));
+    const sorted = needle
+      ? ordered.filter(
+          (merchant) =>
+            directMerchant(merchant) ||
+            products.some(
+              (product) =>
+                product.merchantId === merchant.id &&
+                (matchesText(product.name) || matchesText(product.description) || matchesText(product.merchantName)),
+            ),
+        )
+      : ordered;
+    const visibleProducts = needle
+      ? products.filter(
+          (product) =>
+            matchesText(product.name) ||
+            matchesText(product.description) ||
+            matchesText(product.merchantName) ||
+            sorted.some((merchant) => merchant.id === product.merchantId && directMerchant(merchant)),
+        )
+      : products;
     const recentIds =
       input.customerId || input.guestId
         ? await this.prisma.recentlyViewed.findMany({
@@ -76,7 +102,7 @@ export class CommerceService {
             take: 8,
           })
         : [];
-    const recent = products.filter((product) => recentIds.some((row) => row.productId === product.id));
+    const recent = visibleProducts.filter((product) => recentIds.some((row) => row.productId === product.id));
     return {
       exclusiveMerchant: mode === 'CURRENT_STORE_ONLY' ? sorted[0] ?? null : null,
       categories: categories.map((category) => ({ id: category.id, slug: category.slug, name: loc(category.name) })),
@@ -94,10 +120,10 @@ export class CommerceService {
         imageUrl: banner.imageUrl,
         merchantSlug: banner.merchant.slug,
       })),
-      topProducts: [...products].sort((a, b) => Number(b.rating) - Number(a.rating)).slice(0, 8),
-      recommended: products.slice(0, 8),
+      topProducts: [...visibleProducts].sort((a, b) => Number(b.rating) - Number(a.rating) || b.reviewCount - a.reviewCount).slice(0, 8),
+      recommended: visibleProducts.slice(0, 8),
       recentlyViewed: recent,
-      freeDelivery: sorted.filter((merchant) => Number(merchant.deliveryFee) === 0 || Number(merchant.minimumOrder) >= 8),
+      freeDelivery: sorted.filter((merchant) => merchant.freeDelivery || Number(merchant.deliveryFee) === 0),
     };
   }
 
@@ -112,18 +138,27 @@ export class CommerceService {
         productCategories: {
           where: { deletedAt: null },
           orderBy: { sortOrder: 'asc' },
-          include: { products: { where: { deletedAt: null, approvalStatus: 'APPROVED' }, include: { inventory: true } } },
+          include: { products: { where: { deletedAt: null, approvalStatus: 'APPROVED' }, include: { inventory: true, addonGroups: { select: { productId: true } } } } },
         },
       },
     });
     if (!merchant || merchant.status !== 'ACTIVE') throw new NotFoundException('Merchant not found');
-    const card = (await this.merchantCards({ id: merchant.id }))[0];
+    const now = new Date();
+    const [card, offers] = await Promise.all([
+      this.merchantCards({ id: merchant.id }).then((cards) => cards[0]),
+      this.prisma.offer.findMany({
+        where: { merchantId: merchant.id, active: true, startsAt: { lte: now }, endsAt: { gt: now } },
+        orderBy: { endsAt: 'asc' },
+        take: 3,
+      }),
+    ]);
     const branch = merchant.branches[0];
     return {
       ...card,
       address: branch ? `${branch.line1}, ${branch.city}` : '',
       latitude: branch ? dec(branch.latitude) : '0.000000',
       longitude: branch ? dec(branch.longitude) : '0.000000',
+      businessCategories: card?.categories ?? [],
       preparationMinutes: merchant.preparationMinutes,
       hours: merchant.hours.map((hour) => ({
         dayOfWeek: hour.dayOfWeek,
@@ -143,6 +178,7 @@ export class CommerceService {
         author: review.author.firstName,
         createdAt: review.createdAt.toISOString(),
       })),
+      offers: offers.map((offer) => ({ id: offer.id, title: loc(offer.title) })),
     };
   }
 
@@ -153,6 +189,7 @@ export class CommerceService {
         merchant: true,
         variants: true,
         inventory: true,
+        images: { orderBy: { sortOrder: 'asc' } },
         addonGroups: { include: { addonGroup: { include: { addons: true } } } },
       },
     });
@@ -163,8 +200,10 @@ export class CommerceService {
       });
     }
     const card = this.toProductCard(product, product.merchant);
+    const gallery = [product.imageUrl, ...product.images.map((image) => image.url)].filter((url): url is string => Boolean(url));
     return {
       ...card,
+      images: [...new Set(gallery)],
       variants: product.variants.map((variant) => ({
         id: variant.id,
         name: loc(variant.name),
@@ -227,9 +266,12 @@ export class CommerceService {
     return this.cartFor(owner);
   }
 
-  async updateItem(owner: { customerId?: string | null; guestId?: string | null }, itemId: string, quantity: number) {
+  async updateItem(owner: { customerId?: string | null; guestId?: string | null }, itemId: string, quantity: number, variantId?: string | null) {
     const cart = await this.requireCart(owner);
-    await this.prisma.cartItem.updateMany({ where: { id: itemId, cartId: cart.id }, data: { quantity } });
+    await this.prisma.cartItem.updateMany({
+      where: { id: itemId, cartId: cart.id },
+      data: { quantity, ...(variantId !== undefined ? { variantId } : {}) },
+    });
     return this.cartFor(owner);
   }
 
@@ -496,6 +538,7 @@ export class CommerceService {
       where: { id },
       include: {
         merchant: true,
+        branch: { select: { latitude: true, longitude: true } },
         items: { include: { addons: true } },
         events: { orderBy: { createdAt: 'asc' } },
         dispatch: { include: { driver: { include: { user: true } } } },
@@ -504,6 +547,11 @@ export class CommerceService {
         payments: { orderBy: { createdAt: 'desc' }, take: 1, select: { method: true } },
       },
     });
+    const productIds = order.items.map((item) => item.productId).filter((value): value is string => Boolean(value));
+    const products = productIds.length
+      ? await this.prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, imageUrl: true } })
+      : [];
+    const images = new Map(products.map((product) => [product.id, product.imageUrl]));
     return {
       id: order.id,
       merchantId: order.merchantId,
@@ -513,9 +561,17 @@ export class CommerceService {
       merchantName: loc(order.merchant.name),
       merchantSlug: order.merchant.slug,
       merchantPhone: order.merchant.phone,
-      driverName: order.dispatch ? `${order.dispatch.driver.user.firstName} ${order.dispatch.driver.user.lastName}` : null,
+      merchantLogoUrl: order.merchant.logoUrl,
+      merchantCoverUrl: order.merchant.coverUrl,
+      driverName: order.dispatch ? `${order.dispatch.driver.user.firstName} ${order.dispatch.driver.user.lastName}`.trim() : null,
       driverPhone: order.dispatch?.driver.user.phone ?? null,
-      items: order.items.map((item) => ({ name: loc(item.name), quantity: item.quantity, lineTotal: dec(item.lineTotal) })),
+      driverVehicle: order.dispatch?.driver.vehicle ?? null,
+      items: order.items.map((item) => ({
+        name: loc(item.name),
+        quantity: item.quantity,
+        lineTotal: dec(item.lineTotal),
+        imageUrl: item.productId ? images.get(item.productId) ?? null : null,
+      })),
       pricing: {
         subtotal: dec(order.subtotal),
         discount: dec(order.discount),
@@ -530,6 +586,8 @@ export class CommerceService {
       cancellationReason: order.cancellationReason,
       preparationMinutes: order.preparationMinutes,
       estimatedArrival: order.estimatedReadyAt?.toISOString() ?? null,
+      scheduledFor: order.scheduledFor?.toISOString() ?? null,
+      distanceKm: routeDistance(order.branch, order.addressSnapshot),
       createdAt: order.createdAt.toISOString(),
       events: order.events.map((event) => ({ status: event.status, createdAt: event.createdAt.toISOString(), note: event.note })),
       customerName: `${order.customer.user.firstName} ${order.customer.user.lastName}`.trim(),
@@ -579,6 +637,11 @@ export class CommerceService {
         productId: line.productId,
         variantId: line.variantId,
         name: line.name,
+        description: line.description,
+        imageUrl: line.imageUrl,
+        variantName: line.variantName,
+        variants: line.variants,
+        customizable: line.customizable,
         quantity: line.quantity,
         unitPrice: line.unitPrice,
         lineTotal: line.lineTotal,
@@ -612,11 +675,17 @@ export class CommerceService {
         unit = unit.plus(dec(addon.price));
         addons.push({ id: addon.id, name: loc(addon.name), price: dec(addon.price) });
       }
+      const variants = product.variants.filter((entry) => entry.available).map((entry) => ({ id: entry.id, name: loc(entry.name) }));
       lines.push({
         id: item.id,
         productId: product.id,
         variantId: variant?.id ?? null,
         name: loc(product.name),
+        description: loc(product.description),
+        imageUrl: product.imageUrl,
+        variantName: variant ? loc(variant.name) : null,
+        variants,
+        customizable: variants.length > 0 || product.addonGroups.some((group) => group.addonGroup.addons.some((addon) => addon.available)),
         quantity: item.quantity,
         unitPrice: moneyString(unit),
         lineTotal: moneyString(unit.mul(item.quantity)),
@@ -707,13 +776,16 @@ export class CommerceService {
         visibility,
         fulfillment,
         categories: merchant.categories.map((link) => loc(link.category.name)),
+        categorySlugs: merchant.categories.map((link) => link.category.slug),
+        city: merchant.branches.find((branch) => branch.active)?.city ?? merchant.branches[0]?.city ?? null,
+        freeDelivery: merchant.freeDeliveryEnabled,
         latitude: merchant.branches[0] ? Number(merchant.branches[0].latitude) : null,
         longitude: merchant.branches[0] ? Number(merchant.branches[0].longitude) : null,
       };
     });
   }
 
-  private toProductCard(product: { id: string; name: unknown; description: unknown; imageUrl: string | null; price: { toFixed: (n: number) => string }; compareAtPrice: { toFixed: (n: number) => string } | null; ratingAverage: { toFixed: (n: number) => string }; available: boolean; inventory?: { quantity: number }[] }, merchant: { id: string; slug: string; name: unknown }) {
+  private toProductCard(product: { id: string; name: unknown; description: unknown; imageUrl: string | null; price: { toFixed: (n: number) => string }; compareAtPrice: { toFixed: (n: number) => string } | null; ratingAverage: { toFixed: (n: number) => string }; ratingCount: number; available: boolean; inventory?: { quantity: number }[]; addonGroups?: unknown[]; variants?: unknown[] }, merchant: { id: string; slug: string; name: unknown }) {
     const stock = product.inventory?.reduce((sum, row) => sum + row.quantity, 0);
     return {
       id: product.id,
@@ -726,7 +798,9 @@ export class CommerceService {
       price: dec(product.price),
       compareAtPrice: product.compareAtPrice ? dec(product.compareAtPrice) : null,
       rating: dec(product.ratingAverage),
+      reviewCount: product.ratingCount,
       available: product.available && (stock === undefined || stock > 0),
+      customizable: (product.addonGroups?.length ?? 0) > 0 || (product.variants?.length ?? 0) > 0,
     };
   }
 
@@ -761,6 +835,19 @@ const cartInclude = {
   items: { include: { addons: true } },
   promoCode: true,
 } as const;
+
+function routeDistance(branch: { latitude: unknown; longitude: unknown }, snapshot: unknown) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const row = snapshot as { latitude?: unknown; longitude?: unknown };
+  const lat1 = Number(branch.latitude);
+  const lng1 = Number(branch.longitude);
+  const lat2 = Number(row.latitude);
+  const lng2 = Number(row.longitude);
+  if (![lat1, lng1, lat2, lng2].every((value) => Number.isFinite(value))) return null;
+  const km = distance(lat1, lng1, lat2, lng2);
+  if (!Number.isFinite(km) || km <= 0 || km > 80) return null;
+  return km.toFixed(1);
+}
 
 function formatAddress(value: unknown) {
   if (!value || typeof value !== 'object') return null;

@@ -25,5 +25,5 @@ export {
 export { ConfirmButton } from './components/confirm-button';
 export { StatCard, PageHeader } from './components/stat';
 export { Logo, Mascot } from './components/logo';
-export { Toaster } from './components/toaster';
+export { Toaster, toast } from './components/toaster';
 export { cn } from './lib/utils';

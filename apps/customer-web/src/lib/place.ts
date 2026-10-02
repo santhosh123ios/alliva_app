@@ -10,6 +10,27 @@ export const areas = [
   { id: 'isa-town', en: 'Isa Town', ar: 'مدينة عيسى', lat: '26.173600', lng: '50.547800' },
 ];
 
-export const usePlace = create<{ area: string; setArea: (area: string) => void }>()(
-  persist((set) => ({ area: 'manama', setArea: (area) => set({ area }) }), { name: 'alliva-place' }),
+export type FulfillmentMode = 'DELIVERY' | 'TAKEAWAY' | 'DINE_IN';
+
+type PlaceState = {
+  area: string;
+  setArea: (area: string) => void;
+  query: string;
+  setQuery: (query: string) => void;
+  fulfillment: FulfillmentMode;
+  setFulfillment: (fulfillment: FulfillmentMode) => void;
+};
+
+export const usePlace = create<PlaceState>()(
+  persist(
+    (set) => ({
+      area: 'manama',
+      setArea: (area) => set({ area }),
+      query: '',
+      setQuery: (query) => set({ query }),
+      fulfillment: 'DELIVERY',
+      setFulfillment: (fulfillment) => set({ fulfillment }),
+    }),
+    { name: 'alliva-place', partialize: (state) => ({ area: state.area }) },
+  ),
 );

@@ -5,7 +5,7 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 const nextConfig: NextConfig = {
   agentRules: false,
-  allowedDevOrigins: ['127.0.0.1'],
+  allowedDevOrigins: ['127.0.0.1', '192.168.*.*'],
   transpilePackages: ['@alliva/ui', '@alliva/api-client', '@alliva/design-tokens', '@alliva/types', '@alliva/validation'],
   async rewrites() {
     return [

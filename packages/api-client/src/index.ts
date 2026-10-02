@@ -73,7 +73,8 @@ export function createApiClient(baseUrl = '') {
     product: (id: string) => request<ProductDetail>(`/api/storefront/products/${id}`),
     cart: () => request<CartView>('/api/cart'),
     addItem: (body: Json) => send<CartView>('/api/cart/items', 'POST', body),
-    updateItem: (id: string, quantity: number) => send<CartView>(`/api/cart/items/${id}`, 'PATCH', { quantity }),
+    updateItem: (id: string, quantity: number, variantId?: string | null) =>
+      send<CartView>(`/api/cart/items/${id}`, 'PATCH', variantId === undefined ? { quantity } : { quantity, variantId }),
     removeItem: (id: string) => send<CartView>(`/api/cart/items/${id}`, 'DELETE'),
     cartContext: (body: Json) => send<CartView>('/api/cart/context', 'PUT', body),
     applyPromo: (code: string) => send<CartView>('/api/cart/promo', 'POST', { code }),
@@ -154,6 +155,8 @@ export function createApiClient(baseUrl = '') {
     areas: () => request<Json[]>('/api/service-areas'),
     enterQr: (code: string) => send<Json>(`/api/qr/${code}/enter`, 'POST'),
     customer: () => request<Json>('/api/customers/me'),
+    favourite: (merchantId: string) => send(`/api/customers/me/favourites/${merchantId}`, 'POST'),
+    unfavourite: (merchantId: string) => send(`/api/customers/me/favourites/${merchantId}`, 'DELETE'),
     addAddress: (body: Json) => send('/api/customers/me/addresses', 'POST', body),
     sessions: () => request<Page<Json> | Json[]>('/api/auth/sessions'),
   };

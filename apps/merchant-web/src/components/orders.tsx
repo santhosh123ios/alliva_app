@@ -5,7 +5,7 @@ import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import type { FulfillmentType, OrderStatus, PaymentMethod } from '@alliva/types';
 import { Button, EmptyState } from '@alliva/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Bike, Calendar, ChevronDown, ClipboardList, Download, MapPin, Plus, Search, ShoppingBag, Truck, User, UtensilsCrossed, X, type LucideIcon } from 'lucide-react';
+import { Banknote, Bike, Calendar, ChevronDown, ChevronRight, ClipboardList, Download, MapPin, Plus, Search, ShoppingBag, Truck, User, UtensilsCrossed, X, type LucideIcon } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -181,41 +181,46 @@ export function OrdersPage({ orders }: { orders: MerchantOrder[] }) {
           {orders.length === 0 ? <div className="p-6"><EmptyState title={t('none')} body={t('noneBody')} /></div> : null}
           {orders.length > 0 && visible.length === 0 ? <p className="px-5 py-8 text-sm font-medium text-[#8A8A86]">{t('noMatch')}</p> : null}
           {visible.length > 0 ? (
-            <div className="min-h-0 flex-1 overflow-auto p-2">
-              <div className="min-w-[760px]">
-                <div className="grid grid-cols-[5.5rem_4.5rem_minmax(0,1.3fr)_6.5rem_5rem_6.5rem_7.5rem_5.5rem] items-center gap-2 px-3 py-2 text-xs font-medium text-[#8A8A86]">
-                  <span>{t('number')}</span>
-                  <span>{t('time')}</span>
-                  <span>{t('customer')}</span>
-                  <span>{t('type')}</span>
-                  <span>{t('items')}</span>
-                  <span>{t('amount')}</span>
-                  <span>{t('status')}</span>
-                  <span className="text-end">{t('action')}</span>
-                </div>
-                <div className="space-y-1">
-                  {visible.map((order) => {
-                    const active = order.id === selected?.id;
-                    const Icon = typeIcon(order.fulfillmentType);
-                    return (
-                      <button
-                        key={order.id}
-                        type="button"
-                        onClick={() => setSelectedId(order.id)}
-                        className={`grid w-full grid-cols-[5.5rem_4.5rem_minmax(0,1.3fr)_6.5rem_5rem_6.5rem_7.5rem_5.5rem] items-center gap-2 rounded-xl px-3 py-3 text-start text-sm ${active ? 'bg-[#FFF8D8]' : 'hover:bg-[#F7F7F5]'}`}
-                      >
-                        <span className="font-semibold text-[#161616]">#{order.number}</span>
-                        <span className="text-[#5C5C58]">{clock(order.createdAt, locale)}</span>
-                        <span className="truncate font-medium text-[#161616]">{party(order)}</span>
-                        <span className="inline-flex items-center gap-1.5 text-[#5C5C58]"><Icon className="size-3.5 text-[#8A8A86]" /> {t(typeKey(order.fulfillmentType))}</span>
-                        <span className="text-[#5C5C58]">{t('itemsCount', { count: order.items.reduce((sum, item) => sum + item.quantity, 0) })}</span>
-                        <span className="font-semibold text-[#161616]">{formatMoney(order.pricing.total, locale)}</span>
-                        <span><StatusPill status={order.status} label={t(statusKey(order.status))} /></span>
-                        <span className="inline-flex h-8 items-center justify-end gap-1 justify-self-end rounded-lg border border-[#E6E6E2] bg-white px-2.5 text-xs font-semibold text-[#161616]">{t('view')} <span aria-hidden>›</span></span>
-                      </button>
-                    );
-                  })}
-                </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="sticky top-0 z-10 flex items-center gap-4 border-b border-[#EEEEEC] bg-[#FAFAF8] px-4 py-2.5 text-[11px] font-semibold tracking-wide text-[#8A8A86]">
+                <span className="w-[7.75rem] shrink-0">{t('number')}</span>
+                <span className="min-w-0 flex-1">{t('customer')}</span>
+                <span className="w-[7.25rem] shrink-0 text-end">{t('amount')}</span>
+                <span className="hidden w-[9.25rem] shrink-0 sm:block">{t('status')}</span>
+                <span className="w-4 shrink-0" aria-hidden />
+              </div>
+              <div>
+                {visible.map((order) => {
+                  const active = order.id === selected?.id;
+                  const Icon = typeIcon(order.fulfillmentType);
+                  const count = order.items.reduce((sum, item) => sum + item.quantity, 0);
+                  return (
+                    <button
+                      key={order.id}
+                      type="button"
+                      onClick={() => setSelectedId(order.id)}
+                      className={`flex w-full items-center gap-4 border-b border-[#F3F3F0] px-4 py-3 text-start last:border-0 ${active ? 'bg-[#FFF8D8]' : 'hover:bg-[#F7F7F5]'}`}
+                    >
+                      <span className="w-[7.75rem] shrink-0">
+                        <span className="block truncate text-sm font-semibold tabular-nums text-[#161616]">#{order.number}</span>
+                        <span className="mt-0.5 block text-xs tabular-nums text-[#8A8A86]">{clock(order.createdAt, locale)}</span>
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate text-sm font-medium text-[#161616]">{party(order) || '—'}</span>
+                          <span className="sm:hidden"><StatusPill status={order.status} label={t(statusKey(order.status))} /></span>
+                        </span>
+                        <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-[#8A8A86]">
+                          <Icon className="size-3.5 shrink-0" />
+                          <span className="truncate">{t(typeKey(order.fulfillmentType))} · {t('itemsCount', { count })}</span>
+                        </span>
+                      </span>
+                      <span className="w-[7.25rem] shrink-0 text-end text-sm font-semibold tabular-nums text-[#161616]">{formatMoney(order.pricing.total, locale)}</span>
+                      <span className="hidden w-[9.25rem] shrink-0 sm:block"><StatusPill status={order.status} label={t(statusKey(order.status))} /></span>
+                      <ChevronRight className="size-4 shrink-0 text-[#8A8A86] rtl:-scale-x-100" />
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ) : null}
@@ -373,7 +378,7 @@ function FilterSelect({ label, value, onChange, icon, children }: { label: strin
 }
 
 function StatusPill({ status, label }: { status: OrderStatus; label: string }) {
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusTone[status]}`}>{label}</span>;
+  return <span className={`inline-flex max-w-full truncate whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${statusTone[status]}`}>{label}</span>;
 }
 
 function Meta({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {

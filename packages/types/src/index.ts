@@ -172,6 +172,11 @@ export type MerchantCard = {
   visibility: VisibilityMode;
   fulfillment: FulfillmentType[];
   categories: LocalizedText[];
+  categorySlugs: string[];
+  city: string | null;
+  freeDelivery: boolean;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export type OfferCard = {
@@ -199,10 +204,13 @@ export type ProductCard = {
   price: MoneyString;
   compareAtPrice: MoneyString | null;
   rating: string;
+  reviewCount: number;
   available: boolean;
+  customizable: boolean;
 };
 
 export type ProductDetail = ProductCard & {
+  images: string[];
   variants: {
     id: string;
     name: LocalizedText;
@@ -218,14 +226,16 @@ export type ProductDetail = ProductCard & {
   }[];
 };
 
-export type MerchantStorefront = Omit<MerchantCard, 'categories'> & {
+export type MerchantStorefront = Omit<MerchantCard, 'categories' | 'latitude' | 'longitude'> & {
   address: string;
   latitude: string;
   longitude: string;
+  businessCategories: LocalizedText[];
   preparationMinutes: number;
   hours: { dayOfWeek: number; opensAt: string; closesAt: string; closed: boolean }[];
   categories: { id: string; name: LocalizedText; products: ProductCard[] }[];
   reviews: { id: string; rating: number; comment: string | null; author: string; createdAt: string }[];
+  offers: { id: string; title: LocalizedText }[];
 };
 
 export type CartLine = {
@@ -233,6 +243,11 @@ export type CartLine = {
   productId: string;
   variantId: string | null;
   name: LocalizedText;
+  description: LocalizedText;
+  imageUrl: string | null;
+  variantName: LocalizedText | null;
+  variants: { id: string; name: LocalizedText }[];
+  customizable: boolean;
   quantity: number;
   unitPrice: MoneyString;
   lineTotal: MoneyString;
@@ -271,14 +286,19 @@ export type OrderView = {
   merchantName: LocalizedText;
   merchantSlug: string;
   merchantPhone: string | null;
+  merchantLogoUrl: string | null;
+  merchantCoverUrl: string | null;
   driverName: string | null;
   driverPhone: string | null;
-  items: { name: LocalizedText; quantity: number; lineTotal: MoneyString }[];
+  driverVehicle: string | null;
+  items: { name: LocalizedText; quantity: number; lineTotal: MoneyString; imageUrl: string | null }[];
   pricing: PriceBreakdown;
   notes: string | null;
   cancellationReason: string | null;
   preparationMinutes: number | null;
   estimatedArrival: string | null;
+  scheduledFor: string | null;
+  distanceKm: string | null;
   createdAt: string;
   events: { status: OrderStatus; createdAt: string; note: string | null }[];
   customerName: string;

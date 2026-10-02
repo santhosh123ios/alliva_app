@@ -1,85 +1,246 @@
 'use client';
 
 import { api } from '@/components/providers';
+import { categoryIcon, formatDistanceKm, HeroBanner, MerchantTile, ProductTile } from '@/components/storefront';
+import { useRouter } from '@/i18n/navigation';
 import { areas, usePlace } from '@/lib/place';
-import { formatMoney, pickLocalized } from '@alliva/design-tokens';
-import { Badge, Card, CardGridSkeleton, EmptyState, ErrorState, Mascot, Skeleton } from '@alliva/ui';
-import { useQuery } from '@tanstack/react-query';
+import { cn, EmptyState, ErrorState, Skeleton } from '@alliva/ui';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ChevronRight } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
-import { Link } from '@/i18n/navigation';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 export default function HomePage() {
   const t = useTranslations();
   const locale = useLocale() as 'en' | 'ar';
+  const router = useRouter();
+  const client = useQueryClient();
   const areaId = usePlace((state) => state.area);
-  const setArea = usePlace((state) => state.setArea);
+  const query = usePlace((state) => state.query);
   const area = areas.find((item) => item.id === areaId) ?? areas[0]!;
+  const [debounced, setDebounced] = useState(query);
+  const [category, setCategory] = useState<string | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [showMerchants, setShowMerchants] = useState(false);
+  const [showProducts, setShowProducts] = useState(false);
+  const me = useQuery({ queryKey: ['me'], queryFn: () => api.me(), retry: false });
+  const customer = useQuery({
+    queryKey: ['customer'],
+    queryFn: () => api.customer(),
+    enabled: me.data?.kind === 'CUSTOMER',
+    retry: false,
+  });
   const home = useQuery({
-    queryKey: ['home', area.id],
-    queryFn: () => api.home(`?lat=${area.lat}&lng=${area.lng}`),
+    queryKey: ['home', area.id, debounced],
+    queryFn: () => api.home(`?lat=${encodeURIComponent(area.lat)}&lng=${encodeURIComponent(area.lng)}${debounced ? `&q=${encodeURIComponent(debounced)}` : ''}`),
+    placeholderData: keepPreviousData,
   });
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(query.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  const favouriteIds = new Set(
+    ((customer.data as { favourites?: { merchantId: string }[] } | undefined)?.favourites ?? []).map((row) => row.merchantId),
+  );
+  const add = useMutation({
+    mutationFn: async (productId: string) => {
+      await api.guest().catch(() => undefined);
+      return api.addItem({ productId, quantity: 1 });
+    },
+    onSuccess: async () => {
+      toast.success(t('customer.added'));
+      await client.invalidateQueries({ queryKey: ['cart'] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const save = useMutation({
+    mutationFn: async (merchantId: string) => {
+      const saved = favouriteIds.has(merchantId);
+      return saved ? api.unfavourite(merchantId) : api.favourite(merchantId);
+    },
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: ['customer'] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const categories = home.data?.categories ?? [];
+  const visibleCategories = categories.slice(0, 5);
+  const overflowCategories = categories.slice(5);
+  const merchants = (home.data?.merchants ?? []).filter((merchant) => {
+    if (category && !merchant.categorySlugs.includes(category)) return false;
+    return true;
+  });
+  const merchantIds = new Set(merchants.map((merchant) => merchant.id));
+  const products = (home.data?.topProducts ?? []).filter((product) => product.available && merchantIds.has(product.merchantId));
+
+  const toggleSave = (merchantId: string) => {
+    if (me.data?.kind !== 'CUSTOMER') {
+      router.push('/login');
+      return;
+    }
+    save.mutate(merchantId);
+  };
+
   return (
-    <div className="space-y-8">
-      <section className="grid items-center gap-6 rounded-3xl bg-primary p-6 text-[#111111] md:grid-cols-[1.4fr_1fr]">
-        <div>
-          <p className="text-sm font-semibold">{t('customer.guest')}</p>
-          <h1 className="font-display mt-2 text-4xl md:text-5xl">{t('customer.headline')}</h1>
-          <label className="mt-5 block text-sm font-medium">
-            {t('customer.location')}
-            <select
-              className="mt-1 h-12 w-full rounded-xl border border-[#111111] bg-white px-3 text-[#111111]"
-              value={area.id}
-              onChange={(event) => setArea(event.target.value)}
+    <div className="space-y-5 md:space-y-8">
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
+        {visibleCategories.map((item) => {
+          const Icon = categoryIcon(item.slug);
+          const selected = category === item.slug;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => setCategory(selected ? null : item.slug)}
+              className={cn(
+                'inline-flex h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-semibold',
+                selected ? 'border-transparent bg-primary text-[#111]' : 'border-[#e6e6e0] bg-white',
+              )}
             >
-              {areas.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {locale === 'ar' ? item.ar : item.en}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <Mascot className="mx-auto h-48" />
-      </section>
+              <Icon className="size-4" />
+              {item.name[locale] || item.name.en}
+            </button>
+          );
+        })}
+        {overflowCategories.length ? (
+          <div className="relative">
+            <button
+              type="button"
+              aria-expanded={moreOpen}
+              onClick={() => setMoreOpen((value) => !value)}
+              className="inline-flex h-11 items-center rounded-full border border-[#e6e6e0] bg-white px-4 text-sm font-semibold"
+            >
+              {t('customer.more')}
+            </button>
+            {moreOpen ? (
+              <ul className="absolute start-0 z-20 mt-2 w-48 rounded-2xl border bg-white py-1 shadow-lg">
+                {overflowCategories.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      className="w-full px-4 py-2 text-start text-sm font-medium hover:bg-[#f7f7f5]"
+                      onClick={() => {
+                        setCategory(item.slug);
+                        setMoreOpen(false);
+                      }}
+                    >
+                      {item.name[locale] || item.name.en}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      <HeroBanner title={t('customer.heroTitle')} subtitle={t('customer.heroSubtitle')} action={t('customer.exploreNearby')} />
+
+      {home.data?.exclusiveMerchant ? <p className="rounded-2xl bg-[#111] px-4 py-3 text-sm font-medium text-white">{t('customer.exclusive')}</p> : null}
       {home.isLoading ? <HomeSkeleton /> : null}
       {home.error ? <ErrorState title={t('common.error')} body={(home.error as Error).message} /> : null}
-      {home.data?.exclusiveMerchant ? (
-        <Card className="p-4">{t('customer.exclusive')}</Card>
-      ) : null}
+
       {home.data ? (
         <>
-          <div className="flex gap-2 overflow-x-auto">
-            {home.data.categories.map((category) => (
-              <Badge key={category.id}>{pickLocalized(category.name, locale)}</Badge>
-            ))}
-          </div>
-          <Section title={t('customer.nearby')}>
-            <MerchantGrid merchants={home.data.merchants} locale={locale} />
-          </Section>
-          <Section title={t('customer.offers')}>
-            {home.data.offers.length ? (
-              <div className="grid gap-3 md:grid-cols-3">
-                {home.data.offers.map((offer) => (
-                  <Link key={offer.id} href={`/merchants/${offer.merchantSlug}`}>
-                    <Card className="lift p-4">
-                      <p className="font-semibold">{pickLocalized(offer.title, locale)}</p>
-                      <p className="text-sm text-muted-foreground">{pickLocalized(offer.merchantName, locale)}</p>
-                    </Card>
-                  </Link>
+          <section id="popular">
+            <SectionHeader
+              title={t('customer.popular')}
+              action={merchants.length > 4 ? (showMerchants ? t('customer.showLess') : t('customer.seeAll')) : null}
+              expanded={showMerchants}
+              onAction={() => setShowMerchants((value) => !value)}
+            />
+            {merchants.length ? (
+              <div className={cn('flex snap-x gap-3 overflow-x-auto pb-1 md:grid md:grid-cols-2 md:overflow-visible xl:grid-cols-4', showMerchants && 'grid grid-cols-1 snap-none md:grid-cols-2')}>
+                {(showMerchants ? merchants : merchants.slice(0, 4)).map((merchant) => (
+                  <div key={merchant.slug} className={cn(!showMerchants && 'w-[52%] max-w-[180px] shrink-0 snap-start md:w-auto md:max-w-none')}>
+                  <MerchantTile
+                    merchant={merchant}
+                    locale={locale}
+                    saved={favouriteIds.has(merchant.id)}
+                    saveLabel={favouriteIds.has(merchant.id) ? t('customer.saved') : t('customer.saveStore')}
+                    closedLabel={t('customer.closed')}
+                    minuteLabel={t('customer.minuteRange', {
+                      from: Math.max(10, merchant.deliveryMinutes - 5),
+                      to: merchant.deliveryMinutes + 5,
+                    })}
+                    distanceLabel={(() => {
+                      const km = formatDistanceKm(merchant.latitude, merchant.longitude, area);
+                      return km ? t('customer.distanceKm', { km }) : null;
+                    })()}
+                    onToggleSave={() => toggleSave(merchant.id)}
+                  />
+                  </div>
                 ))}
               </div>
             ) : (
-              <EmptyState title={t('common.empty')} body={t('customer.offers')} />
+              <EmptyState title={t('common.empty')} body={t('customer.noMatches')} />
             )}
-          </Section>
-          <Section title={t('customer.freeDelivery')}>
-            <MerchantGrid merchants={home.data.freeDelivery} locale={locale} />
-          </Section>
-          <Section title={t('customer.top')}>
-            <ProductRow products={home.data.topProducts} locale={locale} />
-          </Section>
+          </section>
+
+          <section>
+            <SectionHeader
+              title={t('customer.topPicks')}
+              action={products.length > 4 ? (showProducts ? t('customer.showLess') : t('customer.seeAll')) : null}
+              expanded={showProducts}
+              onAction={() => setShowProducts((value) => !value)}
+            />
+            {products.length ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
+                {(showProducts ? products : products.slice(0, 4)).map((product) => {
+                  const merchant = (home.data?.merchants ?? []).find((item) => item.id === product.merchantId);
+                  return (
+                  <ProductTile
+                    key={product.id}
+                    product={product}
+                    locale={locale}
+                    addLabel={t('customer.addShort')}
+                    minuteLabel={
+                      merchant
+                        ? t('customer.minuteRange', {
+                            from: Math.max(10, merchant.deliveryMinutes - 5),
+                            to: merchant.deliveryMinutes + 5,
+                          })
+                        : null
+                    }
+                    pending={add.isPending && add.variables === product.id}
+                    onAdd={() => add.mutate(product.id)}
+                  />
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState title={t('common.empty')} body={t('customer.noMatches')} />
+            )}
+          </section>
         </>
+      ) : null}
+    </div>
+  );
+}
+
+function SectionHeader({
+  title,
+  action,
+  expanded,
+  onAction,
+}: {
+  title: string;
+  action: string | null;
+  expanded: boolean;
+  onAction: () => void;
+}) {
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <h2 className="text-xl font-bold tracking-tight">{title}</h2>
+      {action ? (
+        <button type="button" onClick={onAction} className="inline-flex items-center gap-1 text-sm font-semibold">
+          {action}
+          <ChevronRight className={cn('size-4 rtl:rotate-180', expanded && 'rotate-90 rtl:rotate-90')} />
+        </button>
       ) : null}
     </div>
   );
@@ -88,78 +249,18 @@ export default function HomePage() {
 function HomeSkeleton() {
   return (
     <div className="space-y-8" aria-busy>
-      <div className="flex gap-2 overflow-hidden">
-        {Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-7 w-24 shrink-0 rounded-full" />)}
-      </div>
       <section>
-        <Skeleton className="mb-3 h-7 w-40" />
-        <CardGridSkeleton count={6} />
+        <Skeleton className="mb-4 h-7 w-48" />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-64 rounded-2xl" />)}
+        </div>
       </section>
       <section>
-        <Skeleton className="mb-3 h-7 w-32" />
-        <CardGridSkeleton count={3} columns="md:grid-cols-3" />
+        <Skeleton className="mb-4 h-7 w-40" />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-72 rounded-2xl" />)}
+        </div>
       </section>
-      <section>
-        <Skeleton className="mb-3 h-7 w-44" />
-        <CardGridSkeleton count={4} columns="sm:grid-cols-2 lg:grid-cols-4" />
-      </section>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h2 className="mb-3 text-xl font-semibold">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-function MerchantGrid({
-  merchants,
-  locale,
-}: {
-  merchants: { slug: string; name: { en: string; ar: string }; rating: string; deliveryMinutes: number; isOpen: boolean; minimumOrder: string }[];
-  locale: 'en' | 'ar';
-}) {
-  if (!merchants.length) return <EmptyState title="No merchants" body="Try another area." />;
-  return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {merchants.map((merchant) => (
-        <Link key={merchant.slug} href={`/merchants/${merchant.slug}`}>
-          <Card className="lift p-4">
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="text-lg font-semibold">{pickLocalized(merchant.name, locale)}</h3>
-              <Badge tone={merchant.isOpen ? 'ok' : 'muted'}>{merchant.isOpen ? 'Open' : 'Closed'}</Badge>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {merchant.rating} · {merchant.deliveryMinutes} min · {formatMoney(merchant.minimumOrder, locale)} min
-            </p>
-          </Card>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
-function ProductRow({
-  products,
-  locale,
-}: {
-  products: { id: string; merchantSlug: string; name: { en: string; ar: string }; price: string }[];
-  locale: 'en' | 'ar';
-}) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {products.map((product) => (
-        <Link key={product.id} href={`/merchants/${product.merchantSlug}/products/${product.id}`}>
-          <Card className="lift p-4">
-            <p className="font-semibold">{pickLocalized(product.name, locale)}</p>
-            <p className="mt-2">{formatMoney(product.price, locale)}</p>
-          </Card>
-        </Link>
-      ))}
     </div>
   );
 }
