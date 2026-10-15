@@ -7,7 +7,7 @@ Currency is **BHD** (3 decimal places). The platform timezone is **Asia/Bahrain*
 ## Assumptions
 
 - Money is stored as `Decimal(19, 3)`. The API recalculates prices, tax, discounts, commissions, and totals. The browser never decides what a customer pays.
-- Staff and merchants sign in with email and password. Customers sign in with a Bahrain mobile OTP. In development the SMS provider logs the code and accepts `123456`.
+- Staff and merchants sign in with email and password. Customers sign in with a Bahrain mobile OTP sent on WhatsApp. In development, with no WhatsApp token, the API logs the code and accepts `123456`.
 - Access tokens last 15 minutes. Refresh tokens rotate and live in HTTP-only cookies. A readable CSRF cookie must be echoed as `x-csrf-token` on mutations.
 - Finance manager demo login asks for a second factor. The development code is `000000`.
 - Tap, BENEFIT, Google Maps, Firebase, email, and S3 are provider interfaces with development mocks. No live secrets are shipped.

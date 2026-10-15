@@ -31,11 +31,18 @@ export const resetPasswordSchema = z.object({
 
 export const otpRequestSchema = z.object({
   phone: z.string().regex(/^\+973\d{8}$/, 'Use a Bahrain mobile number (+973)'),
+  locale: localeSchema.optional(),
 });
 
 export const otpVerifySchema = z.object({
   phone: z.string().regex(/^\+973\d{8}$/),
   code: z.string().min(4).max(8),
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+});
+
+export const firebasePhoneSchema = z.object({
+  idToken: z.string().min(20).max(8192),
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
 });

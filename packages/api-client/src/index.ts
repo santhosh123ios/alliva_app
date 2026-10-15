@@ -37,7 +37,13 @@ export function createApiClient(baseUrl = '') {
       if (match?.[1]) headers.set('x-csrf-token', decodeURIComponent(match[1]));
     }
     const response = await fetch(`${baseUrl}${path}`, { ...init, headers, credentials: 'include' });
-    if (response.status === 401 && retry && !path.includes('/auth/login') && !path.includes('/auth/refresh')) {
+    if (
+      response.status === 401 &&
+      retry &&
+      !path.includes('/auth/login') &&
+      !path.includes('/auth/refresh') &&
+      !path.includes('/auth/firebase')
+    ) {
       const refreshed = await fetch(`${baseUrl}/api/auth/refresh`, { method: 'POST', credentials: 'include' });
       if (refreshed.ok) return request(path, init, false);
     }
@@ -64,9 +70,17 @@ export function createApiClient(baseUrl = '') {
     me: () => request<AuthUser>('/api/auth/me'),
     forgot: (email: string) => send<{ ok: boolean; devResetToken?: string }>('/api/auth/forgot-password', 'POST', { email }),
     reset: (token: string, password: string) => send('/api/auth/reset-password', 'POST', { token, password }),
-    requestOtp: (phone: string) => send('/api/auth/otp/request', 'POST', { phone }),
+    requestOtp: (phone: string, locale?: 'en' | 'ar') =>
+      send<{ ok: true; channel: 'whatsapp' | 'dev' }>('/api/auth/otp/request', 'POST', { phone, locale }),
     verifyOtp: (body: { phone: string; code: string; firstName?: string; lastName?: string }) =>
       send<LoginResult>('/api/auth/otp/verify', 'POST', body),
+    firebaseAuth: () =>
+      request<
+        | { enabled: false }
+        | { enabled: true; apiKey: string; authDomain: string; projectId: string; appId: string }
+      >('/api/auth/firebase'),
+    verifyFirebase: (body: { idToken: string; firstName?: string; lastName?: string }) =>
+      send<LoginResult>('/api/auth/firebase', 'POST', body),
     socketToken: () => request<{ token: string }>('/api/auth/socket-token'),
     home: (query = '') => request<StorefrontHome>(`/api/storefront/home${query}`),
     merchant: (slug: string) => request<MerchantStorefront>(`/api/storefront/merchants/${slug}`),

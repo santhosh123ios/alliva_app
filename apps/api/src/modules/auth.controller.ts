@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Req, Res, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtService } from '@nestjs/jwt';
 import { Throttle } from '@nestjs/throttler';
 import * as argon2 from 'argon2';
 import type { Request, Response } from 'express';
 import {
+  firebasePhoneSchema,
   forgotPasswordSchema,
   loginSchema,
   otpRequestSchema,
@@ -27,7 +28,11 @@ import {
   ZodValidationPipe,
 } from '../common/http';
 import { PrismaService } from '../prisma/prisma.service';
-import { MockEmailProvider, MockSmsProvider } from '../providers/mock.providers';
+import { MockEmailProvider } from '../providers/mock.providers';
+import type { SmsProvider } from '../providers/interfaces';
+import { firebaseWebConfig, verifyFirebasePhoneToken } from '../providers/firebase-auth';
+import { numericOtp } from '../providers/whatsapp.otp';
+import { OTP_SENDER } from '../providers/whatsapp.provider';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -37,7 +42,7 @@ export class AuthController {
     @Inject(JwtService) private readonly jwt: JwtService,
     @Inject(CryptoService) private readonly crypto: CryptoService,
     @Inject(AuditService) private readonly audit: AuditService,
-    @Inject(MockSmsProvider) private readonly sms: MockSmsProvider,
+    @Inject(OTP_SENDER) private readonly sms: SmsProvider,
     @Inject(MockEmailProvider) private readonly email: MockEmailProvider,
   ) {}
 
@@ -207,9 +212,9 @@ export class AuthController {
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('otp/request')
-  async requestOtp(@Body(new ZodValidationPipe(otpRequestSchema)) body: { phone: string }) {
-    const code = process.env.SMS_DEV_CODE ?? this.crypto.random(3);
-    await this.sms.sendOtp(body.phone, code);
+  async requestOtp(@Body(new ZodValidationPipe(otpRequestSchema)) body: { phone: string; locale?: 'en' | 'ar' }) {
+    const code = this.sms.channel === 'whatsapp' ? numericOtp() : (process.env.SMS_DEV_CODE ?? numericOtp());
+    await this.sms.sendOtp(body.phone, code, body.locale);
     await this.prisma.otpChallenge.create({
       data: {
         phone: body.phone,
@@ -218,7 +223,7 @@ export class AuthController {
         expiresAt: new Date(Date.now() + 5 * 60 * 1000),
       },
     });
-    return { ok: true };
+    return { ok: true as const, channel: this.sms.channel };
   }
 
   @Public()
@@ -238,15 +243,56 @@ export class AuthController {
       throw new Error('The code is not valid');
     }
     await this.prisma.otpChallenge.update({ where: { id: challenge.id }, data: { consumedAt: new Date() } });
-    let user = await this.prisma.user.findUnique({ where: { phone: body.phone } });
+    return this.completeCustomerLogin(body.phone, body, request, response);
+  }
+
+  @Public()
+  @Get('firebase')
+  firebaseConfig() {
+    return firebaseWebConfig();
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Post('firebase')
+  async firebaseLogin(
+    @Body(new ZodValidationPipe(firebasePhoneSchema)) body: { idToken: string; firstName?: string; lastName?: string },
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    if (!projectId) throw new ServiceUnavailableException('Firebase is not configured');
+    let identity: { phone: string };
+    try {
+      identity = await verifyFirebasePhoneToken(body.idToken, projectId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The code is not valid';
+      throw new UnauthorizedException(message);
+    }
+    return this.completeCustomerLogin(identity.phone, body, request, response);
+  }
+
+  @Get('socket-token')
+  async socketToken(@CurrentUser() user: RequestUser) {
+    const token = await this.jwt.signAsync({ sub: user.id, sid: user.sessionId }, { expiresIn: '5m' });
+    return { token };
+  }
+
+  private async completeCustomerLogin(
+    phone: string,
+    profile: { firstName?: string; lastName?: string },
+    request: Request,
+    response: Response,
+  ) {
+    let user = await this.prisma.user.findUnique({ where: { phone } });
     if (!user) {
       user = await this.prisma.user.create({
         data: {
-          phone: body.phone,
+          phone,
           kind: 'CUSTOMER',
           status: 'ACTIVE',
-          firstName: body.firstName ?? 'Alliva',
-          lastName: body.lastName ?? 'Customer',
+          firstName: profile.firstName ?? 'Alliva',
+          lastName: profile.lastName ?? 'Customer',
           customer: { create: {} },
         },
       });
@@ -256,12 +302,6 @@ export class AuthController {
     if (guestToken) await this.mergeGuest(guestToken, user.id);
     const issued = await this.issueSession(user.id, true, request, response);
     return { user: this.present(issued.actor), csrfToken: issued.csrf };
-  }
-
-  @Get('socket-token')
-  async socketToken(@CurrentUser() user: RequestUser) {
-    const token = await this.jwt.signAsync({ sub: user.id, sid: user.sessionId }, { expiresIn: '5m' });
-    return { token };
   }
 
   private async mergeGuest(token: string, userId: string) {

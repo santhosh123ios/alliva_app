@@ -99,7 +99,7 @@ export function MerchantTile({
   const category = merchant.categories.map((item) => pickLocalized(item, locale)).filter(Boolean).join(' · ');
   const rating = Number(merchant.rating);
   return (
-    <article className="lift overflow-hidden rounded-2xl border border-[#ecece6] bg-white">
+    <article className="lift h-full overflow-hidden rounded-2xl border border-[#ecece6] bg-white">
       <div className="relative aspect-video">
         <Link href={`/merchants/${merchant.slug}`} aria-label={pickLocalized(merchant.name, locale)} className="absolute inset-0">
           {merchant.coverUrl ? (

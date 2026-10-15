@@ -154,9 +154,9 @@ export default function HomePage() {
               onAction={() => setShowMerchants((value) => !value)}
             />
             {merchants.length ? (
-              <div className={cn('flex snap-x gap-3 overflow-x-auto pb-1 md:grid md:grid-cols-2 md:overflow-visible xl:grid-cols-4', showMerchants && 'grid grid-cols-1 snap-none md:grid-cols-2')}>
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-3 pb-1 md:grid-cols-2 xl:grid-cols-4">
                 {(showMerchants ? merchants : merchants.slice(0, 4)).map((merchant) => (
-                  <div key={merchant.slug} className={cn(!showMerchants && 'w-[52%] max-w-[180px] shrink-0 snap-start md:w-auto md:max-w-none')}>
+                  <div key={merchant.slug} className="min-w-0">
                   <MerchantTile
                     merchant={merchant}
                     locale={locale}

@@ -6,6 +6,7 @@ import type { EmailProvider, MapsProvider, PaymentGateway, PushProvider, SmsProv
 
 @Injectable()
 export class MockSmsProvider implements SmsProvider {
+  readonly channel = 'dev' as const;
   private readonly logger = new Logger('SmsProvider');
   async sendOtp(phone: string, code: string): Promise<void> {
     this.logger.log(`OTP for ${phone}: ${code}`);

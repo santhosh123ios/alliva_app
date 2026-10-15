@@ -1,5 +1,6 @@
 export interface SmsProvider {
-  sendOtp(phone: string, code: string): Promise<void>;
+  readonly channel: 'whatsapp' | 'dev';
+  sendOtp(phone: string, code: string, locale?: string): Promise<void>;
 }
 
 export interface EmailProvider {

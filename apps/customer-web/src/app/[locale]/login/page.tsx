@@ -1,20 +1,26 @@
 'use client';
 
 import { api } from '@/components/providers';
+import { clearFirebaseRecaptcha, confirmFirebaseCode, sendFirebaseCode } from '@/lib/firebase-phone';
 import HomePage from '../page';
 import { Link, useRouter } from '@/i18n/navigation';
 import { cn, toast } from '@alliva/ui';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import type { ConfirmationResult } from 'firebase/auth';
 import { ChevronDown, Eye, EyeOff, X } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { useEffect, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
+import { useEffect, useRef, useState } from 'react';
 
 export default function LoginPage() {
   const t = useTranslations('auth');
   const c = useTranslations('auth.customerLogin');
+  const locale = useLocale();
   const router = useRouter();
   const [mode, setMode] = useState<'sign-in' | 'create'>('sign-in');
   const [step, setStep] = useState<'details' | 'code'>('details');
+  const [channel, setChannel] = useState<'whatsapp' | 'dev' | 'firebase'>('dev');
+  const confirmation = useRef<ConfirmationResult | null>(null);
+  const firebase = useQuery({ queryKey: ['firebase-auth'], queryFn: () => api.firebaseAuth(), staleTime: Infinity });
   const [localPhone, setLocalPhone] = useState('');
   const [code, setCode] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -38,29 +44,43 @@ export default function LoginPage() {
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = previous;
+      clearFirebaseRecaptcha();
     };
   }, []);
 
+  const names = mode === 'create' ? { firstName: firstName.trim(), lastName: lastName.trim() } : {};
   const send = useMutation({
-    mutationFn: () => api.requestOtp(phone),
-    onSuccess: () => {
-      setStep('code');
-      toast.success(c('codeSent'));
+    mutationFn: async () => {
+      if (firebase.data?.enabled) {
+        confirmation.current = await sendFirebaseCode(firebase.data, phone, locale === 'ar' ? 'ar' : 'en');
+        return { channel: 'firebase' as const };
+      }
+      confirmation.current = null;
+      return api.requestOtp(phone, locale === 'ar' ? 'ar' : 'en');
     },
-    onError: (error: Error) => toast.error(error.message),
+    onSuccess: (result) => {
+      setChannel(result.channel);
+      setStep('code');
+      toast.success(
+        result.channel === 'firebase' ? c('codeSentFirebase') : result.channel === 'whatsapp' ? c('codeSentWhatsapp') : c('codeSent'),
+      );
+    },
+    onError: (error: unknown) => toast.error(firebaseError(error, c)),
   });
   const confirm = useMutation({
-    mutationFn: () =>
-      api.verifyOtp({
-        phone,
-        code,
-        ...(mode === 'create' ? { firstName: firstName.trim(), lastName: lastName.trim() } : {}),
-      }),
+    mutationFn: async () => {
+      if (confirmation.current) {
+        const idToken = await confirmFirebaseCode(confirmation.current, code.trim());
+        return api.verifyFirebase({ idToken, ...names });
+      }
+      return api.verifyOtp({ phone, code, ...names });
+    },
     onSuccess: () => router.push('/'),
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: unknown) => toast.error(firebaseError(error, c)),
   });
 
   const requestCode = () => {
+    if (firebase.isPending || send.isPending || confirm.isPending) return;
     if (!/^\d{8}$/.test(localPhone)) {
       toast.error(c('invalidPhone'));
       return;
@@ -218,6 +238,9 @@ export default function LoginPage() {
                   </li>
                 </ul>
               ) : null}
+              {step === 'details' ? (
+                <p className="mt-2 text-xs text-white/60">{firebase.data?.enabled ? c('firebaseNote') : c('whatsappNote')}</p>
+              ) : null}
             </div>
 
             {step === 'details' ? (
@@ -271,7 +294,13 @@ export default function LoginPage() {
                     className="mt-1 h-6 w-full bg-transparent text-sm outline-none placeholder:text-white/45"
                   />
                 </div>
-                <p className="mt-2 text-xs text-white/70">{c('codeHint', { phone: `+973 ${localPhone}` })}</p>
+                <p className="mt-2 text-xs text-white/70">
+                  {channel === 'firebase'
+                    ? c('codeHintFirebase', { phone: `+973 ${localPhone}` })
+                    : channel === 'whatsapp'
+                      ? c('codeHintWhatsapp', { phone: `+973 ${localPhone}` })
+                      : c('codeHint', { phone: `+973 ${localPhone}` })}
+                </p>
                 <button type="button" className="mt-1 text-xs font-semibold text-white" onClick={() => setStep('details')}>
                   {c('changeNumber')}
                 </button>
@@ -280,7 +309,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={send.isPending || confirm.isPending}
+              disabled={send.isPending || confirm.isPending || firebase.isPending}
               className="mt-4 flex h-11 w-full items-center justify-center rounded-2xl bg-[linear-gradient(180deg,#ffe566,#ffc400)] text-sm font-semibold text-[#111] shadow-[0_8px_24px_rgba(255,196,0,0.28)] transition hover:brightness-105 disabled:opacity-60"
             >
               {send.isPending || confirm.isPending ? <span className="size-4 animate-spin rounded-full border-2 border-[#111]/30 border-t-[#111]" /> : step === 'details' ? t('signIn') : c('verifyContinue')}
@@ -315,6 +344,16 @@ const glassField =
 
 const socialClass =
   'inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 text-sm font-medium text-white transition hover:bg-white/15';
+
+function firebaseError(error: unknown, c: (key: 'invalidCode' | 'invalidPhone' | 'firebaseBusy') => string) {
+  const code = typeof error === 'object' && error && 'code' in error ? String((error as { code: unknown }).code) : '';
+  if (code === 'auth/invalid-verification-code' || code === 'auth/code-expired' || code === 'auth/invalid-verification-id') {
+    return c('invalidCode');
+  }
+  if (code === 'auth/invalid-phone-number') return c('invalidPhone');
+  if (code === 'auth/too-many-requests' || code === 'auth/quota-exceeded') return c('firebaseBusy');
+  return error instanceof Error ? error.message : c('firebaseBusy');
+}
 
 function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
   return (

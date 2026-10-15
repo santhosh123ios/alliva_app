@@ -12,7 +12,8 @@ import { PlatformService } from './modules/platform.service';
 import { PortalController } from './modules/portal.controller';
 import { StorefrontController } from './modules/storefront.controller';
 import { PrismaModule } from './prisma/prisma.module';
-import { BenefitGateway, MockEmailProvider, MockPushProvider, MockSmsProvider, TapGateway } from './providers/mock.providers';
+import { BenefitGateway, MockEmailProvider, MockPushProvider, TapGateway } from './providers/mock.providers';
+import { createOtpProvider, OTP_SENDER } from './providers/whatsapp.provider';
 
 @Module({
   imports: [
@@ -39,7 +40,7 @@ import { BenefitGateway, MockEmailProvider, MockPushProvider, MockSmsProvider, T
     CommerceService,
     PlatformService,
     OrdersGateway,
-    MockSmsProvider,
+    { provide: OTP_SENDER, useFactory: () => createOtpProvider() },
     MockEmailProvider,
     MockPushProvider,
     TapGateway,
