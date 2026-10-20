@@ -1,10 +1,8 @@
-'use client';
-
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@alliva/design-tokens';
 import type { MerchantDashboard } from '@alliva/types';
 import { BarChart3, ChevronRight, Clock, MessageSquare, ShoppingCart, Wallet } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 
 export function Overview({ dash }: { dash: MerchantDashboard }) {
   const t = useTranslations('workspace');

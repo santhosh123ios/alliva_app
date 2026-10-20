@@ -1,5 +1,3 @@
-'use client';
-
 import { api } from '@/components/providers';
 import { Link, useRouter } from '@/i18n/navigation';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
@@ -23,7 +21,7 @@ import {
   Utensils,
   X,
 } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { toast } from 'sonner';
 

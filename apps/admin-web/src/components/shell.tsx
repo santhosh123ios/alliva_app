@@ -1,12 +1,10 @@
-'use client';
-
 import { api } from '@/components/providers';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { ShellSkeleton } from '@alliva/ui';
 import type { AuthUser } from '@alliva/types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BarChart3, Bell, ChevronRight, FileText, LayoutGrid, Megaphone, MessageSquare, RefreshCcw, Search, Settings, ShoppingCart, Store, Ticket, Users, Wallet } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const groups = [

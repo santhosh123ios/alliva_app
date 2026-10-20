@@ -1,12 +1,10 @@
-'use client';
-
 import { api } from '@/components/providers';
 import { Link } from '@/i18n/navigation';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, EmptyState } from '@alliva/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Calendar, ChevronDown, Pencil, Plus, Printer, QrCode, Search, Users, X } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 type TableStatus = 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'INACTIVE';

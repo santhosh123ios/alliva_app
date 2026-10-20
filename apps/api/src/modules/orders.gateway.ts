@@ -1,21 +1,36 @@
-import { Inject } from '@nestjs/common';
-import { ConnectedSocket, MessageBody, OnGatewayConnection, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
-import { JwtService } from '@nestjs/jwt';
-import type { Server, Socket } from 'socket.io';
+import type { Server as HttpServer } from 'http';
+import { Server, type Socket } from 'socket.io';
 import { loadActor } from '../common/http';
-import { PrismaService } from '../prisma/prisma.service';
+import type { JwtService } from '../common/jwt';
+import type { PrismaService } from '../prisma/prisma.service';
 
-@WebSocketGateway({ cors: { origin: true, credentials: true } })
-export class OrdersGateway implements OnGatewayConnection {
-  @WebSocketServer()
-  server!: Server;
+export class OrdersGateway {
+  server?: Server;
 
   constructor(
-    @Inject(JwtService) private readonly jwt: JwtService,
-    @Inject(PrismaService) private readonly prisma: PrismaService,
+    private readonly jwt: JwtService,
+    private readonly prisma: PrismaService,
   ) {}
 
-  async handleConnection(client: Socket): Promise<void> {
+  attach(httpServer: HttpServer) {
+    this.server = new Server(httpServer, { cors: { origin: true, credentials: true } });
+    this.server.on('connection', (client) => {
+      client.on('join', (body: { orderId?: string } | undefined, ack?: (reply: { ok: true }) => void) => {
+        if (body?.orderId) void client.join(`order:${body.orderId}`);
+        if (typeof ack === 'function') ack({ ok: true });
+      });
+      void this.handleConnection(client);
+    });
+  }
+
+  close() {
+    return new Promise<void>((resolve) => {
+      if (!this.server) return resolve();
+      void this.server.close(() => resolve());
+    });
+  }
+
+  private async handleConnection(client: Socket): Promise<void> {
     try {
       const token = client.handshake.auth?.token as string | undefined;
       if (!token) {
@@ -25,18 +40,12 @@ export class OrdersGateway implements OnGatewayConnection {
       const payload = await this.jwt.verifyAsync<{ sub: string; sid: string }>(token);
       const user = await loadActor(this.prisma, payload.sub, payload.sid);
       client.data.user = user;
-      if (user.merchantId) client.join(`merchant:${user.merchantId}`);
-      if (user.customerId) client.join(`customer:${user.customerId}`);
-      if (user.permissions.includes('dispatch.manage') || user.roles.includes('SUPER_ADMIN')) client.join('ops');
+      if (user.merchantId) void client.join(`merchant:${user.merchantId}`);
+      if (user.customerId) void client.join(`customer:${user.customerId}`);
+      if (user.permissions.includes('dispatch.manage') || user.roles.includes('SUPER_ADMIN')) void client.join('ops');
     } catch {
       client.disconnect();
     }
-  }
-
-  @SubscribeMessage('join')
-  join(@ConnectedSocket() client: Socket, @MessageBody() body: { orderId?: string }) {
-    if (body.orderId) client.join(`order:${body.orderId}`);
-    return { ok: true };
   }
 
   emit(order: { id: string; merchantId: string; customerId?: string }) {

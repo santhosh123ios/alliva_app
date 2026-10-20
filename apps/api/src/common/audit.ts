@@ -1,42 +1,43 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
-import type { Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import { EntitlementError } from '../domain/entitlements';
-import { PrismaService } from '../prisma/prisma.service';
+import type { PrismaService } from '../prisma/prisma.service';
+import { HttpError } from './errors';
+import { Logger } from './logger';
 
-@Catch()
-@Injectable()
-export class AllExceptionsFilter implements ExceptionFilter {
-  private readonly logger = new Logger(AllExceptionsFilter.name);
+const logger = new Logger('ExceptionsHandler');
 
-  catch(exception: unknown, host: ArgumentsHost) {
-    const response = host.switchToHttp().getResponse<Response>();
-    if (exception instanceof EntitlementError) {
-      response.status(HttpStatus.BAD_REQUEST).json({ message: exception.message });
-      return;
-    }
-    if (exception instanceof HttpException) {
-      const body = exception.getResponse();
-      response.status(exception.getStatus()).json(typeof body === 'string' ? { message: body } : body);
-      return;
-    }
-    if (exception instanceof Error) {
-      const business =
-        /Cannot move|Promo|Order is|Plan |Commission|Driver statuses|role cannot|not active|not configured|budget|unavailable|Ledger|Merchant net|does not match/.test(
-          exception.message,
-        );
-      if (business) {
-        response.status(HttpStatus.BAD_REQUEST).json({ message: exception.message });
-        return;
-      }
-      this.logger.error(exception.stack ?? exception.message);
-    }
-    response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Something went wrong' });
+export function errorHandler(exception: unknown, _request: Request, response: Response, next: NextFunction) {
+  if (response.headersSent) return next(exception);
+  if (exception instanceof EntitlementError) {
+    response.status(400).json({ message: exception.message });
+    return;
   }
+  if (exception instanceof HttpError) {
+    response.status(exception.status).json(exception.body);
+    return;
+  }
+  const parse = exception as { type?: string; status?: number; message?: string };
+  if (parse?.type === 'entity.parse.failed' || parse?.type === 'entity.too.large') {
+    const status = parse.status ?? 400;
+    response.status(status).json({ message: parse.message, error: status === 413 ? 'Payload Too Large' : 'Bad Request', statusCode: status });
+    return;
+  }
+  if (exception instanceof Error) {
+    const business =
+      /Cannot move|Promo|Order is|Plan |Commission|Driver statuses|role cannot|not active|not configured|budget|unavailable|Ledger|Merchant net|does not match/.test(
+        exception.message,
+      );
+    if (business) {
+      response.status(400).json({ message: exception.message });
+      return;
+    }
+    logger.error(exception.stack ?? exception.message);
+  }
+  response.status(500).json({ message: 'Something went wrong' });
 }
 
-@Injectable()
 export class AuditService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async log(input: {
     actorId?: string | null;

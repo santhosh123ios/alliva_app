@@ -1,5 +1,0 @@
-@import "tailwindcss";
-@import "@alliva/design-tokens/theme.css";
-
-@source "../**/*.{ts,tsx}";
-@source "../../../../packages/ui/src/**/*.{ts,tsx}";

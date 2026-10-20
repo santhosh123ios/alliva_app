@@ -1,12 +1,10 @@
-'use client';
-
 import { api } from '@/components/providers';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import type { FulfillmentType, OrderStatus, PaymentMethod } from '@alliva/types';
 import { Button, EmptyState } from '@alliva/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Banknote, Bike, Calendar, ChevronDown, ChevronRight, ClipboardList, Download, MapPin, Plus, Search, ShoppingBag, Truck, User, UtensilsCrossed, X, type LucideIcon } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useState } from 'react';
 
 export type MerchantOrder = {

@@ -1,5 +1,3 @@
-'use client';
-
 import { CartButtonSpinner, flyFromButton } from '@/components/cart-motion';
 import { Link } from '@/i18n/navigation';
 import type { ApiClient } from '@alliva/api-client';

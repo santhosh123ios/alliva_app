@@ -1,10 +1,8 @@
-'use client';
-
 import { api } from '@/components/providers';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, Input, Label } from '@alliva/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Crown, Headset, Mail, Megaphone, MoreHorizontal, Plus, Search, Settings, ShieldCheck, UserRound, Users, type LucideIcon } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useTranslations } from 'use-intl';
 import { useMemo, useState } from 'react';
 
 export type StaffRow = {
@@ -21,7 +19,9 @@ type Tab = 'all' | 'active' | 'invited' | 'suspended';
 const pageSize = 6;
 const systemRoles = ['SUPER_ADMIN', 'ADMIN', 'OPERATIONS_MANAGER', 'OPERATIONS_STAFF', 'MARKETING_HEAD', 'MARKETING_STAFF', 'FINANCE_MANAGER', 'FINANCE_STAFF', 'CUSTOMER_SUPPORT'];
 
-const accessRoles: { key: string; icon: LucideIcon; bg: string; fg: string; tags: string[]; fallback?: boolean }[] = [
+type AccessRole = { key: string; icon: LucideIcon; bg: string; fg: string; tags: string[]; fallback?: boolean };
+
+const accessRoles: AccessRole[] = [
   { key: 'ADMIN', icon: Crown, bg: 'bg-[#FFF6D4]', fg: 'text-[#111111]', tags: ['allAccess', 'userManagement', 'settings'], fallback: true },
   { key: 'OPERATIONS_MANAGER', icon: Settings, bg: 'bg-[#E7F0FF]', fg: 'text-[#2F6BFF]', tags: ['orders', 'merchants', 'complaints', 'reports'] },
   { key: 'MARKETING_HEAD', icon: Megaphone, bg: 'bg-[#FDE8F2]', fg: 'text-[#D23B84]', tags: ['campaigns', 'promotions', 'analytics'] },
@@ -62,7 +62,7 @@ export function StaffDirectory({ rows }: { rows: StaffRow[] }) {
   const pageRows = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
   const from = filtered.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
   const to = Math.min(safePage * pageSize, filtered.length);
-  const visibleRoles = showAllRoles
+  const visibleRoles: AccessRole[] = showAllRoles
     ? [...accessRoles, ...systemRoles.filter((key) => !accessRoles.some((role) => role.key === key)).map((key) => ({ key, icon: ShieldCheck, bg: 'bg-[#F1F1EE]', fg: 'text-[#5C5C57]', tags: [] as string[] }))]
     : accessRoles;
 

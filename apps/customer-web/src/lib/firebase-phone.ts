@@ -1,5 +1,3 @@
-'use client';
-
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from 'firebase/auth';
 

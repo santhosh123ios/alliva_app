@@ -1,12 +1,10 @@
-'use client';
-
 import { api } from '@/components/providers';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { areas, usePlace } from '@/lib/place';
 import { cn } from '@alliva/ui';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ClipboardList, Heart, Home, MapPin, Search, ShoppingCart, User, X } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 

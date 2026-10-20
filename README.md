@@ -1,6 +1,8 @@
 # Alliva
 
-Alliva is a multi-merchant delivery platform for Bahrain. Customers discover local businesses, order for delivery, takeaway, or dine-in, pay, and track orders. Staff, operations, and merchants use separate web portals on one NestJS API.
+Alliva is a multi-merchant delivery platform for Bahrain. Customers discover local businesses, order for delivery, takeaway, or dine-in, pay, and track orders. Staff, operations, and merchants use separate web portals on one Node.js API.
+
+The API is Express on Node.js with Prisma and PostgreSQL. The three portals are React single-page apps built with Vite and React Router.
 
 Currency is **BHD** (3 decimal places). The platform timezone is **Asia/Bahrain**. Interfaces are English and Arabic, with RTL for Arabic.
 
@@ -86,7 +88,8 @@ Unit tests cover pricing, the order state machine, entitlements, marketing commi
 2. Set the variables in `.env.example`. Use a long `JWT_ACCESS_SECRET`, a 32-byte `ENCRYPTION_KEY`, and real provider secrets.
 3. Set `COOKIE_SECURE=true` and `NODE_ENV=production`.
 4. Run `pnpm db:migrate` and start the API with `pnpm --filter @alliva/api start`.
-5. Build the three Next.js apps and serve them behind HTTPS. Point `API_INTERNAL_URL` at the API so browser cookies stay on each portal origin.
-6. Put uploads on S3 by setting `STORAGE_DRIVER=s3`.
+5. Build the three web apps with `pnpm build`. Each app writes static files to `apps/<app>/dist`. Set `VITE_API_URL` at build time to the public API URL used for live order updates.
+6. Serve each `dist` folder behind HTTPS. Send unknown paths to `index.html`, and proxy `/api` and `/uploads` on the same origin to the API so browser cookies stay on each portal origin. `pnpm --filter <app> preview` does this locally, using `API_INTERNAL_URL` as the proxy target.
+7. Put uploads on S3 by setting `STORAGE_DRIVER=s3`.
 
-Business rules stay in the NestJS services. React portals call the typed client in `@alliva/api-client`.
+Business rules stay in the API services. React portals call the typed client in `@alliva/api-client`.

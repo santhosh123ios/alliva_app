@@ -1,11 +1,9 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { serviceUnavailable } from '../common/errors';
+import { Logger } from '../common/logger';
 import type { SmsProvider } from './interfaces';
 import { MockSmsProvider } from './mock.providers';
 import { otpChannel, whatsappOtpBody, whatsappTemplateLanguage } from './whatsapp.otp';
 
-export const OTP_SENDER = 'OTP_SENDER';
-
-@Injectable()
 export class WhatsAppOtpProvider implements SmsProvider {
   readonly channel = 'whatsapp' as const;
   private readonly logger = new Logger('WhatsAppOtp');
@@ -14,7 +12,7 @@ export class WhatsAppOtpProvider implements SmsProvider {
     const token = process.env.WHATSAPP_ACCESS_TOKEN;
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
     if (!token || !phoneNumberId) {
-      throw new ServiceUnavailableException('WhatsApp is not configured');
+      throw serviceUnavailable('WhatsApp is not configured');
     }
     const version = process.env.WHATSAPP_GRAPH_VERSION ?? 'v23.0';
     const template = process.env.WHATSAPP_OTP_TEMPLATE ?? 'alliva_otp';
@@ -37,21 +35,20 @@ export class WhatsAppOtpProvider implements SmsProvider {
       });
     } catch (error) {
       this.logger.error(`WhatsApp OTP request failed: ${error instanceof Error ? error.message : 'unknown'}`);
-      throw new ServiceUnavailableException('We could not send the WhatsApp code. Try again.');
+      throw serviceUnavailable('We could not send the WhatsApp code. Try again.');
     }
     if (!response.ok) {
       const detail = await response.text();
       this.logger.error(`WhatsApp OTP failed (${response.status}): ${detail.slice(0, 500)}`);
-      throw new ServiceUnavailableException('We could not send the WhatsApp code. Try again.');
+      throw serviceUnavailable('We could not send the WhatsApp code. Try again.');
     }
   }
 }
 
-@Injectable()
 export class UnconfiguredOtpProvider implements SmsProvider {
   readonly channel = 'whatsapp' as const;
   async sendOtp(): Promise<void> {
-    throw new ServiceUnavailableException('WhatsApp is not configured');
+    throw serviceUnavailable('WhatsApp is not configured');
   }
 }
 

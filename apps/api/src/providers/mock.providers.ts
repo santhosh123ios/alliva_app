@@ -1,10 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Logger } from '../common/logger';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { mkdir, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
 import type { EmailProvider, MapsProvider, PaymentGateway, PushProvider, SmsProvider, StorageProvider } from './interfaces';
 
-@Injectable()
 export class MockSmsProvider implements SmsProvider {
   readonly channel = 'dev' as const;
   private readonly logger = new Logger('SmsProvider');
@@ -13,7 +12,6 @@ export class MockSmsProvider implements SmsProvider {
   }
 }
 
-@Injectable()
 export class MockEmailProvider implements EmailProvider {
   private readonly logger = new Logger('EmailProvider');
   async send(to: string, subject: string, text: string): Promise<void> {
@@ -21,7 +19,6 @@ export class MockEmailProvider implements EmailProvider {
   }
 }
 
-@Injectable()
 export class MockPushProvider implements PushProvider {
   private readonly logger = new Logger('PushProvider');
   async send(token: string, title: string, body: string): Promise<void> {
@@ -29,7 +26,6 @@ export class MockPushProvider implements PushProvider {
   }
 }
 
-@Injectable()
 export class LocalStorageProvider implements StorageProvider {
   async save(input: { filename: string; mimeType: string; bytes: Buffer }): Promise<{ url: string }> {
     const dir = process.env.UPLOAD_DIR ?? 'uploads';
@@ -40,7 +36,6 @@ export class LocalStorageProvider implements StorageProvider {
   }
 }
 
-@Injectable()
 export class S3StorageProvider implements StorageProvider {
   async save(input: { filename: string; mimeType: string; bytes: Buffer }): Promise<{ url: string }> {
     const endpoint = process.env.S3_ENDPOINT;
@@ -66,7 +61,6 @@ export class S3StorageProvider implements StorageProvider {
   }
 }
 
-@Injectable()
 export class MockMapsProvider implements MapsProvider {
   async geocode(): Promise<{ latitude: string; longitude: string } | null> {
     if (!process.env.GOOGLE_MAPS_API_KEY) return { latitude: '26.228500', longitude: '50.586000' };
@@ -82,7 +76,6 @@ function verify(secret: string, rawBody: Buffer, signature: string | undefined):
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-@Injectable()
 export class TapGateway implements PaymentGateway {
   readonly name = 'TAP' as const;
   async createCharge(input: { amount: string; reference: string; method: string }) {
@@ -93,7 +86,6 @@ export class TapGateway implements PaymentGateway {
   }
 }
 
-@Injectable()
 export class BenefitGateway implements PaymentGateway {
   readonly name = 'BENEFIT' as const;
   async createCharge(input: { amount: string; reference: string; method: string }) {

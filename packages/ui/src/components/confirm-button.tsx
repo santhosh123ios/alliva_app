@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, type ReactNode } from 'react';
 import { Button } from './button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './dialog';

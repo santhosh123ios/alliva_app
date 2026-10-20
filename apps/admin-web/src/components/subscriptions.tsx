@@ -1,5 +1,3 @@
-'use client';
-
 import { PlanDialog } from '@/components/plan-wizard';
 import { formFromPlan, toEntitlements } from '@/components/plan-form';
 import { api } from '@/components/providers';
@@ -8,7 +6,7 @@ import type { LocalizedText, SubscriptionBoard, SubscriptionPlanView } from '@al
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, EmptyState, Input, Skeleton } from '@alliva/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CreditCard, MoreHorizontal, ShoppingBag, ShoppingCart, Store, Tag, Upload, UtensilsCrossed } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { useMemo, useState } from 'react';
 
 type Plan = SubscriptionBoard['plans'][number];

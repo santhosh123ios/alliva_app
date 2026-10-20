@@ -1,8 +1,8 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { calculateSubscriptionCommission } from '../domain/commissions';
 import { assertFeatureAllowed, assertFeatureEnabled, assertWithinLimit, EntitlementError, readEntitlement } from '../domain/entitlements';
 import { assignmentBlockReason, validatePlanEntitlements, type EntitlementRow } from '../domain/subscriptions';
 import { money, moneyString } from '../domain/money';
+import { badRequest, notFound } from '../common/errors';
 import { dec, loc } from '../common/crypto';
 import { CryptoService } from '../common/crypto';
 import { AuditService } from '../common/audit';
@@ -21,12 +21,11 @@ type PlanWrite = {
   entitlements: EntitlementRow[];
 };
 
-@Injectable()
 export class PlatformService {
   constructor(
-    @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(AuditService) private readonly audit: AuditService,
-    @Inject(CryptoService) private readonly crypto: CryptoService,
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+    private readonly crypto: CryptoService,
   ) {}
 
   private readonly readCache = new Map<string, { at: number; value: Promise<unknown> }>();
@@ -346,7 +345,7 @@ export class PlatformService {
   async updatePlan(id: string, input: PlanWrite, actorId: string) {
     const entitlements = validatePlanEntitlements(input.entitlements);
     const current = await this.prisma.subscriptionPlan.findUnique({ where: { id }, include: { entitlements: true, subscriptions: true } });
-    if (!current) throw new NotFoundException('Plan not found');
+    if (!current) throw notFound('Plan not found');
     for (const subscription of current.subscriptions) {
       if (subscription.status === 'ACTIVE' && subscription.entitlementSnapshot == null) {
         await this.prisma.merchantSubscription.update({
@@ -380,7 +379,7 @@ export class PlatformService {
 
   async duplicatePlan(id: string, actorId: string) {
     const plan = await this.prisma.subscriptionPlan.findUnique({ where: { id }, include: { entitlements: true } });
-    if (!plan) throw new NotFoundException('Plan not found');
+    if (!plan) throw notFound('Plan not found');
     const name = loc(plan.name);
     const code = await this.uniqueCode(`${plan.code}-copy`);
     return this.createPlan({
@@ -436,9 +435,9 @@ export class PlatformService {
 
   async assignSubscription(merchantId: string, planId: string, billingInterval: 'MONTHLY' | 'ANNUAL', actorId: string, markPaid = true) {
     const plan = await this.prisma.subscriptionPlan.findUnique({ where: { id: planId }, include: { entitlements: true } });
-    if (!plan) throw new NotFoundException('Plan not found');
+    if (!plan) throw notFound('Plan not found');
     const blocked = assignmentBlockReason(plan.status);
-    if (blocked) throw new BadRequestException(blocked);
+    if (blocked) throw badRequest(blocked);
     await this.applyDuePlanChange(merchantId);
     const existing = await this.prisma.merchantSubscription.findUnique({ where: { merchantId } });
     const snapshot = plan.entitlements.map((row) => ({ key: row.key, value: row.value }));

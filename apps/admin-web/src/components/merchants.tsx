@@ -1,5 +1,3 @@
-'use client';
-
 import { api } from '@/components/providers';
 import { pickLocalized } from '@alliva/design-tokens';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, Input, Label, Sheet, SheetContent } from '@alliva/ui';
@@ -25,7 +23,7 @@ import {
   UtensilsCrossed,
   type LucideIcon,
 } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 
 export type MerchantRow = {

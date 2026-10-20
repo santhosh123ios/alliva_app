@@ -1,5 +1,3 @@
-'use client';
-
 import { LocationMap } from '@/components/location-map';
 import { api } from '@/components/providers';
 import { useSaveStatus } from '@/components/shell';
@@ -7,7 +5,7 @@ import { pickLocalized } from '@alliva/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, Placeholder } from '@alliva/ui';
 import { Building, Check, ChevronDown, Clock, Copy, ExternalLink, Eye, Image as ImageIcon, Info, Leaf, Link2, LocateFixed, Mail, MapPin, Pencil, Phone, Plus, Share2, ShoppingBag, Store, Truck, UserRound, Utensils, UtensilsCrossed } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useRef, useState } from 'react';
 
 type Hour = { dayOfWeek: number; opensAt: string; closesAt: string; closed: boolean };

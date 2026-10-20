@@ -1,5 +1,3 @@
-'use client';
-
 import { createApiClient } from '@alliva/api-client';
 import { Toaster } from '@alliva/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

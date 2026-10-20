@@ -2,5 +2,8 @@
   "name": "@alliva/configuration",
   "version": "0.0.0",
   "private": true,
-  "files": ["tsconfig.base.json", "tsconfig.nest.json", "tsconfig.next.json"]
+  "files": [
+    "tsconfig.base.json",
+    "tsconfig.vite.json"
+  ]
 }

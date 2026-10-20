@@ -1,4 +1,3 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 function databaseUrl() {
@@ -11,18 +10,9 @@ function databaseUrl() {
   return url.toString();
 }
 
-@Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService extends PrismaClient {
   constructor() {
     const url = databaseUrl();
     super(url ? { datasources: { db: { url } } } : undefined);
-  }
-
-  async onModuleInit(): Promise<void> {
-    await this.$connect();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.$disconnect();
   }
 }

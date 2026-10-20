@@ -1,11 +1,9 @@
-'use client';
-
 import { api } from '@/components/providers';
 import { pickLocalized } from '@alliva/design-tokens';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from '@alliva/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bike, ChefHat, ChevronDown, ChevronRight, CirclePause, ClipboardList, CreditCard, Crown, Lock, MoreHorizontal, Plus, Search, Send, Settings, Users, type LucideIcon } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 
 export type StaffRow = {
@@ -78,7 +76,7 @@ export function StaffPage({ rows }: { rows: StaffRow[] }) {
 
   useEffect(() => {
     if (!menu) return;
-    const close = (event: MouseEvent) => {
+    const close = (event: globalThis.MouseEvent) => {
       if ((event.target as HTMLElement).closest('[data-staff-menu]')) return;
       setMenu(null);
     };
@@ -113,7 +111,7 @@ export function StaffPage({ rows }: { rows: StaffRow[] }) {
   const branchName = selectedBranch
     ? pickLocalized(selectedBranch.name, locale)
     : branches.length === 1
-      ? pickLocalized(branches[0].name, locale)
+      ? pickLocalized(branches[0]!.name, locale)
       : branches.length > 1
         ? t('allBranches')
         : '—';

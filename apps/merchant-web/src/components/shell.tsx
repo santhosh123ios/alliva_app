@@ -1,12 +1,10 @@
-'use client';
-
 import { api } from '@/components/providers';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { ShellSkeleton, Spinner } from '@alliva/ui';
 import type { AuthUser } from '@alliva/types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, ChevronRight, Crown, LayoutGrid, Package, Search, ShoppingCart, Store, Users, UtensilsCrossed, Wallet } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 type SaveStatus = { pending: boolean; notice: string };

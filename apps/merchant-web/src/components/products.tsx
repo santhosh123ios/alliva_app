@@ -1,11 +1,9 @@
-'use client';
-
 import { api } from '@/components/providers';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, EmptyState, ErrorState, Skeleton } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Box, ChevronDown, ChevronRight, Coffee, Croissant, CupSoda, Folder, ImageIcon, LayoutGrid, List, Menu, MoreHorizontal, Pencil, Plus, Search, Star, Tag, UtensilsCrossed } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useState } from 'react';
 
 type Status = 'active' | 'out' | 'draft';

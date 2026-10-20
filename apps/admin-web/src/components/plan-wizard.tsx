@@ -1,5 +1,3 @@
-'use client';
-
 import { api } from '@/components/providers';
 import { formatMoney } from '@alliva/design-tokens';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from '@alliva/ui';
@@ -27,7 +25,7 @@ import {
   Users,
   UtensilsCrossed,
 } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   annualFromMonthly,

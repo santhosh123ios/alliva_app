@@ -1,4 +1,3 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { FulfillmentType, OrderStatus } from '@alliva/types';
 import { money, moneyString } from '../domain/money';
 import { priceOrder, type PromoFacts } from '../domain/pricing';
@@ -7,6 +6,7 @@ import { assertFeatureAllowed, assertWithinLimit, commissionPercent, readEntitle
 import { suggestedMerchants } from '../domain/subscriptions';
 import { buildCaptureLedger, buildRefundLedger } from '../domain/ledger';
 import { isOpenAt } from '../domain/hours';
+import { badRequest, notFound } from '../common/errors';
 import { dec, loc } from '../common/crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlatformService } from './platform.service';
@@ -15,17 +15,16 @@ import { OrdersGateway } from './orders.gateway';
 
 type CartRecord = NonNullable<Awaited<ReturnType<CommerceService['loadCartRecord']>>>;
 
-@Injectable()
 export class CommerceService {
   postgis: boolean | null = null;
 
   constructor(
-    @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(TapGateway) private readonly tap: TapGateway,
-    @Inject(BenefitGateway) private readonly benefit: BenefitGateway,
-    @Inject(MockPushProvider) private readonly push: MockPushProvider,
-    @Inject(OrdersGateway) private readonly gateway: OrdersGateway,
-    @Inject(PlatformService) private readonly platform: PlatformService,
+    private readonly prisma: PrismaService,
+    private readonly tap: TapGateway,
+    private readonly benefit: BenefitGateway,
+    private readonly push: MockPushProvider,
+    private readonly gateway: OrdersGateway,
+    private readonly platform: PlatformService,
   ) {}
 
   async ensureGuest(tokenHash: string | null, create: () => Promise<{ id: string; token: string }>) {
@@ -142,7 +141,7 @@ export class CommerceService {
         },
       },
     });
-    if (!merchant || merchant.status !== 'ACTIVE') throw new NotFoundException('Merchant not found');
+    if (!merchant || merchant.status !== 'ACTIVE') throw notFound('Merchant not found');
     const now = new Date();
     const [card, offers] = await Promise.all([
       this.merchantCards({ id: merchant.id }).then((cards) => cards[0]),
@@ -193,7 +192,7 @@ export class CommerceService {
         addonGroups: { include: { addonGroup: { include: { addons: true } } } },
       },
     });
-    if (!product || product.approvalStatus !== 'APPROVED') throw new NotFoundException('Product not found');
+    if (!product || product.approvalStatus !== 'APPROVED') throw notFound('Product not found');
     if (viewer?.customerId || viewer?.guestId) {
       await this.prisma.recentlyViewed.create({
         data: { productId: product.id, customerId: viewer.customerId, guestId: viewer.guestId },
@@ -240,10 +239,10 @@ export class CommerceService {
 
   async addItem(owner: { customerId?: string | null; guestId?: string | null }, input: { productId: string; variantId?: string | null; addonIds?: string[]; quantity: number; notes?: string }) {
     const product = await this.prisma.product.findFirst({ where: { id: input.productId, deletedAt: null, available: true } });
-    if (!product) throw new NotFoundException('Product not found');
+    if (!product) throw notFound('Product not found');
     let cart = await this.loadCartRecord(owner);
     if (cart && cart.merchantId && cart.merchantId !== product.merchantId && cart.items.length) {
-      throw new BadRequestException('Your cart already contains another merchant. Clear it before switching.');
+      throw badRequest('Your cart already contains another merchant. Clear it before switching.');
     }
     if (!cart) {
       cart = await this.prisma.cart.create({
@@ -299,7 +298,7 @@ export class CommerceService {
   async applyPromo(owner: { customerId?: string | null; guestId?: string | null }, code: string) {
     const cart = await this.requireCart(owner);
     const promo = await this.prisma.promoCode.findFirst({ where: { code: code.toUpperCase(), active: true, deletedAt: null } });
-    if (!promo) throw new BadRequestException('Promo code is not valid');
+    if (!promo) throw badRequest('Promo code is not valid');
     await this.prisma.cart.update({ where: { id: cart.id }, data: { promoCodeId: promo.id } });
     return this.cartFor(owner);
   }
@@ -316,17 +315,17 @@ export class CommerceService {
     const existing = await this.prisma.payment.findUnique({ where: { idempotencyKey: input.idempotencyKey }, include: { order: true } });
     if (existing?.order) return this.presentOrder(existing.order.id);
     const cart = await this.requireCart({ customerId: owner.customerId });
-    if (!cart.merchantId || !cart.items.length) throw new BadRequestException('Your cart is empty');
+    if (!cart.merchantId || !cart.items.length) throw badRequest('Your cart is empty');
     const priced = await this.price(cart, owner.customerId);
     const merchant = await this.prisma.merchant.findUniqueOrThrow({ where: { id: cart.merchantId }, include: { branches: true, subscription: { include: { plan: { include: { entitlements: true } } } } } });
-    if (merchant.status !== 'ACTIVE') throw new BadRequestException('This merchant is not accepting orders');
-    if (input.fulfillmentType === 'DELIVERY' && !merchant.deliveryEnabled) throw new BadRequestException('Delivery is unavailable');
-    if (input.fulfillmentType === 'TAKEAWAY' && !merchant.takeawayEnabled) throw new BadRequestException('Takeaway is unavailable');
-    if (input.fulfillmentType === 'DINE_IN' && !merchant.dineInEnabled) throw new BadRequestException('Dine-in is unavailable');
-    if (input.fulfillmentType === 'DELIVERY' && !input.addressId) throw new BadRequestException('Choose a delivery address');
-    if (input.fulfillmentType === 'DINE_IN' && !input.tableId) throw new BadRequestException('A table is required for dine-in');
+    if (merchant.status !== 'ACTIVE') throw badRequest('This merchant is not accepting orders');
+    if (input.fulfillmentType === 'DELIVERY' && !merchant.deliveryEnabled) throw badRequest('Delivery is unavailable');
+    if (input.fulfillmentType === 'TAKEAWAY' && !merchant.takeawayEnabled) throw badRequest('Takeaway is unavailable');
+    if (input.fulfillmentType === 'DINE_IN' && !merchant.dineInEnabled) throw badRequest('Dine-in is unavailable');
+    if (input.fulfillmentType === 'DELIVERY' && !input.addressId) throw badRequest('Choose a delivery address');
+    if (input.fulfillmentType === 'DINE_IN' && !input.tableId) throw badRequest('A table is required for dine-in');
     const rows = await this.platform.entitlementUsage(merchant.id);
-    if (!rows.length) throw new BadRequestException('An active subscription is required');
+    if (!rows.length) throw badRequest('An active subscription is required');
     if (input.fulfillmentType === 'DELIVERY') assertFeatureAllowed(readEntitlement(rows, 'deliveryOrdering'), 'Delivery ordering');
     if (input.fulfillmentType === 'TAKEAWAY') assertFeatureAllowed(readEntitlement(rows, 'takeawayOrdering'), 'Takeaway ordering');
     if (input.fulfillmentType === 'DINE_IN') assertFeatureAllowed(readEntitlement(rows, 'tableOrdering'), 'Table ordering');
@@ -337,7 +336,7 @@ export class CommerceService {
     const food = money(priced.pricing.subtotal).minus(priced.pricing.discount);
     const commission = food.mul(percent).div(100);
     const branch = merchant.branches[0];
-    if (!branch) throw new BadRequestException('Merchant has no branch');
+    if (!branch) throw badRequest('Merchant has no branch');
     const address = input.addressId ? await this.prisma.address.findFirst({ where: { id: input.addressId, customerId: owner.customerId } }) : null;
     const order = await this.prisma.$transaction(async (tx) => {
       const count = await tx.order.count();
@@ -466,11 +465,11 @@ export class CommerceService {
 
   async transition(actor: { id: string; roles: string[]; merchantId: string | null }, orderId: string, input: { status: OrderStatus; note?: string; preparationMinutes?: number; driverId?: string; cancellationReason?: string }) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { dispatch: true } });
-    if (!order) throw new NotFoundException('Order not found');
-    if (actor.merchantId && actor.merchantId !== order.merchantId) throw new BadRequestException('Cross-merchant access is not allowed');
+    if (!order) throw notFound('Order not found');
+    if (actor.merchantId && actor.merchantId !== order.merchantId) throw badRequest('Cross-merchant access is not allowed');
     assertTransition({ from: order.status, to: input.status, fulfillment: order.fulfillmentType, roles: actor.roles });
     if (input.status === 'CANCELLED' && !input.cancellationReason && !input.note) {
-      throw new BadRequestException('A cancellation reason is required');
+      throw badRequest('A cancellation reason is required');
     }
     const updated = await this.prisma.order.update({
       where: { id: order.id },
@@ -610,7 +609,7 @@ export class CommerceService {
 
   async resolveQr(code: string) {
     const qr = await this.prisma.qrCode.findUnique({ where: { code }, include: { merchant: { include: { subscription: { include: { plan: { include: { entitlements: true } } } } } }, table: true } });
-    if (!qr || !qr.active) throw new NotFoundException('QR code not found');
+    if (!qr || !qr.active) throw notFound('QR code not found');
     const visibility = qr.merchant.subscription ? safeSuggestion(paidEntitlements(qr.merchant.subscription)) : 'ALL_STORES';
     return {
       code: qr.code,
@@ -664,14 +663,14 @@ export class CommerceService {
         where: { id: item.productId, deletedAt: null },
         include: { variants: true, addonGroups: { include: { addonGroup: { include: { addons: true } } } } },
       });
-      if (!product || !product.available) throw new BadRequestException('A product in your cart is unavailable');
+      if (!product || !product.available) throw badRequest('A product in your cart is unavailable');
       const variant = item.variantId ? product.variants.find((entry) => entry.id === item.variantId) : null;
-      if (item.variantId && (!variant || !variant.available)) throw new BadRequestException('A variant in your cart is unavailable');
+      if (item.variantId && (!variant || !variant.available)) throw badRequest('A variant in your cart is unavailable');
       let unit = money(variant ? dec(variant.price) : dec(product.price));
       const addons = [];
       for (const link of item.addons) {
         const addon = product.addonGroups.flatMap((group) => group.addonGroup.addons).find((entry) => entry.id === link.addonId);
-        if (!addon || !addon.available) throw new BadRequestException('An add-on in your cart is unavailable');
+        if (!addon || !addon.available) throw badRequest('An add-on in your cart is unavailable');
         unit = unit.plus(dec(addon.price));
         addons.push({ id: addon.id, name: loc(addon.name), price: dec(addon.price) });
       }
@@ -826,7 +825,7 @@ export class CommerceService {
 
   private async requireCart(owner: { customerId?: string | null; guestId?: string | null }) {
     const cart = await this.loadCartRecord(owner);
-    if (!cart) throw new BadRequestException('Your cart is empty');
+    if (!cart) throw badRequest('Your cart is empty');
     return cart;
   }
 }

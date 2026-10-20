@@ -1,11 +1,9 @@
-'use client';
-
 import { Link } from '@/i18n/navigation';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import type { AdminDashboard, OrderStatus } from '@alliva/types';
 import { Button } from '@alliva/ui';
 import { BarChart3, Calendar, ChevronRight, Clock, MessageSquare, RefreshCw, Store, Wallet } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { useState } from 'react';
 
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

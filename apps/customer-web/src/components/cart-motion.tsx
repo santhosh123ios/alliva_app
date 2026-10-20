@@ -1,5 +1,3 @@
-'use client';
-
 import { cn } from '@alliva/ui';
 
 export function CartButtonSpinner({ className }: { className?: string }) {
