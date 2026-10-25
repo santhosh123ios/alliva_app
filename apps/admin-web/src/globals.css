@@ -3,6 +3,7 @@
 
 @source "./**/*.{ts,tsx}";
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
+@source "../../../packages/marketing-console/src/**/*.{ts,tsx}";
 
 :root {
   --font-inter: "Inter Variable";

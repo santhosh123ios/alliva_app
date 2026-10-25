@@ -3,7 +3,7 @@ import { priceOrder } from './pricing';
 import { assertTransition } from './order-machine';
 import { assertFeatureEnabled, assertWithinLimit, suggestionMode } from './entitlements';
 import { assignmentBlockReason, countsTowardMonthlyOrderLimit, suggestedMerchants, validatePlanEntitlements } from './subscriptions';
-import { calculateSubscriptionCommission } from './commissions';
+import { applySubscriptionDiscount, calculateSubscriptionCommission, nextRedemptionAt, redemptionAllowed } from './commissions';
 import { assertLedgerImmutable, buildCaptureLedger } from './ledger';
 import { isOpenAt } from './hours';
 
@@ -153,6 +153,23 @@ describe('commissions', () => {
         paymentVerified: false,
       }),
     ).toThrow(/verified/);
+  });
+
+  it('discounts the first subscription and floors the charge at zero', () => {
+    expect(applySubscriptionDiscount('49.000', 'PERCENTAGE', '10')).toBe('44.100');
+    expect(applySubscriptionDiscount('49.000', 'FIXED', '5.000')).toBe('44.000');
+    expect(applySubscriptionDiscount('49.000', 'FIXED', '60.000')).toBe('0.000');
+  });
+
+  it('allows one redemption each week or calendar month', () => {
+    const now = new Date('2026-10-20T12:00:00.000Z');
+    expect(redemptionAllowed(null, 'WEEKLY', now)).toBe(true);
+    expect(redemptionAllowed(new Date('2026-10-18T12:00:00.000Z'), 'WEEKLY', now)).toBe(false);
+    expect(redemptionAllowed(new Date('2026-10-13T12:00:00.000Z'), 'WEEKLY', now)).toBe(true);
+    expect(redemptionAllowed(new Date('2026-10-05T12:00:00.000Z'), 'MONTHLY', now)).toBe(false);
+    expect(redemptionAllowed(new Date('2026-09-30T20:00:00.000Z'), 'MONTHLY', now)).toBe(true);
+    expect(nextRedemptionAt(new Date('2026-10-18T12:00:00.000Z'), 'WEEKLY', now)?.toISOString()).toBe('2026-10-25T12:00:00.000Z');
+    expect(nextRedemptionAt(new Date('2026-10-05T12:00:00.000Z'), 'MONTHLY', now)?.toISOString()).toBe('2026-10-31T21:00:00.000Z');
   });
 
   it('skips renewal commission when the plan does not allow it', () => {

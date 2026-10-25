@@ -1,0 +1,34 @@
+{
+  "name": "@alliva/marketing-console",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5",
+    "react": "^19",
+    "react-dom": "^19",
+    "use-intl": "^4"
+  },
+  "dependencies": {
+    "@alliva/api-client": "workspace:*",
+    "@alliva/ui": "workspace:*",
+    "lucide-react": "1.47.0",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "5.103.2",
+    "@types/qrcode": "1.5.6",
+    "@types/react": "19.2.3",
+    "react": "19.3.0",
+    "typescript": "5.9.3",
+    "use-intl": "4.14.6"
+  },
+  "scripts": {
+    "lint": "echo ok",
+    "typecheck": "tsc --noEmit"
+  }
+}

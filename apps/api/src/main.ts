@@ -5,6 +5,7 @@ import { Logger } from './common/logger';
 async function bootstrap() {
   const { server, container } = createApp();
   await container.prisma.$connect();
+  if (process.env.MARKETING_JOBS_ENABLED !== 'false') container.marketing.scheduler.start();
   const port = Number(process.env.API_PORT ?? 4000);
   server.listen(port, () => new Logger('AllivaApi').log(`Listening on http://localhost:${port}/api (docs at /api/docs)`));
 }

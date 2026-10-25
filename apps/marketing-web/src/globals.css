@@ -1,0 +1,13 @@
+@import "tailwindcss";
+@import "@alliva/design-tokens/theme.css";
+
+@source "./**/*.{ts,tsx}";
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+@source "../../../packages/marketing-console/src/**/*.{ts,tsx}";
+
+:root {
+  --font-inter: "Inter Variable";
+  --font-display: "Poppins";
+  --font-arabic: "Noto Sans Arabic Variable";
+  --font-kufi: "Noto Kufi Arabic";
+}

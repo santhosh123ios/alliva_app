@@ -2,7 +2,6 @@ import '../src/load-env';
 import { money, moneyString } from '../src/domain/money';
 import { priceOrder } from '../src/domain/pricing';
 import { buildCaptureLedger } from '../src/domain/ledger';
-import { calculateSubscriptionCommission } from '../src/domain/commissions';
 import { PrismaClient, Prisma } from '@prisma/client';
 import argon2 from 'argon2';
 
@@ -15,6 +14,7 @@ const permissions = [
   'subscription.manage', 'staff.manage', 'report.export', 'complaint.view', 'complaint.manage',
   'promo.manage', 'marketing.manage', 'settings.manage', 'audit.view', 'dispatch.manage',
   'catalog.manage', 'catalog.moderate', 'finance.view', 'customer.view', 'table.manage',
+  'marketing.portal',
 ];
 
 const merchantPerms = ['merchant.profile.manage', 'catalog.manage', 'order.view', 'order.update', 'staff.manage', 'table.manage', 'payment.view', 'report.export', 'refund.request', 'complaint.view'];
@@ -24,8 +24,8 @@ const roleMap: Record<string, string[]> = {
   ADMIN: permissions,
   OPERATIONS_MANAGER: ['order.view', 'order.update', 'dispatch.manage', 'complaint.view', 'complaint.manage', 'merchant.view', 'refund.request', 'catalog.moderate', 'customer.view'],
   OPERATIONS_STAFF: ['order.view', 'order.update', 'dispatch.manage', 'complaint.view'],
-  MARKETING_HEAD: ['marketing.manage', 'promo.manage', 'merchant.view', 'report.export'],
-  MARKETING_STAFF: ['promo.manage', 'merchant.view'],
+  MARKETING_HEAD: ['marketing.portal', 'merchant.view', 'report.export'],
+  MARKETING_STAFF: ['marketing.portal', 'merchant.view'],
   FINANCE_MANAGER: ['payment.view', 'settlement.process', 'refund.approve', 'finance.view', 'report.export', 'audit.view'],
   FINANCE_STAFF: ['payment.view', 'finance.view', 'refund.request'],
   CUSTOMER_SUPPORT: ['complaint.view', 'complaint.manage', 'order.view', 'customer.view', 'refund.request'],
@@ -288,20 +288,45 @@ async function main() {
       },
     });
     if (roleKey === 'MARKETING_HEAD' || roleKey === 'MARKETING_STAFF') {
+      const isHead = roleKey === 'MARKETING_HEAD';
       const head = await prisma.user.findUnique({ where: { email: 'marketing.head@alliva.bh' } });
-      await prisma.marketingProfile.upsert({
-        where: { userId: user.id },
-        update: {},
+      // Personal promo codes are ordinary subscription promos assigned to the person. They are separate from the
+      // referral code, which only decides who is credited for a store.
+      const promoCode = isHead ? 'MARIAM10' : 'OMAR20';
+      await prisma.promoCode.upsert({
+        where: { code: promoCode },
+        update: { purpose: 'SUBSCRIPTION', active: true, ...(isHead ? { assignedHeadUserId: user.id } : { assignedUserId: user.id, assignedHeadUserId: head?.id ?? null }) },
         create: {
-          userId: user.id,
-          parentUserId: roleKey === 'MARKETING_STAFF' ? head?.id : null,
-          referralCode: roleKey === 'MARKETING_HEAD' ? 'HEAD100' : 'OMAR20',
-          staffCommissionPercent: '8.000',
-          headOverridePercent: roleKey === 'MARKETING_STAFF' ? '2.000' : '0.000',
-          renewalCommissionEnabled: false,
-          maxCommission: '25.000',
+          code: promoCode,
+          campaignName: isHead ? 'Mariam team launch' : 'Omar launch offer',
+          description: isHead ? { en: 'Mariam subscription promo', ar: 'عرض اشتراك مريم' } : { en: 'Omar subscription promo', ar: 'عرض اشتراك عمر' },
+          scope: 'GLOBAL',
+          purpose: 'SUBSCRIPTION',
+          discountType: 'PERCENTAGE',
+          discountValue: '10.000',
+          startsAt: new Date(),
+          endsAt: new Date('2099-12-31T00:00:00.000Z'),
+          ...(isHead ? { assignedHeadUserId: user.id } : { assignedUserId: user.id, assignedHeadUserId: head?.id ?? null }),
         },
       });
+      const referralCode = isHead ? null : 'ALV-OMAR001';
+      const profile = await prisma.marketingProfile.upsert({
+        where: { userId: user.id },
+        update: { kind: isHead ? 'HEAD' : 'STAFF', parentUserId: isHead ? null : head?.id, referralCode, status: 'ACTIVE' },
+        create: {
+          userId: user.id,
+          kind: isHead ? 'HEAD' : 'STAFF',
+          parentUserId: isHead ? null : head?.id,
+          status: 'ACTIVE',
+          employeeId: isHead ? 'ALV-EMP-0001' : 'ALV-EMP-0002',
+          region: 'Capital Governorate',
+          referralCode,
+        },
+      });
+      await prisma.marketingWallet.upsert({ where: { userId: user.id }, update: {}, create: { userId: user.id } });
+      if (referralCode) {
+        await prisma.marketingReferralCode.upsert({ where: { code: referralCode }, update: { active: true }, create: { code: referralCode, profileId: profile.id, userId: user.id, active: true } });
+      }
     }
   }
 
@@ -546,40 +571,64 @@ async function main() {
   });
 
   const marketingStaff = await prisma.user.findUniqueOrThrow({ where: { email: 'marketing.staff@alliva.bh' } });
-  await prisma.merchantReferral.upsert({
-    where: { merchantId: id(501) },
-    update: {},
-    create: { merchantId: id(501), marketingUserId: marketingStaff.id, codeUsed: 'OMAR20' },
-  });
+  const staffProfile = await prisma.marketingProfile.findUniqueOrThrow({ where: { userId: marketingStaff.id }, include: { referralCodes: true } });
   const subscription = await prisma.merchantSubscription.findUniqueOrThrow({ where: { merchantId: id(501) } });
   const subPayment = await prisma.subscriptionPayment.upsert({
     where: { idempotencyKey: 'seed-sub-saffron' },
     update: {},
-    create: { subscriptionId: subscription.id, merchantId: id(501), amount: '49.000', status: 'CAPTURED', isRenewal: false, verifiedAt: new Date(), idempotencyKey: 'seed-sub-saffron' },
+    create: { subscriptionId: subscription.id, merchantId: id(501), amount: '49.000', grossAmount: '49.000', status: 'CAPTURED', isRenewal: false, verifiedAt: new Date(), idempotencyKey: 'seed-sub-saffron' },
   });
-  const profile = await prisma.marketingProfile.findUniqueOrThrow({ where: { userId: marketingStaff.id } });
-  const split = calculateSubscriptionCommission({
-    paymentAmount: '49.000',
-    staffPercent: '8.000',
-    headOverridePercent: '2.000',
-    maxCommission: '25.000',
-    isRenewal: false,
-    renewalEnabled: false,
-    paymentVerified: true,
+  await prisma.merchantReferral.upsert({
+    where: { merchantId: id(501) },
+    update: {},
+    create: {
+      merchantId: id(501),
+      marketingUserId: marketingStaff.id,
+      headUserId: staffProfile.parentUserId,
+      referralCodeId: staffProfile.referralCodes[0]?.id,
+      codeUsed: staffProfile.referralCode ?? 'ALV-OMAR001',
+      source: 'SIGNUP',
+      commissionPaymentId: subPayment.id,
+    },
   });
-  if (split) {
+  // Demo commission for the seeded first payment, at the default rates (10% staff, 1% head). Real commission is
+  // generated by the payment flow; this only gives the demo wallet something to show.
+  const seedCommission = async (entryId: string, beneficiaryUserId: string, tier: 'STAFF' | 'HEAD', ratePercent: string, amount: string) => {
     await prisma.commissionEntry.upsert({
-      where: { id: id(1700) },
+      where: { id: entryId },
       update: {},
-      create: { id: id(1700), subscriptionPaymentId: subPayment.id, merchantId: id(501), beneficiaryUserId: marketingStaff.id, tier: 'STAFF', amount: split.staffAmount, pendingUntil: new Date(Date.now() + 14 * 86400000) },
+      create: {
+        id: entryId,
+        subscriptionPaymentId: subPayment.id,
+        merchantId: id(501),
+        beneficiaryUserId,
+        staffUserId: marketingStaff.id,
+        headUserId: staffProfile.parentUserId,
+        tier,
+        eligibleAmount: '49.000',
+        ratePercent,
+        amount,
+        status: 'APPROVED',
+        pendingUntil: new Date(),
+        approvedAt: new Date(),
+      },
     });
-    if (profile.parentUserId) {
-      await prisma.commissionEntry.upsert({
-        where: { id: id(1701) },
-        update: {},
-        create: { id: id(1701), subscriptionPaymentId: subPayment.id, merchantId: id(501), beneficiaryUserId: profile.parentUserId, tier: 'HEAD', amount: split.headAmount, pendingUntil: new Date(Date.now() + 14 * 86400000) },
-      });
+    const reference = `seed:commission:${entryId}`;
+    if (!(await prisma.marketingWalletTransaction.findUnique({ where: { reference } }))) {
+      await prisma.marketingWalletTransaction.create({ data: { userId: beneficiaryUserId, type: 'COMMISSION_CREDIT', bucket: 'AVAILABLE', amount, reference, reason: 'Seed demo commission', commissionEntryId: entryId } });
+      await prisma.marketingWallet.update({ where: { userId: beneficiaryUserId }, data: { balance: { increment: amount }, totalEarned: { increment: amount } } });
     }
+  };
+  await seedCommission(id(1700), marketingStaff.id, 'STAFF', '10.000', '4.900');
+  if (staffProfile.parentUserId) await seedCommission(id(1701), staffProfile.parentUserId, 'HEAD', '1.000', '0.490');
+
+  if ((await prisma.marketingLead.count({ where: { marketingUserId: marketingStaff.id } })) === 0) {
+    await prisma.marketingLead.createMany({
+      data: [
+        { marketingUserId: marketingStaff.id, headUserId: staffProfile.parentUserId, businessName: 'Al Bahar Grill', contactName: 'Jassim Al Bahar', phone: '+97333110001', city: 'Manama', area: 'Juffair', category: 'Restaurant', status: 'INTERESTED' },
+        { marketingUserId: marketingStaff.id, headUserId: staffProfile.parentUserId, businessName: 'Sweet Corner Bakery', contactName: 'Hessa Salman', phone: '+97333110002', city: 'Muharraq', area: 'Busaiteen', category: 'Bakery', status: 'NEW' },
+      ],
+    });
   }
 
   const promoStart = new Date(Date.now() - 86400000);
@@ -641,6 +690,31 @@ async function main() {
   ];
   for (const [key, value] of settings) {
     await prisma.platformSetting.upsert({ where: { key }, update: { value }, create: { key, value } });
+  }
+  // Marketing defaults are only created when missing, so re-seeding never overwrites rates or policies an admin has set.
+  const marketingDefaults: [string, Prisma.InputJsonValue][] = [
+    ['marketing.staffCommissionPercent', 10],
+    ['marketing.headCommissionPercent', 1],
+    ['marketing.commissionBase', 'NET_PAID'],
+    ['marketing.commissionApproval', 'AUTO'],
+    ['marketing.referralPrefix', 'ALV'],
+    ['marketing.generateReferralCode', true],
+    ['marketing.referralValidation', true],
+    ['marketing.followUpAlerts', true],
+    ['marketing.reminderOffsets', [1440, 60, 0]],
+    ['marketing.overdueAlertHours', 2],
+    ['marketing.notifyHead', true],
+    ['marketing.redemptionCadence', 'WEEKLY'],
+    ['marketing.minRedeemAmount', '10.000'],
+    ['marketing.withdrawalApproval', 'REQUIRED'],
+    ['marketing.requireHead', true],
+    ['marketing.allowStaffTransfer', true],
+    ['marketing.headsCanReassignLeads', false],
+    ['marketing.headsSeeReports', true],
+    ['marketing.redemptionTerms', { en: 'Commission is credited on the first subscription payment only. Withdrawals are paid after review.', ar: 'تُضاف العمولة على أول دفعة اشتراك فقط. تُدفع السحوبات بعد المراجعة.' }],
+  ];
+  for (const [key, value] of marketingDefaults) {
+    await prisma.platformSetting.upsert({ where: { key }, update: {}, create: { key, value } });
   }
   await prisma.serviceArea.upsert({
     where: { id: id(1900) },

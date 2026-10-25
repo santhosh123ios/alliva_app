@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node scripts/with-env.mjs node dist/main.js",
     "lint": "echo ok",
-    "test": "node scripts/with-env.mjs jest --runInBand && node scripts/with-env.mjs node --import tsx --test test/orders.integration.spec.ts",
+    "test": "node scripts/with-env.mjs jest --runInBand && node scripts/with-env.mjs node --import tsx --test --test-force-exit test/orders.integration.spec.ts test/marketing.integration.spec.ts",
     "db:generate": "prisma generate",
     "db:migrate": "node scripts/with-env.mjs prisma migrate deploy",
     "db:seed": "node scripts/with-env.mjs tsx prisma/seed.ts"
@@ -24,6 +24,7 @@
     "cookie-parser": "1.4.7",
     "cors": "2.8.6",
     "decimal.js": "10.6.0",
+    "exceljs": "4.4.0",
     "express": "5.1.0",
     "express-rate-limit": "8.7.1",
     "helmet": "8.3.0",

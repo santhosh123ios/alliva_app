@@ -11,6 +11,7 @@
   "dependencies": {
     "@alliva/api-client": "workspace:*",
     "@alliva/design-tokens": "workspace:*",
+    "@alliva/marketing-console": "workspace:*",
     "@alliva/types": "workspace:*",
     "@alliva/ui": "workspace:*",
     "@alliva/validation": "workspace:*",

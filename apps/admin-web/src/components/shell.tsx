@@ -1,9 +1,10 @@
 import { api } from '@/components/providers';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
+import { NAV, useT as useConsoleT, type MessageKey } from '@alliva/marketing-console';
 import { ShellSkeleton } from '@alliva/ui';
 import type { AuthUser } from '@alliva/types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BarChart3, Bell, ChevronRight, FileText, LayoutGrid, Megaphone, MessageSquare, RefreshCcw, Search, Settings, ShoppingCart, Store, Ticket, Users, Wallet } from 'lucide-react';
+import { BarChart3, Bell, ChevronRight, FileText, LayoutGrid, MessageSquare, RefreshCcw, Search, Settings, ShoppingCart, Store, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -23,9 +24,16 @@ const groups = [
       { href: '/staff', label: 'rolesStaff', icon: Users, permission: 'staff.manage' },
       { href: '/complaints', label: 'complaintsFeedback', icon: MessageSquare, permission: 'complaint.view' },
       { href: '/finance', label: 'accounts', icon: Wallet, permission: 'payment.view' },
-      { href: '/promos', label: 'promoCodes', icon: Ticket, permission: 'promo.manage' },
-      { href: '/marketing', label: 'marketingTeam', icon: Megaphone, permission: 'marketing.manage' },
     ],
+  },
+  {
+    label: 'marketing',
+    items: NAV.ADMIN.map((item) => ({
+      href: `/marketing/${item.id}`,
+      label: `mk:${item.label}`,
+      icon: item.icon as LucideIcon,
+      permission: item.id === 'promos' ? 'promo.manage' : 'marketing.manage',
+    })),
   },
   {
     label: 'insights',
@@ -40,6 +48,7 @@ const settingsItem = { href: '/settings', label: 'settings', icon: Settings, per
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const t = useTranslations();
+  const ct = useConsoleT();
   const locale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
@@ -89,10 +98,12 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   if (isPublic) return <>{children}</>;
   if (me.isError) return null;
   if (!me.data) return <ShellSkeleton />;
-  const current = [...groups.flatMap((group) => [...group.items]), settingsItem].find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
-  const currentLabel = current ? labelFor(t, current.label) : t('nav.dashboard');
+  const current = [...groups.flatMap((group) => [...group.items]), settingsItem]
+    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .sort((left, right) => right.href.length - left.href.length)[0];
+  const currentLabel = current ? labelFor(t, ct, current.label) : t('nav.dashboard');
   const matches = query.trim()
-    ? [...nav.flatMap((group) => group.items), ...(allowed(me.data, settingsItem.permission) ? [settingsItem] : [])].filter((item) => labelFor(t, item.label).toLowerCase().includes(query.trim().toLowerCase()))
+    ? [...nav.flatMap((group) => group.items), ...(allowed(me.data, settingsItem.permission) ? [settingsItem] : [])].filter((item) => labelFor(t, ct, item.label).toLowerCase().includes(query.trim().toLowerCase()))
     : [];
   const attention = (alerts.data?.pendingApprovals ?? 0) + (alerts.data?.refundSummary.pending ?? 0) + (alerts.data?.complaintsRequiringAction ?? 0);
   const initials = `${me.data.firstName[0] ?? ''}${me.data.lastName[0] ?? ''}`.toUpperCase();
@@ -123,7 +134,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
               <p className="px-3 pb-2 text-[11px] font-semibold tracking-[0.16em] text-white/40">{t(`workspace.${group.label}`).toUpperCase()}</p>
               <div className="space-y-1">
                 {group.items.map((item) => (
-                  <NavLink key={item.href} href={item.href} active={pathname === item.href} icon={item.icon} label={labelFor(t, item.label)} />
+                  <NavLink key={item.href} href={item.href} active={pathname === item.href} icon={item.icon} label={labelFor(t, ct, item.label)} />
                 ))}
               </div>
             </div>
@@ -178,7 +189,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
                 <div className="absolute end-0 z-30 mt-2 w-64 rounded-2xl border bg-white p-2 shadow-lg">
                   {matches.map((item) => (
                     <Link key={item.href} href={item.href} onClick={() => setQuery('')} className="block rounded-xl px-3 py-2 text-sm font-semibold hover:bg-muted">
-                      {labelFor(t, item.label)}
+                      {labelFor(t, ct, item.label)}
                     </Link>
                   ))}
                 </div>
@@ -266,7 +277,8 @@ function allowed(user: AuthUser, permission: string) {
   return user.roles.includes('SUPER_ADMIN') || user.permissions.includes(permission);
 }
 
-function labelFor(t: ReturnType<typeof useTranslations>, key: string) {
+function labelFor(t: ReturnType<typeof useTranslations>, ct: ReturnType<typeof useConsoleT>, key: string) {
+  if (key.startsWith('mk:')) return ct(key.slice(3) as MessageKey);
   if (key === 'dashboard') return t('nav.dashboard');
   if (key === 'merchants') return t('nav.merchants');
   if (key === 'subscriptions') return t('nav.subscriptions');

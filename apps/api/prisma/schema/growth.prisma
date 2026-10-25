@@ -17,17 +17,29 @@ model PromoCode {
   budgetSpent      Decimal           @default(0) @db.Decimal(19, 3)
   categoryIds      Json?
   merchantIds      Json?
+  purpose          PromoPurpose      @default(ORDER)
+  campaignName     String?
+  campaignSource   String?
+  planIds          Json?
+  assignedUserId   String?           @db.Uuid
+  assignedHeadUserId String?         @db.Uuid
   active           Boolean           @default(true)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   createdById      String?           @db.Uuid
   deletedAt        DateTime?
   merchant         Merchant?         @relation(fields: [merchantId], references: [id])
+  marketingProfile MarketingProfile?
+  assignedUser     User?             @relation("PromoAssignedStaff", fields: [assignedUserId], references: [id])
+  assignedHead     User?             @relation("PromoAssignedHead", fields: [assignedHeadUserId], references: [id])
+  subscriptionUsage SubscriptionPromoRedemption[]
   redemptions      PromoRedemption[]
   carts            Cart[]
   orders           Order[]
 
   @@index([merchantId])
+  @@index([assignedUserId])
+  @@index([purpose, active])
 }
 
 model PromoRedemption {
@@ -41,49 +53,6 @@ model PromoRedemption {
 
   @@index([promoCodeId])
   @@index([customerId])
-}
-
-model MarketingProfile {
-  id                        String   @id @default(uuid()) @db.Uuid
-  userId                    String   @unique @db.Uuid
-  parentUserId              String?  @db.Uuid
-  referralCode              String   @unique
-  staffCommissionPercent    Decimal  @db.Decimal(19, 3)
-  headOverridePercent       Decimal  @db.Decimal(19, 3)
-  renewalCommissionEnabled  Boolean  @default(false)
-  maxCommission             Decimal? @db.Decimal(19, 3)
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
-  user                      User     @relation("MarketingUser", fields: [userId], references: [id])
-  parent                    User?    @relation("MarketingHead", fields: [parentUserId], references: [id])
-}
-
-model MerchantReferral {
-  id              String   @id @default(uuid()) @db.Uuid
-  merchantId      String   @unique @db.Uuid
-  marketingUserId String   @db.Uuid
-  codeUsed        String
-  createdAt       DateTime @default(now())
-  merchant        Merchant @relation(fields: [merchantId], references: [id])
-  marketingUser   User     @relation(fields: [marketingUserId], references: [id])
-}
-
-model CommissionEntry {
-  id                    String           @id @default(uuid()) @db.Uuid
-  subscriptionPaymentId String           @db.Uuid
-  merchantId            String           @db.Uuid
-  beneficiaryUserId     String           @db.Uuid
-  tier                  String
-  amount                Decimal          @db.Decimal(19, 3)
-  currency              String           @default("BHD")
-  status                CommissionStatus @default(PENDING)
-  pendingUntil          DateTime
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
-  subscriptionPayment   SubscriptionPayment @relation(fields: [subscriptionPaymentId], references: [id])
-
-  @@index([beneficiaryUserId, status])
-  @@index([merchantId])
 }
 
 model Complaint {
@@ -155,6 +124,10 @@ model Notification {
   channel   NotificationChannel
   title     String
   body      String
+  dedupeKey String?             @unique
+  link      String?
+  entityType String?
+  entityId  String?
   readAt    DateTime?
   createdAt DateTime            @default(now())
   user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)

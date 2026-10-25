@@ -14,7 +14,6 @@ import {
   floorSchema,
   hoursSchema,
   incidentSchema,
-  marketingProfileSchema,
   merchantUpsertSchema,
   merchantRegistrationSchema,
   planSchema,
@@ -27,6 +26,7 @@ import {
   reportQuerySchema,
   rolePermissionsSchema,
   settingsSchema,
+  subscriptionQuoteSchema,
   settlementDecisionSchema,
   shiftNoteSchema,
   staffSchema,
@@ -53,7 +53,7 @@ function singleFile(request: Request, response: Response, next: NextFunction) {
   });
 }
 
-export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce }: Container) {
+export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, marketing }: Container) {
   const routes = createRoutes({ jwt, prisma }, 'Platform');
   const param = (request: Request, name: string) => request.params[name] as string;
 
@@ -88,6 +88,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce }:
       planId: string;
       billingInterval: 'MONTHLY' | 'ANNUAL';
       promoCode?: string;
+      referralCode?: string;
       delivery: boolean;
       takeaway: boolean;
     }>(merchantRegistrationSchema, request.body);
@@ -96,61 +97,66 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce }:
     if (existing) throw badRequest('An account with this email already exists');
     const plan = await prisma.subscriptionPlan.findUnique({ where: { id: body.planId } });
     if (!plan || plan.status !== 'ACTIVE') throw badRequest('Choose an available plan');
-    let promoCode: string | null = null;
-    if (body.promoCode?.trim()) {
-      const promo = await prisma.promoCode.findFirst({
-        where: { code: { equals: body.promoCode.trim(), mode: 'insensitive' }, deletedAt: null, active: true },
-      });
-      const now = new Date();
-      if (!promo || promo.startsAt > now || promo.endsAt < now) throw badRequest('Promo code is not valid');
-      promoCode = promo.code;
-    }
+    // The referral code (who gets credit) and the promo code (who gets a discount) are separate inputs and are
+    // validated independently. Neither is accepted unless the backend confirms it.
+    const referral = body.referralCode?.trim() ? await marketing.referrals.resolve(body.referralCode) : null;
+    const promo = body.promoCode?.trim() ? await marketing.promos.quote({ code: body.promoCode, planId: body.planId, interval: body.billingInterval }) : null;
+    if (promo && !promo.valid) throw badRequest(promo.reason);
     const role = await prisma.role.findUnique({ where: { key: 'MERCHANT_OWNER' } });
     if (!role) throw badRequest('Merchant owner role is not configured');
     const slugBase = slugify(body.businessName) || 'merchant';
     let slug = slugBase;
     const taken = await prisma.merchant.findUnique({ where: { slug } });
     if (taken) slug = `${slugBase}-${Date.now().toString(36)}`;
-    const owner = await prisma.user.create({
-      data: {
-        email,
-        passwordHash: await argon2.hash(body.password),
-        firstName: body.firstName,
-        lastName: body.lastName,
-        phone: body.phone,
-        kind: 'MERCHANT_USER',
-        status: 'ACTIVE',
-      },
-    });
-    const merchant = await prisma.merchant.create({
-      data: {
-        slug,
-        name: { en: body.businessName, ar: body.businessNameAr?.trim() || body.businessName },
-        description: { en: body.businessName, ar: body.businessNameAr?.trim() || body.businessName },
-        businessType: body.businessType,
-        phone: body.phone,
-        email,
-        websiteUrl: body.website.trim(),
-        registrationPromo: promoCode,
-        status: 'PENDING_APPROVAL',
-        createdById: owner.id,
-        categories: body.categoryId ? { create: { categoryId: body.categoryId } } : undefined,
-        branches: {
-          create: {
-            name: { en: body.city, ar: body.city },
-            line1: body.city,
-            city: body.city,
-            latitude: '26.228500',
-            longitude: '50.586000',
+    const passwordHash = await argon2.hash(body.password);
+    const created = await prisma
+      .$transaction(async (tx) => {
+        const owner = await tx.user.create({
+          data: { email, passwordHash, firstName: body.firstName, lastName: body.lastName, phone: body.phone, kind: 'MERCHANT_USER', status: 'ACTIVE' },
+        });
+        const merchant = await tx.merchant.create({
+          data: {
+            slug,
+            name: { en: body.businessName, ar: body.businessNameAr?.trim() || body.businessName },
+            description: { en: body.businessName, ar: body.businessNameAr?.trim() || body.businessName },
+            businessType: body.businessType,
+            phone: body.phone,
+            email,
+            websiteUrl: body.website.trim(),
+            registrationPromo: promo?.valid ? promo.code : null,
+            status: 'PENDING_APPROVAL',
+            createdById: owner.id,
+            categories: body.categoryId ? { create: { categoryId: body.categoryId } } : undefined,
+            branches: { create: { name: { en: body.city, ar: body.city }, line1: body.city, city: body.city, latitude: '26.228500', longitude: '50.586000' } },
           },
-        },
-      },
-    });
-    await prisma.user.update({ where: { id: owner.id }, data: { merchantId: merchant.id } });
-    await prisma.userRole.create({ data: { userId: owner.id, roleId: role.id, merchantId: merchant.id } });
-    await platform.assignSubscription(merchant.id, body.planId, body.billingInterval, owner.id, false);
-    await audit.log({ actorId: owner.id, action: 'merchant.register', entityType: 'Merchant', entityId: merchant.id, metadata: { promoCode } });
-    return { id: merchant.id, slug };
+        });
+        await tx.user.update({ where: { id: owner.id }, data: { merchantId: merchant.id } });
+        await tx.userRole.create({ data: { userId: owner.id, roleId: role.id, merchantId: merchant.id } });
+        if (referral) await marketing.referrals.attribute(tx, { merchantId: merchant.id, resolved: referral, source: 'SIGNUP', actorId: owner.id, contact: { phone: body.phone, email }, merchantName: body.businessName });
+        if (promo?.valid) await marketing.promos.reserve(tx, { merchantId: merchant.id, promoCodeId: promo.promoCodeId });
+        return { owner, merchant };
+      })
+      .catch((error: unknown) => {
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') throw badRequest('An account with this email already exists');
+        throw error;
+      });
+    await platform.assignSubscription(created.merchant.id, body.planId, body.billingInterval, created.owner.id, false);
+    await audit.log({ actorId: created.owner.id, action: 'merchant.register', entityType: 'Merchant', entityId: created.merchant.id, metadata: { referralCode: referral?.code ?? null, promoCode: promo?.valid ? promo.code : null } });
+    return { id: created.merchant.id, slug };
+  });
+
+  routes.post('/public/subscription-quote', { public: true, throttle: 30 }, async (request) => {
+    const body = validate<{ planId: string; billingInterval: 'MONTHLY' | 'ANNUAL'; promoCode?: string; referralCode?: string }>(subscriptionQuoteSchema, request.body);
+    const { gross } = await marketing.promos.planPrice(body.planId, body.billingInterval);
+    const promo = body.promoCode?.trim() ? await marketing.promos.quote({ code: body.promoCode, planId: body.planId, interval: body.billingInterval }) : null;
+    const referral = body.referralCode?.trim() ? await marketing.referrals.validate(body.referralCode) : null;
+    return {
+      gross,
+      discount: promo?.valid ? promo.discount : '0.000',
+      payable: promo?.valid ? promo.payable : gross,
+      promo: promo ? (promo.valid ? { valid: true, code: promo.code } : { valid: false, reason: promo.reason }) : null,
+      referral: referral ? (referral.valid ? { valid: true, code: referral.code, staffName: referral.staffName } : { valid: false, reason: referral.reason }) : null,
+    };
   });
 
   routes.get('/admin/merchants', { permissions: ['merchant.view'] }, async (request) => {
@@ -694,20 +700,23 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce }:
     return refund;
   });
 
-  routes.get('/promos', { permissions: ['promo.manage'] }, () =>
-    prisma.promoCode.findMany({ where: { deletedAt: null }, include: { redemptions: true } }),
-  );
+  // Merchant promo codes (customer discounts). Platform subscription promo codes live under /marketing/promos.
+  routes.get('/promos', { permissions: ['promo.manage'] }, (request) => {
+    if (!request.user?.merchantId) throw badRequest('Subscription promo codes are managed under Marketing');
+    return prisma.promoCode.findMany({ where: { deletedAt: null, merchantId: request.user.merchantId, purpose: 'ORDER' }, include: { redemptions: true } });
+  });
 
   routes.post('/promos', { permissions: ['promo.manage'] }, async (request) => {
     const user = request.user!;
+    if (!user.merchantId) throw badRequest('Subscription promo codes are managed under Marketing');
+    await platform.assertOptionalFeature(user.merchantId, 'merchantPromoCodes', 'Merchant promo codes');
     const body = validate<Record<string, unknown>>(promoSchema, request.body);
-    if (user.merchantId) await platform.assertOptionalFeature(user.merchantId, 'merchantPromoCodes', 'Merchant promo codes');
     return prisma.promoCode.create({
       data: {
         code: String(body.code).toUpperCase(),
         description: body.description as object,
         scope: body.scope as 'GLOBAL' | 'MERCHANT',
-        merchantId: (body.merchantId as string | null) ?? null,
+        merchantId: (body.merchantId as string | null) ?? user.merchantId,
         discountType: body.discountType as 'FIXED' | 'PERCENTAGE',
         discountValue: String(body.discountValue),
         maxDiscount: body.maxDiscount ? String(body.maxDiscount) : null,
@@ -722,22 +731,6 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce }:
         merchantIds: body.merchantIds as object | undefined,
         createdById: user.id,
       },
-    });
-  });
-
-  routes.get('/marketing', { permissions: ['marketing.manage'] }, async () => {
-    const profiles = await prisma.marketingProfile.findMany({ include: { user: true, parent: true } });
-    const referrals = await prisma.merchantReferral.findMany({ include: { merchant: true, marketingUser: true } });
-    const commissions = await prisma.commissionEntry.findMany({ orderBy: { createdAt: 'desc' } });
-    return { profiles, referrals, commissions };
-  });
-
-  routes.post('/marketing/profiles', { permissions: ['marketing.manage'] }, (request) => {
-    const body = validate<{ userId: string; parentUserId?: string | null; staffCommissionPercent: string; headOverridePercent: string; renewalCommissionEnabled: boolean; maxCommission?: string | null }>(marketingProfileSchema, request.body);
-    return prisma.marketingProfile.upsert({
-      where: { userId: body.userId },
-      update: body,
-      create: { ...body, referralCode: `ALV${body.userId.slice(0, 6).toUpperCase()}` },
     });
   });
 

@@ -1,4 +1,5 @@
-import { calculateSubscriptionCommission } from '../domain/commissions';
+import type { MarketingFinanceService } from './marketing/finance.service';
+import type { MarketingPromoService } from './marketing/promo.service';
 import { assertFeatureAllowed, assertFeatureEnabled, assertWithinLimit, EntitlementError, readEntitlement } from '../domain/entitlements';
 import { assignmentBlockReason, validatePlanEntitlements, type EntitlementRow } from '../domain/subscriptions';
 import { money, moneyString } from '../domain/money';
@@ -26,6 +27,7 @@ export class PlatformService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly crypto: CryptoService,
+    private readonly marketing?: { promo: MarketingPromoService; finance: MarketingFinanceService },
   ) {}
 
   private readonly readCache = new Map<string, { at: number; value: Promise<unknown> }>();
@@ -64,7 +66,7 @@ export class PlatformService {
         this.prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 8, include: { actor: true } }),
         this.prisma.merchant.groupBy({ by: ['status'], where: { deletedAt: null }, _count: true }),
         this.prisma.settlement.aggregate({ where: { status: { in: ['DRAFT', 'PENDING_APPROVAL'] } }, _sum: { amount: true } }),
-        this.prisma.commissionEntry.aggregate({ where: { createdAt: { gte: monthStart } }, _sum: { amount: true } }),
+        this.prisma.commissionEntry.aggregate({ where: { createdAt: { gte: monthStart } }, _sum: { amount: true, reversedAmount: true } }),
         this.prisma.subscriptionPayment.findMany({ where: { status: 'CAPTURED', createdAt: { gte: previousStart } }, select: { amount: true, createdAt: true } }),
         this.prisma.order.findMany({
           where: { status: { in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'ASSIGNED_TO_DRIVER', 'OUT_FOR_DELIVERY'] } },
@@ -137,7 +139,7 @@ export class PlatformService {
         paused: countOf('DRAFT') + countOf('PENDING_APPROVAL'),
       },
       pendingSettlements: moneyString(money(dec(settlements._sum.amount))),
-      marketingCommissions: moneyString(money(dec(commissions._sum.amount))),
+      marketingCommissions: moneyString(money(dec(commissions._sum.amount)).minus(dec(commissions._sum.reversedAmount))),
       subscriptionsExpiringSoon: expiring,
       pendingApprovals,
       complaintsRequiringAction: complaints,
@@ -418,6 +420,37 @@ export class PlatformService {
     }));
   }
 
+  /** Payments for a merchant's subscription, used by the admin to verify, review and refund. */
+  async subscriptionPayments(merchantId: string) {
+    const [rows, subscription] = await Promise.all([
+      this.prisma.subscriptionPayment.findMany({
+        where: { merchantId },
+        include: { commissions: true, refunds: { orderBy: { createdAt: 'desc' } }, subscription: { include: { plan: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.merchantSubscription.findUnique({ where: { merchantId }, include: { plan: true } }),
+    ]);
+    const key = subscription ? `sub:${subscription.id}:${subscription.currentPeriodStart.getTime()}` : null;
+    const current = key ? rows.find((row) => row.idempotencyKey === key) : undefined;
+    return {
+      currentPeriodVerified: Boolean(current),
+      payments: rows.map((row) => ({
+        id: row.id,
+        plan: loc(row.subscription.plan.name),
+        gross: dec(row.grossAmount ?? row.amount),
+        discount: dec(row.discountAmount),
+        amount: dec(row.amount),
+        refunded: dec(row.refundedAmount),
+        status: row.status,
+        isRenewal: row.isRenewal,
+        verifiedAt: row.verifiedAt?.toISOString() ?? null,
+        createdAt: row.createdAt.toISOString(),
+        commission: moneyString(row.commissions.reduce((total, entry) => total.plus(entry.amount.toString()).minus(entry.reversedAmount.toString()), money(0))),
+        refunds: row.refunds.map((refund) => ({ id: refund.id, amount: dec(refund.amount), reason: refund.reason, createdAt: refund.createdAt.toISOString() })),
+      })),
+    };
+  }
+
   presentPlan(plan: { id: string; code: string; name: unknown; description: unknown; priceMonthly: { toFixed: (n: number) => string }; priceAnnual: { toFixed: (n: number) => string }; status: string; displayOrder?: number; recommended?: boolean; entitlements: { key: string; value: unknown }[] }) {
     return {
       id: plan.id,
@@ -464,7 +497,7 @@ export class PlatformService {
         });
     if (markPaid) {
       const amount = billingInterval === 'ANNUAL' ? dec(plan.priceAnnual) : dec(plan.priceMonthly);
-      await this.recordSubscriptionPayment({ subscriptionId: subscription.id, merchantId, amount, isRenewal: Boolean(existing), actorId });
+      await this.recordSubscriptionPayment({ subscriptionId: subscription.id, merchantId, amount, actorId });
     }
     await this.prisma.subscriptionChange.create({
       data: { merchantId, subscriptionId: subscription.id, fromPlanId: existing?.planId ?? null, toPlanId: plan.id, billingInterval, effectiveAt: start, appliedAt: start, actorId },
@@ -501,7 +534,7 @@ export class PlatformService {
     await this.prisma.subscriptionChange.updateMany({ where: { subscriptionId: subscription.id, toPlanId: plan.id, appliedAt: null }, data: { appliedAt: new Date() } });
     if (subscription.pendingMarkPaid) {
       const amount = interval === 'ANNUAL' ? dec(plan.priceAnnual) : dec(plan.priceMonthly);
-      await this.recordSubscriptionPayment({ subscriptionId: subscription.id, merchantId, amount, isRenewal: true });
+      await this.recordSubscriptionPayment({ subscriptionId: subscription.id, merchantId, amount });
     }
   }
 
@@ -515,91 +548,83 @@ export class PlatformService {
     return code;
   }
 
-  async recordSubscriptionPayment(input: { subscriptionId: string; merchantId: string; amount: string; isRenewal: boolean; actorId?: string }) {
-    const payment = await this.prisma.subscriptionPayment.create({
-      data: {
-        subscriptionId: input.subscriptionId,
-        merchantId: input.merchantId,
-        amount: input.amount,
-        status: 'CAPTURED',
-        isRenewal: input.isRenewal,
-        verifiedAt: new Date(),
-        idempotencyKey: `sub:${input.subscriptionId}:${Date.now()}`,
-      },
-    });
-    await this.prisma.invoice.create({
-      data: {
-        merchantId: input.merchantId,
-        kind: 'SUBSCRIPTION',
-        number: `SUB-${payment.id.slice(0, 8).toUpperCase()}`,
-        amount: input.amount,
-        status: 'PAID',
-      },
-    });
-    await this.generateCommission(payment.id);
-    return payment;
+  /**
+   * Records a verified subscription payment. Everything happens in one transaction: the reserved promo is consumed,
+   * the payment and invoice are written and commission is generated, so a failure leaves no half-applied state.
+   *
+   * Whether this is the merchant's first payment is derived from payment history (not from the caller), and the
+   * idempotency key is deterministic per billing period, so a retried request returns the original payment
+   * instead of creating a second one.
+   */
+  async recordSubscriptionPayment(input: { subscriptionId: string; merchantId: string; amount: string; actorId?: string }) {
+    const subscription = await this.prisma.merchantSubscription.findUnique({ where: { id: input.subscriptionId } });
+    if (!subscription) throw notFound('Subscription not found');
+    const key = `sub:${subscription.id}:${subscription.currentPeriodStart.getTime()}`;
+    try {
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const prior = await tx.subscriptionPayment.count({ where: { merchantId: input.merchantId, verifiedAt: { not: null } } });
+          const isRenewal = prior > 0;
+          const applied =
+            !isRenewal && this.marketing
+              ? await this.marketing.promo.applyReserved(tx, { merchantId: input.merchantId, gross: input.amount, planId: subscription.planId, interval: subscription.billingInterval })
+              : { discount: '0.000', payable: input.amount, promoCodeId: null, redemptionId: null };
+          const payment = await tx.subscriptionPayment.create({
+            data: {
+              subscriptionId: input.subscriptionId,
+              merchantId: input.merchantId,
+              amount: applied.payable,
+              grossAmount: input.amount,
+              discountAmount: applied.discount,
+              promoCodeId: applied.promoCodeId,
+              status: 'CAPTURED',
+              isRenewal,
+              verifiedAt: new Date(),
+              idempotencyKey: key,
+            },
+          });
+          await tx.invoice.create({
+            data: {
+              merchantId: input.merchantId,
+              kind: 'SUBSCRIPTION',
+              number: `SUB-${payment.id.slice(0, 8).toUpperCase()}`,
+              amount: applied.payable,
+              status: 'PAID',
+            },
+          });
+          if (this.marketing) {
+            await this.marketing.promo.linkPayment(tx, applied.redemptionId, payment.id);
+            await this.marketing.finance.onVerifiedPayment(tx, { id: payment.id, merchantId: payment.merchantId, amount: dec(payment.amount), status: payment.status, verifiedAt: payment.verifiedAt, isRenewal }, input.actorId);
+          }
+          return payment;
+        },
+        { maxWait: 10_000, timeout: 30_000 },
+      );
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+        const existing = await this.prisma.subscriptionPayment.findUnique({ where: { idempotencyKey: key } });
+        if (existing) return existing;
+      }
+      throw error;
+    }
   }
 
-  async generateCommission(subscriptionPaymentId: string) {
-    const payment = await this.prisma.subscriptionPayment.findUnique({ where: { id: subscriptionPaymentId } });
-    if (!payment?.verifiedAt || payment.status !== 'CAPTURED') {
-      throw new Error('Commission is only generated from verified subscription payments');
+  /**
+   * Admin confirms that the merchant has paid for the current billing period. This is the verification step that
+   * makes commission eligible; pending or unconfirmed subscriptions never produce commission.
+   */
+  async verifySubscriptionPayment(merchantId: string, actorId: string) {
+    const subscription = await this.prisma.merchantSubscription.findUnique({ where: { merchantId }, include: { plan: true } });
+    if (!subscription) throw badRequest('This merchant has no subscription');
+    if (subscription.status === 'CANCELLED') throw badRequest('This subscription is cancelled');
+    const key = `sub:${subscription.id}:${subscription.currentPeriodStart.getTime()}`;
+    if (await this.prisma.subscriptionPayment.findUnique({ where: { idempotencyKey: key } })) {
+      throw badRequest('The payment for the current billing period is already recorded');
     }
-    const referral = await this.prisma.merchantReferral.findUnique({ where: { merchantId: payment.merchantId }, include: { marketingUser: { include: { marketingProfile: true } } } });
-    const profile = referral?.marketingUser.marketingProfile;
-    if (!profile) return [];
-    const split = calculateSubscriptionCommission({
-      paymentAmount: dec(payment.amount),
-      staffPercent: dec(profile.staffCommissionPercent),
-      headOverridePercent: dec(profile.headOverridePercent),
-      maxCommission: profile.maxCommission ? dec(profile.maxCommission) : null,
-      isRenewal: payment.isRenewal,
-      renewalEnabled: profile.renewalCommissionEnabled,
-      paymentVerified: true,
-    });
-    if (!split) return [];
-    const pendingDays = 14;
-    const pendingUntil = new Date(Date.now() + pendingDays * 86400000);
-    const entries = [];
-    if (money(split.staffAmount).gt(0)) {
-      entries.push(await this.prisma.commissionEntry.create({
-        data: {
-          subscriptionPaymentId: payment.id,
-          merchantId: payment.merchantId,
-          beneficiaryUserId: profile.userId,
-          tier: 'STAFF',
-          amount: split.staffAmount,
-          pendingUntil,
-        },
-      }));
-    }
-    if (profile.parentUserId && money(split.headAmount).gt(0)) {
-      entries.push(await this.prisma.commissionEntry.create({
-        data: {
-          subscriptionPaymentId: payment.id,
-          merchantId: payment.merchantId,
-          beneficiaryUserId: profile.parentUserId,
-          tier: 'HEAD',
-          amount: split.headAmount,
-          pendingUntil,
-        },
-      }));
-    }
-    for (const entry of entries) {
-      await this.prisma.ledgerEntry.create({
-        data: {
-          type: 'MARKETING_COMMISSION',
-          amount: dec(entry.amount),
-          debitAccount: 'platform_revenue',
-          creditAccount: 'marketing_payable',
-          referenceType: 'SUBSCRIPTION_PAYMENT',
-          referenceId: payment.id,
-          merchantId: payment.merchantId,
-          idempotencyKey: `${payment.id}:MARKETING:${entry.id}`,
-        },
-      });
-    }
-    return entries;
+    const amount = subscription.billingInterval === 'ANNUAL' ? dec(subscription.plan.priceAnnual) : dec(subscription.plan.priceMonthly);
+    const payment = await this.recordSubscriptionPayment({ subscriptionId: subscription.id, merchantId, amount, actorId });
+    await this.audit.log({ actorId, action: 'subscription.payment.verify', entityType: 'SubscriptionPayment', entityId: payment.id, metadata: { merchantId, amount: dec(payment.amount) } });
+    return { id: payment.id, amount: dec(payment.amount), gross: dec(payment.grossAmount ?? payment.amount), discount: dec(payment.discountAmount), isRenewal: payment.isRenewal };
   }
 
   async report(from?: Date, to?: Date, merchantId?: string) {
@@ -633,7 +658,7 @@ export class PlatformService {
       repeatOrderRate: orders.length ? (repeats.length / orders.length).toFixed(3) : '0.000',
       averageOrderValue: orders.length ? moneyString(revenue.div(orders.length)) : '0.000',
       promoRedemptions: promos,
-      commissionTotal: moneyString(commissions.reduce((sum, row) => sum.plus(dec(row.amount)), money(0))),
+      commissionTotal: moneyString(commissions.reduce((sum, row) => sum.plus(dec(row.amount)).minus(dec(row.reversedAmount)), money(0))),
       averageDeliveryMinutes: 32,
       cancellations: orders.filter((order) => order.status === 'CANCELLED').length,
       refunds: moneyString(refunds.reduce((sum, row) => sum.plus(dec(row.amount)), money(0))),

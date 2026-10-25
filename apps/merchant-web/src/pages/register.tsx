@@ -3,9 +3,9 @@ import { Link, useRouter } from '@/i18n/navigation';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import type { SubscriptionPlanView } from '@alliva/types';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ArrowRight, Building2, Check, Hash, Info, Lock, Mail, Package, Phone, ShoppingCart, Star, Store, Ticket, Users } from 'lucide-react';
+import { ArrowRight, Building2, Check, Hash, Info, Link2, Lock, Mail, Package, Phone, ShoppingCart, Star, Store, Ticket, Users } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 export default function RegisterPage() {
@@ -26,8 +26,28 @@ export default function RegisterPage() {
     otherType: '',
     phone: '',
     crNumber: '',
-    promoCode: '',
+    promoCode: params.get('promo') ?? '',
+    referralCode: params.get('ref') ?? '',
   });
+  const referralCode = useDebounced(form.referralCode.trim(), 400);
+  const promoCode = useDebounced(form.promoCode.trim(), 400);
+  const referralCheck = useQuery({
+    queryKey: ['referral-check', referralCode],
+    queryFn: () => api.validateReferral(referralCode),
+    enabled: Boolean(referralCode),
+    retry: false,
+    staleTime: 60_000,
+  });
+  const quote = useQuery({
+    queryKey: ['subscription-quote', planId, interval, promoCode],
+    queryFn: () => api.quoteSubscription({ planId, billingInterval: interval, promoCode: promoCode || undefined }),
+    enabled: Boolean(planId),
+    retry: false,
+  });
+  const referralWaiting = Boolean(form.referralCode.trim()) && (form.referralCode.trim() !== referralCode || referralCheck.isFetching);
+  const referralBad = Boolean(referralCode) && form.referralCode.trim() === referralCode && !referralCheck.isFetching && (referralCheck.isError || (referralCheck.data && !referralCheck.data.valid));
+  const promoWaiting = Boolean(form.promoCode.trim()) && (form.promoCode.trim() !== promoCode || quote.isFetching);
+  const promoBad = Boolean(promoCode) && form.promoCode.trim() === promoCode && !quote.isFetching && quote.data?.promo?.valid === false;
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const list = [...(plans.data ?? [])].sort((a, b) => a.displayOrder - b.displayOrder || Number(a.priceMonthly) - Number(b.priceMonthly));
@@ -54,6 +74,7 @@ export default function RegisterPage() {
         planId,
         billingInterval: interval,
         promoCode: form.promoCode.trim() || undefined,
+        referralCode: form.referralCode.trim() || undefined,
         delivery: true,
         takeaway: true,
       });
@@ -89,7 +110,12 @@ export default function RegisterPage() {
               <IconField icon={Store} label={t('businessName')} value={form.businessName} error={fieldErrors.businessName} onChange={(businessName) => { setForm({ ...form, businessName }); setFieldErrors((current) => ({ ...current, businessName: '' })); }} />
               <IconField icon={Phone} label={t('mobile')} value={form.phone} error={fieldErrors.phone} onChange={(phone) => { setForm({ ...form, phone }); setFieldErrors((current) => ({ ...current, phone: '' })); }} />
               <IconField icon={Hash} label={t('crNumber')} value={form.crNumber} onChange={(crNumber) => setForm({ ...form, crNumber })} />
-              <IconField icon={Ticket} label={t('promo')} value={form.promoCode} onChange={(promoCode) => setForm({ ...form, promoCode })} placeholder={t('promoPlaceholder')} />
+              <div className="sm:col-span-2">
+                <IconField icon={Link2} label={t('referral')} value={form.referralCode} onChange={(referralCode) => setForm({ ...form, referralCode: referralCode.toUpperCase() })} placeholder={t('referralPlaceholder')} />
+                {referralWaiting ? <p className="mt-1 ps-2 text-xs text-[#6b6b66]">{t('referralChecking')}</p> : null}
+                {!referralWaiting && referralCheck.data?.valid && referralCode ? <p className="mt-1 ps-2 text-xs font-medium text-[#147D54]">{t('referralValid', { name: referralCheck.data.staffName })}</p> : null}
+                {!referralWaiting && referralBad ? <p className="mt-1 ps-2 text-xs font-medium text-[#D9342B]">{t('referralInvalid')}</p> : null}
+              </div>
               <label className="block text-sm font-medium">
                 {t('businessType')}
                 <span className={`mt-2 flex h-12 items-center gap-2 rounded-full border px-4 ${fieldErrors.categoryId ? 'border-[#D9342B]' : ''}`}>
@@ -118,6 +144,19 @@ export default function RegisterPage() {
                   <PlanChoice key={plan.id} plan={plan} locale={locale} selected={planId === plan.id} yearly={interval === 'ANNUAL'} onSelect={() => setPlanId(plan.id)} monthlyLabel={t('perMonth')} yearlyLabel={t('perYear')} more={t('viewFeatures')} less={t('hideDetails')} selectedLabel={t('selectedPlan')} />
                 ))}
               </div>
+              <div className="mt-5">
+                <IconField icon={Ticket} label={t('promo')} value={form.promoCode} onChange={(code) => setForm({ ...form, promoCode: code.toUpperCase() })} placeholder={t('promoPlaceholder')} />
+                {promoWaiting ? <p className="mt-1 ps-2 text-xs text-[#6b6b66]">{t('promoChecking')}</p> : null}
+                {!promoWaiting && promoCode && quote.data?.promo?.valid ? <p className="mt-1 ps-2 text-xs font-medium text-[#147D54]">{t('promoApplied', { code: quote.data.promo.code })}</p> : null}
+                {!promoWaiting && promoBad ? <p className="mt-1 ps-2 text-xs font-medium text-[#D9342B]">{quote.data?.promo && !quote.data.promo.valid ? quote.data.promo.reason : t('promoInvalid')}</p> : null}
+              </div>
+              {planId && quote.data ? (
+                <dl className="mt-4 space-y-1 rounded-2xl border px-4 py-3 text-sm" aria-label={t('summaryTitle')}>
+                  <div className="flex justify-between"><dt className="text-[#6b6b66]">{t('summaryGross')}</dt><dd>{formatMoney(quote.data.gross, locale)}</dd></div>
+                  {Number(quote.data.discount) > 0 ? <div className="flex justify-between text-[#147D54]"><dt>{t('summaryDiscount')}</dt><dd>-{formatMoney(quote.data.discount, locale)}</dd></div> : null}
+                  <div className="flex justify-between border-t pt-1 font-semibold"><dt>{t('summaryPayable')}</dt><dd>{formatMoney(quote.data.payable, locale)}</dd></div>
+                </dl>
+              ) : null}
               <p className="mt-4 flex items-center gap-2 rounded-2xl bg-[#f3f3f0] px-4 py-3 text-sm text-[#6b6b66]">
                 <Info className="h-4 w-4 shrink-0" /> {t('planNote')}
               </p>
@@ -132,7 +171,7 @@ export default function RegisterPage() {
               {step === 0 ? (
                 <button type="button" className="h-12 flex-1 rounded-full bg-[#111111] text-sm font-semibold text-white" onClick={() => { const next: Record<string, string> = {}; if (!form.email.includes('@')) next.email = t('emailInvalid'); if (form.password.length < 8) next.password = t('passwordShort'); if (form.businessName.trim().length < 2) next.businessName = t('required'); if (form.phone.trim().length < 8) next.phone = t('required'); if (!form.categoryId) next.categoryId = t('required'); if (form.categoryId === 'other' && form.otherType.trim().length < 2) next.otherType = t('required'); setFieldErrors(next); if (Object.keys(next).length) return; setError(''); setStep(1); }}>{t('continue')}</button>
               ) : (
-                <button type="button" className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#111111] text-sm font-semibold text-white" disabled={register.isPending} onClick={() => { if (!planId) { setFieldErrors({ planId: t('selectPlan') }); return; } setFieldErrors({}); setError(''); register.mutate(); }}>{t('submit')} <ArrowRight className="h-4 w-4 rtl:rotate-180" /></button>
+                <button type="button" className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#111111] text-sm font-semibold text-white" disabled={register.isPending || referralWaiting || promoWaiting} onClick={() => { if (!planId) { setFieldErrors({ planId: t('selectPlan') }); return; } if (referralBad || promoBad) { setError(t('fixCodes')); return; } setFieldErrors({}); setError(''); register.mutate(); }}>{t('submit')} <ArrowRight className="h-4 w-4 rtl:rotate-180" /></button>
               )}
             </div>
             <p className="mt-3 text-center text-sm text-[#6b6b66]">
@@ -220,4 +259,13 @@ function IconField({ icon: Icon, label, value, onChange, placeholder, type = 'te
       {error ? <span className="mt-1 block text-xs font-medium text-[#D9342B]">{error}</span> : null}
     </label>
   );
+}
+
+function useDebounced<T>(value: T, delay: number) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
 }

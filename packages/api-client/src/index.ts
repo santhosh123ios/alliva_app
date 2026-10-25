@@ -26,6 +26,43 @@ export class ApiError extends Error {
 
 type Json = Record<string, unknown> | unknown[] | string | number | boolean | null;
 
+export type SubscriptionQuote = {
+  gross: string;
+  discount: string;
+  payable: string;
+  promo: { valid: true; code: string } | { valid: false; reason: string } | null;
+  referral: { valid: true; code: string; staffName: string } | { valid: false; reason: string } | null;
+};
+
+export type SubscriptionPaymentsView = {
+  currentPeriodVerified: boolean;
+  payments: {
+    id: string;
+    plan: { en: string; ar: string };
+    gross: string;
+    discount: string;
+    amount: string;
+    refunded: string;
+    status: string;
+    isRenewal: boolean;
+    verifiedAt: string | null;
+    createdAt: string;
+    commission: string;
+    refunds: { id: string; amount: string; reason: string; createdAt: string }[];
+  }[];
+};
+
+function queryString(query?: Record<string, unknown>) {
+  if (!query) return '';
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === null || value === '') continue;
+    params.set(key, String(value));
+  }
+  const text = params.toString();
+  return text ? `?${text}` : '';
+}
+
 export function createApiClient(baseUrl = '') {
   async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
     const headers = new Headers(init.headers);
@@ -129,9 +166,36 @@ export function createApiClient(baseUrl = '') {
     settlements: () => request<Json[]>('/api/finance/settlements'),
     decideSettlement: (id: string, decision: 'APPROVED' | 'REJECTED') =>
       send(`/api/finance/settlements/${id}/decision`, 'POST', { decision }),
-    promos: () => request<Json[]>('/api/promos'),
-    createPromo: (body: Json) => send('/api/promos', 'POST', body),
-    marketing: () => request<Json>('/api/marketing'),
+    merchantPromos: () => request<Json[]>('/api/promos'),
+    createMerchantPromo: (body: Json) => send('/api/promos', 'POST', body),
+    quoteSubscription: (body: { planId: string; billingInterval: 'MONTHLY' | 'ANNUAL'; promoCode?: string; referralCode?: string }) =>
+      send<SubscriptionQuote>('/api/public/subscription-quote', 'POST', body),
+    validateReferral: (code: string) =>
+      request<{ valid: true; code: string; staffName: string } | { valid: false; reason: string }>(`/api/marketing/referral/validate?code=${encodeURIComponent(code)}`),
+    subscriptionPayments: (merchantId: string) => request<SubscriptionPaymentsView>(`/api/admin/merchants/${merchantId}/subscription/payments`),
+    verifySubscriptionPayment: (merchantId: string) => send(`/api/admin/merchants/${merchantId}/subscription/verify-payment`, 'POST'),
+    refundSubscriptionPayment: (paymentId: string, body: { amount?: string; reason: string; cancelSubscription?: boolean }) =>
+      send(`/api/admin/subscription-payments/${paymentId}/refund`, 'POST', body),
+    /** Marketing module: a thin typed wrapper over /api/marketing (lists are paginated, filters go in `query`). */
+    mk: {
+      get: <T = Json>(path: string, query?: Record<string, unknown>) => request<T>(`/api/marketing${path}${queryString(query)}`),
+      post: <T = Json>(path: string, body: Json = {}) => send<T>(`/api/marketing${path}`, 'POST', body),
+      patch: <T = Json>(path: string, body: Json = {}) => send<T>(`/api/marketing${path}`, 'PATCH', body),
+      download: async (path: string, query: Record<string, unknown> | undefined, fallbackName: string) => {
+        const response = await fetch(`${baseUrl}/api/marketing${path}${queryString(query)}`, { credentials: 'include' });
+        if (!response.ok) {
+          const data = (await response.json().catch(() => null)) as { message?: string } | null;
+          throw new ApiError(response.status, data?.message ?? 'Download failed', data);
+        }
+        const name = /filename="([^"]+)"/.exec(response.headers.get('content-disposition') ?? '')?.[1] ?? fallbackName;
+        const url = URL.createObjectURL(await response.blob());
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = name;
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+    },
     report: () => request<ReportOverview>('/api/reports/overview'),
     settings: () => request<Json>('/api/settings'),
     updateSettings: (values: Json) => send('/api/settings', 'PATCH', { values }),

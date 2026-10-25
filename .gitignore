@@ -21,3 +21,4 @@ build
 .pnp
 .pnp.js
 apps/api/generated
+.local

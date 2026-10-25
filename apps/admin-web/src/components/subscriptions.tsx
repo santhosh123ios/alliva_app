@@ -1,6 +1,7 @@
 import { PlanDialog } from '@/components/plan-wizard';
 import { formFromPlan, toEntitlements } from '@/components/plan-form';
 import { api } from '@/components/providers';
+import { SubscriptionPaymentsDialog } from '@alliva/marketing-console';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import type { LocalizedText, SubscriptionBoard, SubscriptionPlanView } from '@alliva/types';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, EmptyState, Input, Skeleton } from '@alliva/ui';
@@ -31,6 +32,7 @@ export function Subscriptions({ board }: { board: SubscriptionBoard }) {
   const [archivePlan, setArchivePlan] = useState<Plan | null>(null);
   const [assignRow, setAssignRow] = useState<SubscriptionRow | null>(null);
   const [historyId, setHistoryId] = useState<string | null>(null);
+  const [paymentsRow, setPaymentsRow] = useState<SubscriptionRow | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const plans = useMemo(() => {
@@ -171,6 +173,7 @@ export function Subscriptions({ board }: { board: SubscriptionBoard }) {
                         <div className="flex flex-wrap gap-2">
                           <Button variant="outline" className="h-9 rounded-xl px-3" onClick={() => setAssignRow(row)}>{t('changePlan')}</Button>
                           <Button variant="outline" className="h-9 rounded-xl px-3" onClick={() => setHistoryId(row.merchantId)}>{t('history')}</Button>
+                          <Button variant="outline" className="h-9 rounded-xl px-3" onClick={() => setPaymentsRow(row)}>{t('payments')}</Button>
                         </div>
                       </td>
                     </tr>
@@ -207,6 +210,13 @@ export function Subscriptions({ board }: { board: SubscriptionBoard }) {
         </DialogContent>
       </Dialog>
       <AssignDialog row={assignRow} plans={board.plans.filter((plan) => plan.status === 'ACTIVE')} onOpenChange={(open) => { if (!open) setAssignRow(null); }} onSaved={refresh} />
+      <SubscriptionPaymentsDialog
+        api={api}
+        merchantId={paymentsRow?.merchantId ?? null}
+        merchantName={paymentsRow ? pickLocalized(paymentsRow.merchantName, locale) : ''}
+        onClose={() => setPaymentsRow(null)}
+        onChanged={() => void refresh()}
+      />
       <HistoryDialog merchantId={historyId} onOpenChange={(open) => { if (!open) setHistoryId(null); }} />
     </div>
   );

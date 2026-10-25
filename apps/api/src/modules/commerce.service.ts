@@ -297,7 +297,7 @@ export class CommerceService {
 
   async applyPromo(owner: { customerId?: string | null; guestId?: string | null }, code: string) {
     const cart = await this.requireCart(owner);
-    const promo = await this.prisma.promoCode.findFirst({ where: { code: code.toUpperCase(), active: true, deletedAt: null } });
+    const promo = await this.prisma.promoCode.findFirst({ where: { code: code.toUpperCase(), active: true, deletedAt: null, purpose: 'ORDER' } });
     if (!promo) throw badRequest('Promo code is not valid');
     await this.prisma.cart.update({ where: { id: cart.id }, data: { promoCodeId: promo.id } });
     return this.cartFor(owner);
@@ -705,7 +705,7 @@ export class CommerceService {
   }
 
   private async promoFacts(cart: CartRecord, customerId?: string | null): Promise<PromoFacts | null> {
-    if (!cart.promoCode) return null;
+    if (!cart.promoCode || cart.promoCode.purpose === 'SUBSCRIPTION') return null;
     const promo = cart.promoCode;
     const usedCount = await this.prisma.promoRedemption.count({ where: { promoCodeId: promo.id } });
     const customerUsed = customerId ? await this.prisma.promoRedemption.count({ where: { promoCodeId: promo.id, customerId } }) : 0;

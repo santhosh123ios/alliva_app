@@ -1,0 +1,352 @@
+enum MarketingAccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ReferralSource {
+  SIGNUP
+  STAFF_PORTAL
+  ADMIN
+}
+
+enum SubscriptionPromoState {
+  RESERVED
+  APPLIED
+  VOID
+}
+
+enum MarketingAppointmentKind {
+  APPOINTMENT
+  FOLLOW_UP
+}
+
+enum MarketingAppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  MISSED
+  RESCHEDULED
+}
+
+enum WalletTxType {
+  COMMISSION_CREDIT
+  COMMISSION_REVERSAL
+  APPROVAL
+  RECOVERY
+  WITHDRAWAL_RESERVE
+  WITHDRAWAL_RELEASE
+  WITHDRAWAL_PAID
+  ADMIN_ADJUSTMENT
+  OPENING_BALANCE
+}
+
+enum WalletBucket {
+  PENDING
+  AVAILABLE
+  RESERVED
+  RECOVERY
+}
+
+model MarketingProfile {
+  id                        String                 @id @default(uuid()) @db.Uuid
+  userId                    String                 @unique @db.Uuid
+  parentUserId              String?                @db.Uuid
+  kind                      MarketingProfileKind   @default(STAFF)
+  status                    MarketingAccountStatus @default(ACTIVE)
+  employeeId                String?                @unique
+  region                    String?
+  joinedAt                  DateTime               @default(now())
+  notes                     String?
+  avatarUrl                 String?
+  referralCode              String?                @unique
+  promoCodeId               String?                @unique @db.Uuid
+  staffCommissionPercent    Decimal?               @db.Decimal(19, 3)
+  headOverridePercent       Decimal?               @db.Decimal(19, 3)
+  renewalCommissionEnabled  Boolean                @default(false)
+  maxCommission             Decimal?               @db.Decimal(19, 3)
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
+  user                      User                   @relation("MarketingUser", fields: [userId], references: [id])
+  parent                    User?                  @relation("MarketingHead", fields: [parentUserId], references: [id])
+  promoCode                 PromoCode?             @relation(fields: [promoCodeId], references: [id])
+  referralCodes             MarketingReferralCode[]
+
+  @@index([parentUserId])
+  @@index([kind, status])
+}
+
+model MarketingReferralCode {
+  id         String           @id @default(uuid()) @db.Uuid
+  profileId  String           @db.Uuid
+  userId     String           @db.Uuid
+  code       String           @unique
+  active     Boolean          @default(true)
+  createdAt  DateTime         @default(now())
+  retiredAt  DateTime?
+  createdById String?         @db.Uuid
+  profile    MarketingProfile @relation(fields: [profileId], references: [id])
+  referrals  MerchantReferral[]
+
+  @@index([userId])
+}
+
+model MerchantReferral {
+  id                 String               @id @default(uuid()) @db.Uuid
+  merchantId         String               @unique @db.Uuid
+  marketingUserId    String               @db.Uuid
+  headUserId         String?              @db.Uuid
+  referralCodeId     String?              @db.Uuid
+  codeUsed           String
+  source             ReferralSource       @default(SIGNUP)
+  commissionPaymentId String?             @unique @db.Uuid
+  discountType       PromoDiscountType?
+  discountValue      Decimal?             @db.Decimal(19, 3)
+  discountAppliedAt  DateTime?
+  pipelineStatus     MarketingLeadStatus  @default(NEW)
+  followUpAt         DateTime?
+  followUpNotifiedAt DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  merchant           Merchant             @relation(fields: [merchantId], references: [id])
+  marketingUser      User                 @relation(fields: [marketingUserId], references: [id])
+  headUser           User?                @relation("ReferralHead", fields: [headUserId], references: [id])
+  referralCode       MarketingReferralCode? @relation(fields: [referralCodeId], references: [id])
+
+  @@index([marketingUserId])
+  @@index([headUserId])
+}
+
+model MarketingLead {
+  id                     String              @id @default(uuid()) @db.Uuid
+  marketingUserId        String              @db.Uuid
+  headUserId             String?             @db.Uuid
+  businessName           String
+  contactName            String
+  phone                  String
+  whatsapp               String?
+  email                  String?
+  category               String?
+  city                   String?
+  area                   String?
+  address                String?
+  mapsUrl                String?
+  firstVisitAt           DateTime?
+  interestedPlanId       String?             @db.Uuid
+  expectedRegistrationAt DateTime?
+  notes                  String?
+  status                 MarketingLeadStatus @default(NEW)
+  followUpAt             DateTime?
+  appointmentAt          DateTime?
+  followUpNotifiedAt     DateTime?
+  merchantId             String?             @unique @db.Uuid
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  marketingUser          User                @relation("LeadStaff", fields: [marketingUserId], references: [id])
+  head                   User?               @relation("LeadHead", fields: [headUserId], references: [id])
+  merchant               Merchant?           @relation(fields: [merchantId], references: [id])
+  interestedPlan         SubscriptionPlan?   @relation(fields: [interestedPlanId], references: [id])
+  activities             MarketingActivity[]
+  visits                 MarketingVisit[]
+  appointments           MarketingAppointment[]
+
+  @@index([marketingUserId, status])
+  @@index([headUserId])
+  @@index([phone])
+}
+
+model MarketingVisit {
+  id          String        @id @default(uuid()) @db.Uuid
+  leadId      String        @db.Uuid
+  staffUserId String        @db.Uuid
+  headUserId  String?       @db.Uuid
+  visitedAt   DateTime
+  outcome     String?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  lead        MarketingLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  staff       User          @relation("VisitStaff", fields: [staffUserId], references: [id])
+
+  @@index([leadId])
+  @@index([staffUserId, visitedAt])
+  @@index([headUserId])
+}
+
+model MarketingAppointment {
+  id                String                     @id @default(uuid()) @db.Uuid
+  kind              MarketingAppointmentKind   @default(APPOINTMENT)
+  leadId            String?                    @db.Uuid
+  merchantId        String?                    @db.Uuid
+  staffUserId       String                     @db.Uuid
+  headUserId        String?                    @db.Uuid
+  title             String
+  scheduledAt       DateTime
+  status            MarketingAppointmentStatus @default(SCHEDULED)
+  outcome           String?
+  notes             String?
+  completedAt       DateTime?
+  rescheduledFromId String?                    @unique @db.Uuid
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  lead              MarketingLead?             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  merchant          Merchant?                  @relation(fields: [merchantId], references: [id])
+  staff             User                       @relation("AppointmentStaff", fields: [staffUserId], references: [id])
+  rescheduledFrom   MarketingAppointment?      @relation("Reschedule", fields: [rescheduledFromId], references: [id])
+  rescheduledTo     MarketingAppointment?      @relation("Reschedule")
+
+  @@index([staffUserId, status, scheduledAt])
+  @@index([headUserId, status, scheduledAt])
+  @@index([leadId])
+  @@index([status, scheduledAt])
+}
+
+model MarketingActivity {
+  id          String                @id @default(uuid()) @db.Uuid
+  leadId      String?               @db.Uuid
+  merchantId  String?               @db.Uuid
+  authorId    String                @db.Uuid
+  staffUserId String?               @db.Uuid
+  headUserId  String?               @db.Uuid
+  kind        MarketingActivityKind
+  body        String
+  fromStatus  String?
+  toStatus    String?
+  metadata    Json?
+  createdAt   DateTime              @default(now())
+  lead        MarketingLead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  merchant    Merchant?             @relation(fields: [merchantId], references: [id])
+  author      User                  @relation(fields: [authorId], references: [id])
+
+  @@index([leadId])
+  @@index([merchantId])
+  @@index([createdAt])
+  @@index([staffUserId, createdAt])
+  @@index([headUserId, createdAt])
+}
+
+model MarketingWallet {
+  userId         String   @id @db.Uuid
+  balance        Decimal  @default(0) @db.Decimal(19, 3)
+  pendingBalance Decimal  @default(0) @db.Decimal(19, 3)
+  reservedBalance Decimal @default(0) @db.Decimal(19, 3)
+  recoveryDue    Decimal  @default(0) @db.Decimal(19, 3)
+  totalEarned    Decimal  @default(0) @db.Decimal(19, 3)
+  totalWithdrawn Decimal  @default(0) @db.Decimal(19, 3)
+  currency       String   @default("BHD")
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id])
+}
+
+model MarketingWalletTransaction {
+  id          String       @id @default(uuid()) @db.Uuid
+  userId      String       @db.Uuid
+  type        WalletTxType
+  bucket      WalletBucket
+  amount      Decimal      @db.Decimal(19, 3)
+  reference   String       @unique
+  reason      String?
+  commissionEntryId String? @db.Uuid
+  withdrawalId String?     @db.Uuid
+  createdById String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+  user        User         @relation("WalletTxUser", fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([commissionEntryId])
+  @@index([withdrawalId])
+}
+
+model MarketingRedemption {
+  id              String                     @id @default(uuid()) @db.Uuid
+  userId          String                     @db.Uuid
+  amount          Decimal                    @db.Decimal(19, 3)
+  currency        String                     @default("BHD")
+  status          MarketingRedemptionStatus  @default(REQUESTED)
+  termsAcceptedAt DateTime
+  note            String?
+  payoutMethod    String?
+  payoutReference String?
+  rejectionReason String?
+  reviewedById    String?                    @db.Uuid
+  reviewedAt      DateTime?
+  paidById        String?                    @db.Uuid
+  paidAt          DateTime?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  user            User                       @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model CommissionEntry {
+  id                    String           @id @default(uuid()) @db.Uuid
+  subscriptionPaymentId String           @db.Uuid
+  merchantId            String           @db.Uuid
+  beneficiaryUserId     String           @db.Uuid
+  staffUserId           String?          @db.Uuid
+  headUserId            String?          @db.Uuid
+  tier                  String
+  eligibleAmount        Decimal          @default(0) @db.Decimal(19, 3)
+  ratePercent           Decimal          @default(0) @db.Decimal(19, 3)
+  amount                Decimal          @db.Decimal(19, 3)
+  reversedAmount        Decimal          @default(0) @db.Decimal(19, 3)
+  currency              String           @default("BHD")
+  status                CommissionStatus @default(PENDING)
+  pendingUntil          DateTime
+  approvedAt            DateTime?
+  approvedById          String?          @db.Uuid
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  subscriptionPayment   SubscriptionPayment @relation(fields: [subscriptionPaymentId], references: [id])
+  adjustments           CommissionAdjustment[]
+
+  @@unique([subscriptionPaymentId, tier])
+  @@index([beneficiaryUserId, status])
+  @@index([merchantId])
+  @@index([staffUserId])
+  @@index([headUserId])
+}
+
+model CommissionAdjustment {
+  id                String          @id @default(uuid()) @db.Uuid
+  commissionEntryId String          @db.Uuid
+  refundId          String?         @db.Uuid
+  amount            Decimal         @db.Decimal(19, 3)
+  reason            String
+  createdById       String?         @db.Uuid
+  createdAt         DateTime        @default(now())
+  entry             CommissionEntry @relation(fields: [commissionEntryId], references: [id])
+
+  @@unique([commissionEntryId, refundId])
+  @@index([commissionEntryId])
+}
+
+model SubscriptionPromoRedemption {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  promoCodeId           String                 @db.Uuid
+  merchantId            String                 @db.Uuid
+  subscriptionPaymentId String?                @unique @db.Uuid
+  discountAmount        Decimal                @default(0) @db.Decimal(19, 3)
+  status                SubscriptionPromoState @default(RESERVED)
+  createdAt             DateTime               @default(now())
+  appliedAt             DateTime?
+  promoCode             PromoCode              @relation(fields: [promoCodeId], references: [id])
+
+  @@index([promoCodeId, status])
+  @@index([merchantId])
+}
+
+model SubscriptionRefund {
+  id             String              @id @default(uuid()) @db.Uuid
+  paymentId      String              @db.Uuid
+  merchantId     String              @db.Uuid
+  amount         Decimal             @db.Decimal(19, 3)
+  reason         String
+  idempotencyKey String              @unique
+  createdById    String?             @db.Uuid
+  createdAt      DateTime            @default(now())
+  payment        SubscriptionPayment @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId])
+}

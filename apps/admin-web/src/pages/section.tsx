@@ -1,16 +1,30 @@
+import { MarketingHost } from '@/components/marketing-host';
 import { Merchants, type MerchantRow } from '@/components/merchants';
 import { Overview } from '@/components/overview';
+import { PlatformSettings, type SettingsData } from '@/components/platform-settings';
 import { api } from '@/components/providers';
 import { StaffDirectory, type StaffRow } from '@/components/staff';
 import { Subscriptions } from '@/components/subscriptions';
 import { Card, CardGridSkeleton, DashboardSkeleton, EmptyState, ErrorState, ListSkeleton, PageHeader, Skeleton, TableSkeleton } from '@alliva/ui';
 import { useQuery } from '@tanstack/react-query';
-import { useParams } from 'react-router';
+import { Navigate, useParams } from 'react-router';
+import { useLocale } from 'use-intl';
+import { localizeHref } from '@/i18n/routing';
 
 export default function SectionPage() {
+  const locale = useLocale();
   const section = useParams()['*']?.split('/').filter(Boolean);
   const key = section?.[0] ?? 'dashboard';
-  const data = useQuery({ queryKey: ['admin', key], queryFn: () => load(key) });
+  // Marketing (including promo codes) is one shared console; it loads its own data.
+  if (key === 'marketing') return <MarketingHost screen={section?.[1] ?? 'dashboard'} />;
+  if (key === 'promos') return <Navigate replace to={localizeHref('/marketing/promos', locale)} />;
+  return <DataSection section={section} />;
+}
+
+function DataSection({ section }: { section: string[] | undefined }) {
+  const key = section?.[0] ?? 'dashboard';
+  const path = section?.join('/') || 'dashboard';
+  const data = useQuery({ queryKey: ['admin', key], queryFn: () => load(path) });
   if (data.isLoading) return <SectionSkeleton section={key} />;
   if (data.error) return <ErrorState title="Could not load" body={(data.error as Error).message} />;
   if (key === 'dashboard' && data.data) {
@@ -19,6 +33,7 @@ export default function SectionPage() {
   if (key === 'merchants') return <Merchants rows={(data.data ?? []) as MerchantRow[]} />;
   if (key === 'subscriptions' && data.data) return <Subscriptions board={data.data as Awaited<ReturnType<typeof api.subscriptionBoard>>} />;
   if (key === 'staff') return <StaffDirectory rows={(data.data ?? []) as StaffRow[]} />;
+  if (key === 'settings' && data.data) return <PlatformSettings data={data.data as SettingsData} />;
   if (key === 'operations') return <Live payload={data.data} />;
   return (
     <div>
@@ -61,15 +76,14 @@ function Live({ payload }: { payload: unknown }) {
   );
 }
 
-async function load(key: string) {
+async function load(path: string) {
+  const key = path.split('/')[0] ?? 'dashboard';
   if (key === 'dashboard') return api.adminDashboard();
   if (key === 'merchants') return api.merchants();
   if (key === 'subscriptions') return api.subscriptionBoard();
   if (key === 'staff') return api.staff();
   if (key === 'complaints') return api.complaints();
   if (key === 'finance') return { payments: await api.payments(), ledger: await api.ledger(), settlements: await api.settlements() };
-  if (key === 'promos') return api.promos();
-  if (key === 'marketing') return api.marketing();
   if (key === 'analytics') return api.report();
   if (key === 'settings') return api.settings();
   if (key === 'audit') return api.audit();

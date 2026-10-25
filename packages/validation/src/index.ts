@@ -111,7 +111,8 @@ export const merchantRegistrationSchema = z.object({
   password: z.string().min(8),
   planId: z.uuid(),
   billingInterval: z.enum(['MONTHLY', 'ANNUAL']),
-  promoCode: z.string().max(40).optional(),
+  promoCode: z.string().trim().max(40).optional(),
+  referralCode: z.string().trim().max(40).optional(),
   delivery: z.boolean(),
   takeaway: z.boolean(),
 });
@@ -288,6 +289,13 @@ export const promoSchema = z.object({
   merchantIds: z.array(z.uuid()).optional(),
 });
 
+export const subscriptionQuoteSchema = z.object({
+  planId: z.uuid(),
+  billingInterval: z.enum(['MONTHLY', 'ANNUAL']),
+  promoCode: z.string().trim().max(40).optional(),
+  referralCode: z.string().trim().max(40).optional(),
+});
+
 export const complaintSchema = z.object({
   source: z.enum(['CUSTOMER', 'MERCHANT', 'DRIVER']),
   category: z.string().min(1),
@@ -372,15 +380,6 @@ export const bankSchema = z.object({
   iban: z.string().min(10),
 });
 
-export const marketingProfileSchema = z.object({
-  userId: z.uuid(),
-  parentUserId: z.uuid().optional().nullable(),
-  staffCommissionPercent: moneySchema,
-  headOverridePercent: moneySchema,
-  renewalCommissionEnabled: z.boolean(),
-  maxCommission: moneySchema.optional().nullable(),
-});
-
 export const reportQuerySchema = z.object({
   from: z.iso.datetime().optional(),
   to: z.iso.datetime().optional(),
@@ -399,3 +398,4 @@ export type CheckoutInput = z.infer<typeof checkoutSchema>;
 export type ProductInput = z.infer<typeof productSchema>;
 export type PlanInput = z.infer<typeof planSchema>;
 export type PromoInput = z.infer<typeof promoSchema>;
+export type SubscriptionQuoteInput = z.infer<typeof subscriptionQuoteSchema>;

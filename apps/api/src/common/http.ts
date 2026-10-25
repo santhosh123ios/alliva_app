@@ -95,6 +95,7 @@ const csrfExempt = [
   '/auth/refresh',
   '/guests',
   '/public/merchant-registration',
+  '/public/subscription-quote',
   '/payments/webhooks',
 ];
 

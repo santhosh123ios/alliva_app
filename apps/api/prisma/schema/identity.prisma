@@ -28,6 +28,17 @@ model User {
   marketingProfile    MarketingProfile?  @relation("MarketingUser")
   marketingReports    MarketingProfile[] @relation("MarketingHead")
   referralsMade       MerchantReferral[]
+  marketingWallet     MarketingWallet?
+  marketingRedemptions MarketingRedemption[]
+  marketingLeads      MarketingLead[]    @relation("LeadStaff")
+  headedLeads         MarketingLead[]    @relation("LeadHead")
+  marketingActivities MarketingActivity[]
+  referralsHeaded     MerchantReferral[] @relation("ReferralHead")
+  promosAssigned      PromoCode[]        @relation("PromoAssignedStaff")
+  promosAssignedHead  PromoCode[]        @relation("PromoAssignedHead")
+  marketingVisits     MarketingVisit[]   @relation("VisitStaff")
+  marketingAppointments MarketingAppointment[] @relation("AppointmentStaff")
+  walletTransactions  MarketingWalletTransaction[] @relation("WalletTxUser")
   complaintsAssigned  Complaint[]        @relation("ComplaintAssignee")
   complaintsRaised    Complaint[]        @relation("ComplaintReporter")
   reviews             Review[]

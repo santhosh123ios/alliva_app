@@ -10,6 +10,7 @@ import { notFound } from './common/errors';
 import { createContainer } from './container';
 import { buildOpenApi } from './docs';
 import { authRoutes } from './routes/auth';
+import { marketingRoutes } from './routes/marketing';
 import { portalRoutes } from './routes/portal';
 import { storefrontRoutes } from './routes/storefront';
 
@@ -27,7 +28,7 @@ export function createApp() {
   app.use(express.urlencoded({ extended: true, verify: keepRawBody }));
   app.use('/uploads', express.static(join(process.cwd(), process.env.UPLOAD_DIR ?? 'uploads')));
 
-  const groups = [authRoutes(container), storefrontRoutes(container), portalRoutes(container)];
+  const groups = [authRoutes(container), storefrontRoutes(container), portalRoutes(container), marketingRoutes(container)];
   for (const group of groups) app.use('/api', group.router);
 
   const document = buildOpenApi(groups.flatMap((group) => group.routes));
@@ -47,6 +48,7 @@ export function createApp() {
     server,
     container,
     async close() {
+      container.marketing.scheduler.stop();
       await container.gateway.close();
       await container.prisma.$disconnect();
     },
