@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import type { PaymentMethodCode } from '@alliva/validation';
 import type { AuditService } from '../../common/audit';
 import { dec, loc } from '../../common/crypto';
 import { badRequest, forbidden, notFound } from '../../common/errors';
@@ -469,7 +470,11 @@ export class MarketingPipelineService {
     const [rows, total] = await Promise.all([
       this.prisma.marketingAppointment.findMany({
         where,
-        include: { lead: { select: { businessName: true } }, merchant: { select: { name: true } }, staff: { select: { firstName: true, lastName: true } } },
+        include: {
+          lead: { select: { businessName: true, area: true, city: true, phone: true, status: true, category: true } },
+          merchant: { select: { name: true, phone: true, businessType: true, branches: { select: { city: true }, take: 1 } } },
+          staff: { select: { firstName: true, lastName: true } },
+        },
         orderBy: raw.bucket === 'overdue' || raw.bucket === 'missed' ? { scheduledAt: 'desc' } : { scheduledAt: 'asc' },
         skip: page.skip,
         take: page.pageSize,
@@ -574,7 +579,7 @@ export class MarketingPipelineService {
   async createStore(
     actor: RequestUser,
     scope: MarketingScope,
-    input: { businessName: string; businessNameAr?: string; phone: string; email: string; city: string; businessType: string; categoryId: string; planId?: string; billingInterval?: 'MONTHLY' | 'ANNUAL'; promoCode?: string | null; leadId?: string | null; paymentMethods?: ('CARD' | 'BENEFIT' | 'BENEFIT_PAY' | 'CASH')[] },
+    input: { businessName: string; businessNameAr?: string; phone: string; email: string; city: string; businessType: string; categoryId: string; planId?: string; billingInterval?: 'MONTHLY' | 'ANNUAL'; promoCode?: string | null; leadId?: string | null; paymentMethods?: PaymentMethodCode[] },
   ) {
     const profile = await this.staffContext(scope);
     if (!profile.referralCode) throw badRequest('Your referral code is not set up yet');
@@ -783,9 +788,10 @@ export class MarketingPipelineService {
     notes: string | null;
     completedAt: Date | null;
     rescheduledFromId: string | null;
-    lead?: { businessName: string } | null;
-    merchant?: { name: unknown } | null;
+    lead?: { businessName: string; area?: string | null; city?: string | null; phone?: string | null; status?: string; category?: string | null } | null;
+    merchant?: { name: unknown; phone?: string | null; businessType?: string | null; branches?: { city: string | null }[] } | null;
   }) {
+    const place = [row.lead?.area, row.lead?.city].filter(Boolean).join(', ') || row.merchant?.branches?.[0]?.city || null;
     return {
       id: row.id,
       kind: row.kind,
@@ -800,6 +806,10 @@ export class MarketingPipelineService {
       notes: row.notes,
       completedAt: row.completedAt?.toISOString() ?? null,
       rescheduledFromId: row.rescheduledFromId,
+      place,
+      phone: row.lead?.phone ?? row.merchant?.phone ?? null,
+      progress: row.lead?.status ?? null,
+      category: row.lead?.category ?? row.merchant?.businessType ?? null,
     };
   }
 }

@@ -37,6 +37,9 @@ export type MerchantRow = {
   city?: string;
   plan?: string | null;
   planName?: { en: string; ar: string } | null;
+  /** Null when the store has no subscription. False means the current period's payment has not been confirmed yet. */
+  paymentVerified?: boolean | null;
+  referred?: boolean;
   categories?: { en: string; ar: string }[];
   businessType?: string;
   logoUrl?: string | null;
@@ -45,7 +48,7 @@ export type MerchantRow = {
 
 type Tab = 'all' | 'pending' | 'suspended';
 type Layout = 'list' | 'grid';
-type Action = 'approve' | 'suspend';
+type Action = 'approve' | 'suspend' | 'confirmPayment';
 
 const pageSizes = [6, 12, 24];
 
@@ -77,6 +80,7 @@ export function Merchants({ rows }: { rows: MerchantRow[] }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [confirm, setConfirm] = useState<{ id: string; action: Action } | null>(null);
   const [pending, setPending] = useState(false);
+  const [confirmPayment, setConfirmPayment] = useState(true);
   const [error, setError] = useState('');
 
   const directory = useMemo(() => {
@@ -111,6 +115,7 @@ export function Merchants({ rows }: { rows: MerchantRow[] }) {
   const to = Math.min(safePage * pageSize, filtered.length);
   const allSelected = pageRows.length > 0 && pageRows.every((row) => selected.includes(row.id));
   const openRow = directory.find((row) => row.id === openId) ?? null;
+  const confirmRow = directory.find((row) => row.id === confirm?.id) ?? null;
 
   useEffect(() => {
     setPage(1);
@@ -152,9 +157,11 @@ export function Merchants({ rows }: { rows: MerchantRow[] }) {
     setPending(true);
     setError('');
     try {
-      if (confirm.action === 'approve') await api.approveMerchant(confirm.id);
+      if (confirm.action === 'approve') await api.approveMerchant(confirm.id, { confirmPayment: confirmPayment && confirmRow?.paymentVerified === false });
+      else if (confirm.action === 'confirmPayment') await api.verifySubscriptionPayment(confirm.id);
       else await api.suspendMerchant(confirm.id);
       await client.invalidateQueries({ queryKey: ['admin'] });
+      await client.invalidateQueries({ queryKey: ['marketing'] });
       setConfirm(null);
       setMenuId(null);
     } catch (reason) {
@@ -259,7 +266,7 @@ export function Merchants({ rows }: { rows: MerchantRow[] }) {
                     onToggle={() => toggleOne(row.id)}
                     onOpen={() => setOpenId(row.id)}
                     onMenu={(event) => { event.stopPropagation(); setMenuId((current) => (current === row.id ? null : row.id)); }}
-                    onAction={(action) => { setMenuId(null); setError(''); setConfirm({ id: row.id, action }); }}
+                    onAction={(action) => { setMenuId(null); setError(''); setConfirmPayment(true); setConfirm({ id: row.id, action }); }}
                   />
                 )) : (
                   <tr><td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">{t('empty')}</td></tr>
@@ -327,15 +334,19 @@ export function Merchants({ rows }: { rows: MerchantRow[] }) {
                 <ProfileRow label={t('businessType')} value={openRow.businessType || '—'} />
                 <ProfileRow label={t('location')} value={openRow.city || '—'} />
                 <ProfileRow label={t('plan')} value={planLabel(openRow, locale, t('noPlan'))} />
+                {openRow.paymentVerified != null ? <ProfileRow label={t('payment')} value={openRow.paymentVerified ? t('paymentPaid') : t('paymentPending')} /> : null}
                 <ProfileRow label={t('phone')} value={openRow.phone || '—'} />
                 <ProfileRow label={t('email')} value={openRow.email || '—'} />
                 <ProfileRow label={t('website')} value={openRow.websiteUrl || '—'} />
                 <ProfileRow label={t('joined')} value={joinedLabel(openRow.createdAt, locale)} />
                 <ProfileRow label={t('category')} value={(openRow.categories ?? []).map((item) => pickLocalized(item, locale)).filter(Boolean).join(', ') || '—'} />
               </dl>
-              <div className="mt-6 flex gap-2">
+              <div className="mt-6 flex flex-wrap gap-2">
                 {openRow.status !== 'ACTIVE' ? (
-                  <Button variant="yellow" className="h-11 rounded-xl" onClick={() => { setError(''); setConfirm({ id: openRow.id, action: 'approve' }); }}>{t('approve')}</Button>
+                  <Button variant="yellow" className="h-11 rounded-xl" onClick={() => { setError(''); setConfirmPayment(true); setConfirm({ id: openRow.id, action: 'approve' }); }}>{t('approve')}</Button>
+                ) : null}
+                {openRow.status === 'ACTIVE' && openRow.paymentVerified === false ? (
+                  <Button variant="yellow" className="h-11 rounded-xl" onClick={() => { setError(''); setConfirm({ id: openRow.id, action: 'confirmPayment' }); }}>{t('confirmPayment')}</Button>
                 ) : null}
                 {openRow.status !== 'SUSPENDED' ? (
                   <Button variant="outline" className="h-11 rounded-xl" onClick={() => { setError(''); setConfirm({ id: openRow.id, action: 'suspend' }); }}>{t('suspend')}</Button>
@@ -348,13 +359,22 @@ export function Merchants({ rows }: { rows: MerchantRow[] }) {
 
       <Dialog open={Boolean(confirm)} onOpenChange={(open) => { if (!open) setConfirm(null); }}>
         <DialogContent>
-          <DialogTitle>{confirm?.action === 'suspend' ? t('suspendTitle') : t('approveTitle')}</DialogTitle>
-          <DialogDescription>{confirm?.action === 'suspend' ? t('suspendBody') : t('approveBody')}</DialogDescription>
+          <DialogTitle>{confirm?.action === 'suspend' ? t('suspendTitle') : confirm?.action === 'confirmPayment' ? t('confirmPayment') : t('approveTitle')}</DialogTitle>
+          <DialogDescription>{confirm?.action === 'suspend' ? t('suspendBody') : confirm?.action === 'confirmPayment' ? t('confirmPaymentHint') : t('approveBody')}</DialogDescription>
+          {confirm?.action === 'approve' && confirmRow?.paymentVerified === false ? (
+            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm">
+              <input type="checkbox" className="mt-0.5 size-4 accent-[#111111]" checked={confirmPayment} onChange={(event) => setConfirmPayment(event.target.checked)} />
+              <span>
+                <span className="font-medium">{t('confirmPaymentLabel')}</span>
+                <span className="mt-1 block text-xs text-muted-foreground">{confirmRow.referred ? t('confirmPaymentReferred') : t('confirmPaymentHint')}</span>
+              </span>
+            </label>
+          ) : null}
           {error ? <p className="mt-3 text-sm text-[#D9342B]">{error}</p> : null}
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setConfirm(null)}>{t('cancel')}</Button>
             <Button variant={confirm?.action === 'suspend' ? 'destructive' : 'yellow'} disabled={pending} onClick={runConfirm}>
-              {confirm?.action === 'suspend' ? t('suspend') : t('approve')}
+              {confirm?.action === 'suspend' ? t('suspend') : confirm?.action === 'confirmPayment' ? t('confirmPayment') : t('approve')}
             </Button>
           </div>
         </DialogContent>
@@ -416,6 +436,7 @@ function MerchantLine({
             {menuOpen ? (
               <div className="absolute end-0 z-20 mt-1 w-36 rounded-xl border bg-card p-1 shadow-lg" onClick={(event) => event.stopPropagation()}>
                 {row.status !== 'ACTIVE' ? <MenuItem onClick={() => onAction('approve')}>{t('approve')}</MenuItem> : null}
+                {row.status === 'ACTIVE' && row.paymentVerified === false ? <MenuItem onClick={() => onAction('confirmPayment')}>{t('confirmPayment')}</MenuItem> : null}
                 {row.status !== 'SUSPENDED' ? <MenuItem onClick={() => onAction('suspend')}>{t('suspend')}</MenuItem> : null}
                 <MenuItem onClick={onOpen}>{t('view')}</MenuItem>
               </div>

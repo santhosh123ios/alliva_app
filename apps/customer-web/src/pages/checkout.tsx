@@ -21,7 +21,7 @@ export default function CheckoutPage() {
   const methods = cart.data?.paymentMethods;
   const form = useForm<FormValues>({
     resolver: zodResolver(checkoutSchema),
-    defaultValues: { paymentMethod: 'CARD', fulfillmentType: 'DELIVERY' },
+    defaultValues: { paymentMethod: methods?.[0]?.code ?? 'TAP_PAY', fulfillmentType: 'DELIVERY' },
   });
   const place = useMutation({
     mutationFn: (values: FormValues) => api.checkout(values, crypto.randomUUID()),

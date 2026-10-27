@@ -1,4 +1,5 @@
 import type { FulfillmentType, OrderStatus } from '@alliva/types';
+import { isOfflinePaymentMethod, type PaymentMethodCode } from '@alliva/validation';
 import { money, moneyString } from '../domain/money';
 import { priceOrder, type PromoFacts } from '../domain/pricing';
 import { assertTransition } from '../domain/order-machine';
@@ -10,7 +11,7 @@ import { badRequest, notFound } from '../common/errors';
 import { dec, loc } from '../common/crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlatformService } from './platform.service';
-import { BenefitGateway, MockPushProvider, TapGateway } from '../providers/mock.providers';
+import { BenefitGateway, MockPushProvider, PaypalGateway, TapGateway } from '../providers/mock.providers';
 import { OrdersGateway } from './orders.gateway';
 import { storePaymentChoices } from './payment-methods';
 
@@ -23,6 +24,7 @@ export class CommerceService {
     private readonly prisma: PrismaService,
     private readonly tap: TapGateway,
     private readonly benefit: BenefitGateway,
+    private readonly paypal: PaypalGateway,
     private readonly push: MockPushProvider,
     private readonly gateway: OrdersGateway,
     private readonly platform: PlatformService,
@@ -311,7 +313,7 @@ export class CommerceService {
     return this.cartFor(owner);
   }
 
-  async checkout(owner: { customerId: string; userId: string; roles: string[] }, input: { paymentMethod: 'CARD' | 'BENEFIT' | 'BENEFIT_PAY' | 'CASH'; fulfillmentType: FulfillmentType; addressId?: string | null; tableId?: string | null; scheduledFor?: string | null; notes?: string | null; promoCode?: string | null; idempotencyKey: string }) {
+  async checkout(owner: { customerId: string; userId: string; roles: string[] }, input: { paymentMethod: PaymentMethodCode; fulfillmentType: FulfillmentType; addressId?: string | null; tableId?: string | null; scheduledFor?: string | null; notes?: string | null; promoCode?: string | null; idempotencyKey: string }) {
     if (input.promoCode) await this.applyPromo({ customerId: owner.customerId }, input.promoCode);
     await this.setContext({ customerId: owner.customerId }, input);
     const existing = await this.prisma.payment.findUnique({ where: { idempotencyKey: input.idempotencyKey }, include: { order: true } });
@@ -331,7 +333,7 @@ export class CommerceService {
     if (input.fulfillmentType === 'DELIVERY') assertFeatureAllowed(readEntitlement(rows, 'deliveryOrdering'), 'Delivery ordering');
     if (input.fulfillmentType === 'TAKEAWAY') assertFeatureAllowed(readEntitlement(rows, 'takeawayOrdering'), 'Takeaway ordering');
     if (input.fulfillmentType === 'DINE_IN') assertFeatureAllowed(readEntitlement(rows, 'tableOrdering'), 'Table ordering');
-    if (input.paymentMethod !== 'CASH') assertFeatureAllowed(readEntitlement(rows, 'paymentIntegration'), 'Online payment');
+    if (!isOfflinePaymentMethod(input.paymentMethod)) assertFeatureAllowed(readEntitlement(rows, 'paymentIntegration'), 'Online payment');
     const paymentChoices = await storePaymentChoices(this.prisma, merchant.id);
     if (!paymentChoices.some((method) => method.code === input.paymentMethod)) throw badRequest('This store does not accept that payment method');
     const orderUsage = rows.find((row) => row.key === 'monthlyOrderLimit');
@@ -405,19 +407,17 @@ export class CommerceService {
     return this.publish(order.id);
   }
 
-  async capturePayment(orderId: string, method: 'CARD' | 'BENEFIT' | 'BENEFIT_PAY' | 'CASH', idempotencyKey: string, actorId?: string) {
+  async capturePayment(orderId: string, method: PaymentMethodCode, idempotencyKey: string, actorId?: string) {
     const order = await this.prisma.order.findUniqueOrThrow({ where: { id: orderId } });
-    const provider = method === 'CASH' ? 'CASH' : method === 'CARD' ? 'TAP' : 'BENEFIT';
-    const gatewayRate = method === 'CASH' ? '0' : '0.025';
+    const offline = isOfflinePaymentMethod(method);
+    const provider = method === 'BANK_TRANSFER' ? 'BANK_TRANSFER' : method === 'PAYPAL' ? 'PAYPAL' : method === 'TAP_PAY' ? 'TAP' : 'BENEFIT';
+    const gatewayRate = offline ? '0' : '0.025';
     let externalId: string | null = null;
-    let status: 'PENDING' | 'CAPTURED' = method === 'CASH' ? 'PENDING' : 'CAPTURED';
-    if (method === 'CARD') {
-      const charge = await this.tap.createCharge({ amount: dec(order.total), reference: order.number, method });
-      externalId = charge.externalId;
-      status = charge.status === 'CAPTURED' ? 'CAPTURED' : 'PENDING';
-    }
-    if (method === 'BENEFIT' || method === 'BENEFIT_PAY') {
-      const charge = await this.benefit.createCharge({ amount: dec(order.total), reference: order.number, method });
+    // A bank transfer is settled outside a gateway, so the payment stays pending until the money is confirmed.
+    let status: 'PENDING' | 'CAPTURED' = offline ? 'PENDING' : 'CAPTURED';
+    if (!offline) {
+      const gateway = method === 'TAP_PAY' ? this.tap : method === 'PAYPAL' ? this.paypal : this.benefit;
+      const charge = await gateway.createCharge({ amount: dec(order.total), reference: order.number, method });
       externalId = charge.externalId;
       status = charge.status === 'CAPTURED' ? 'CAPTURED' : 'PENDING';
     }
@@ -436,9 +436,6 @@ export class CommerceService {
         createdById: actorId,
       },
     });
-    if (method === 'CASH') {
-      await this.prisma.cashCollection.create({ data: { orderId: order.id, merchantId: order.merchantId, amount: dec(order.total), status: 'PENDING' } });
-    }
     if (status === 'CAPTURED') await this.postLedger(order.id, gatewayRate, false);
     return payment;
   }

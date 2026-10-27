@@ -16,6 +16,7 @@ const Orders = lazy(() => import('@/pages/orders'));
 const Order = lazy(() => import('@/pages/order'));
 const Profile = lazy(() => import('@/pages/profile'));
 const Qr = lazy(() => import('@/pages/qr'));
+const Reset = lazy(() => import('@/pages/reset'));
 
 function ShellLayout() {
   return (
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
           { path: 'orders/:id', element: <Order /> },
           { path: 'profile', element: <Profile /> },
           { path: 'q/:code', element: <Qr /> },
+          { path: 'reset', element: <Reset /> },
         ],
       },
       { path: '*', element: <NotFound /> },

@@ -52,11 +52,14 @@ test.describe('marketing portal', () => {
   test('staff sees the staff console and cannot open head screens', async ({ page, playwright, baseURL }) => {
     await signIn(page, playwright, baseURL, STAFF);
     await page.goto('/en/dashboard');
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Good (morning|afternoon|evening), Omar/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add new store' })).toBeVisible();
     const nav = page.getByRole('navigation');
-    for (const label of ['My leads', 'My stores', 'Referral code', 'Commission', 'Commission transactions', 'Wallet']) {
+    for (const label of ['My leads', 'My stores', 'Referral & wallet']) {
       await expect(nav.getByRole('link', { name: label })).toBeVisible();
     }
+    await expect(nav.getByRole('link', { name: 'Commission', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('link', { name: 'Commission transactions' })).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'My team' })).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Store visits' })).toHaveCount(0);
     await page.goto('/en/heads');
@@ -79,12 +82,18 @@ test.describe('marketing portal', () => {
     await expect(page.getByText(business).first()).toBeVisible();
   });
 
-  test('staff referral page shows the personal code, a registration link and a QR code', async ({ page, playwright, baseURL }) => {
+  test('staff referral and wallet share one page', async ({ page, playwright, baseURL }) => {
     await signIn(page, playwright, baseURL, STAFF);
-    await page.goto('/en/referral');
+    await page.goto('/en/wallet');
+    await expect(page.getByRole('heading', { name: 'Referral & wallet' })).toBeVisible();
     await expect(page.getByText(/^ALV-/).first()).toBeVisible();
     await expect(page.getByText(/\/register\?ref=ALV-/).first()).toBeVisible();
     await expect(page.getByRole('img', { name: 'Referral registration QR code' })).toBeVisible();
+    await expect(page.getByText('Available', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Request withdrawal' })).toBeVisible();
+    await page.goto('/en/referral');
+    await expect(page).toHaveURL(/\/wallet$/);
+    await expect(page.getByRole('heading', { name: 'Referral & wallet' })).toBeVisible();
   });
 
   test('head sees the team screens and not the staff-only referral screen', async ({ page, playwright, baseURL }) => {
@@ -93,12 +102,17 @@ test.describe('marketing portal', () => {
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     const nav = page.getByRole('navigation');
     await expect(nav.getByRole('link', { name: 'My team' })).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'Commission transactions' })).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'Referral code' })).toHaveCount(0);
+    await expect(nav.getByRole('link', { name: 'My commission' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Commission transactions' })).toHaveCount(0);
+    await expect(nav.getByRole('link', { name: 'Referral & wallet' })).toBeVisible();
+    await page.goto('/en/wallet');
+    await expect(page.getByRole('heading', { name: 'Referral & wallet' })).toBeVisible();
+    await expect(page.getByText('Available', { exact: true })).toBeVisible();
     await page.goto('/en/staff');
     await expect(page.getByText('Omar Sharif').first()).toBeVisible();
     await page.goto('/en/referral');
-    await expect(page.getByText('Not available')).toBeVisible();
+    await expect(page).toHaveURL(/\/wallet$/);
+    await expect(page.getByRole('heading', { name: 'Referral & wallet' })).toBeVisible();
   });
 
   test('a wrong password is rejected and a non-marketing account is refused', async ({ page }) => {

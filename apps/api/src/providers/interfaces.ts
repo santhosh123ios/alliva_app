@@ -20,7 +20,7 @@ export interface MapsProvider {
 }
 
 export interface PaymentGateway {
-  readonly name: 'TAP' | 'BENEFIT';
+  readonly name: 'TAP' | 'BENEFIT' | 'PAYPAL';
   createCharge(input: { amount: string; reference: string; method: string }): Promise<{ externalId: string; status: 'CAPTURED' | 'FAILED' }>;
   verifyWebhook(rawBody: Buffer, signature: string | undefined): boolean;
 }

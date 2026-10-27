@@ -72,6 +72,10 @@ export type AppointmentRow = {
   rescheduledFromId: string | null;
   staffName?: string;
   staffId?: string;
+  place?: string | null;
+  phone?: string | null;
+  progress?: string | null;
+  category?: string | null;
 };
 
 export type HistoryRow = { id: string; at: string; kind: string; body: string; fromStatus: string | null; toStatus: string | null; authorName: string };

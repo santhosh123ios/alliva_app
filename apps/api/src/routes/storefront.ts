@@ -1,5 +1,5 @@
 import type { Request } from 'express';
-import { cartContextSchema, cartItemSchema, checkoutSchema, promoApplySchema, reviewSchema } from '@alliva/validation';
+import { cartContextSchema, cartItemSchema, checkoutSchema, promoApplySchema, reviewSchema, type PaymentMethodCode } from '@alliva/validation';
 import { forbidden, notFound } from '../common/errors';
 import { cookieBase, RequestUser, validate } from '../common/http';
 import { createRoutes } from '../common/routes';
@@ -83,7 +83,7 @@ export function storefrontRoutes({ prisma, jwt, crypto, commerce }: Container) {
 
   routes.post('/orders', (request) => {
     const user = request.user!;
-    const body = validate<{ paymentMethod: 'CARD' | 'BENEFIT' | 'BENEFIT_PAY' | 'CASH'; fulfillmentType: 'DELIVERY' | 'TAKEAWAY' | 'DINE_IN'; addressId?: string | null; tableId?: string | null; scheduledFor?: string | null; notes?: string | null; promoCode?: string | null }>(checkoutSchema, request.body);
+    const body = validate<{ paymentMethod: PaymentMethodCode; fulfillmentType: 'DELIVERY' | 'TAKEAWAY' | 'DINE_IN'; addressId?: string | null; tableId?: string | null; scheduledFor?: string | null; notes?: string | null; promoCode?: string | null }>(checkoutSchema, request.body);
     const key = request.header('idempotency-key');
     if (!user.customerId) throw new Error('A customer account is required');
     return commerce.checkout(

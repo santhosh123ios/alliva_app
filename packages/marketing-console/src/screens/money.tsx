@@ -8,6 +8,7 @@ import {
   AreaField, CheckField, CommissionRate, ConfirmDialog, DateRange, FilterSelect, FormActions, Kpi, ListView, Modal, Page, QueryBoundary, SearchBox, Section, SelectField, StatusPill, Tabs, TextField, Toolbar, useAction, useData, useFilters, useList, useStaffOptions, type Column,
 } from '../kit';
 import type { CommissionRow, Wallet, WalletOverviewRow, WalletTx, WithdrawalRow } from '../types';
+import { ReferralPanel } from './stores';
 
 // ---------------------------------------------------------------------------------------------- commissions
 
@@ -57,16 +58,6 @@ export function CommissionsScreen() {
   );
 }
 
-/** Every wallet movement for the signed-in head or staff member: credits, reversals, approvals and withdrawals. */
-export function CommissionTransactionsScreen() {
-  const t = useT();
-  return (
-    <Page title={t('transactionsTitle')} subtitle={t('transactionsSubtitle')}>
-      <TransactionsTable />
-    </Page>
-  );
-}
-
 // ---------------------------------------------------------------------------------------------- wallet (head / staff)
 
 export function WalletScreen() {
@@ -78,10 +69,11 @@ export function WalletScreen() {
   const [requesting, setRequesting] = useState(false);
   return (
     <Page
-      title={t('walletTitle')}
-      subtitle={t(role === 'HEAD' ? 'walletSubtitleHead' : 'walletSubtitle')}
+      title={t('referralWalletTitle')}
+      subtitle={t(role === 'HEAD' ? 'walletSubtitleHead' : 'referralWalletSubtitle')}
       actions={wallet.data ? <Button variant="yellow" disabled={!wallet.data.withdrawal.canRequest} onClick={() => setRequesting(true)}><Banknote className="size-4" />{t('requestWithdrawal')}</Button> : undefined}
     >
+      <ReferralPanel />
       <QueryBoundary query={wallet}>
         {(data) => (
           <div className="space-y-5">
@@ -268,7 +260,7 @@ export function WalletsAdminScreen({ params }: { params: Record<string, string> 
   const t = useT();
   const [tab, setTab] = useState<'withdrawals' | 'wallets' | 'transactions'>(params.tab === 'wallets' ? 'wallets' : 'withdrawals');
   return (
-    <Page title={t('walletsAdminTitle')} subtitle={t('walletsAdminSubtitle')}>
+    <Page title={t('referralWalletTitle')} subtitle={t('walletsAdminSubtitle')}>
       <Tabs value={tab} onChange={setTab} tabs={[{ id: 'withdrawals', label: t('tabWithdrawals') }, { id: 'wallets', label: t('tabWallets') }, { id: 'transactions', label: t('tabTransactions') }]} />
       {tab === 'withdrawals' ? <WithdrawalsTable admin defaultStatus="REQUESTED" /> : tab === 'wallets' ? <WalletsOverview /> : <TransactionsTable />}
     </Page>

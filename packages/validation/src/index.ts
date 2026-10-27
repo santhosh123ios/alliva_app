@@ -1,9 +1,14 @@
 import { z } from 'zod';
 
+import { PAYMENT_METHOD_CODES, paymentMethodCodeSchema } from './payment-methods';
+
 export {
+  OFFLINE_PAYMENT_METHODS,
   PAYMENT_METHOD_CODES,
   acceptedPaymentMethods,
   defaultPaymentMethods,
+  isOfflinePaymentMethod,
+  normalizePaymentMethodCode,
   parsePaymentMethods,
   paymentMethodCodeSchema,
   paymentMethodsSettingSchema,
@@ -24,6 +29,14 @@ export const moneySchema = z.string().regex(/^\d+(\.\d{1,3})?$/, 'Amount must be
 export const loginSchema = z.object({
   email: z.email(),
   password: z.string().min(8),
+  rememberDevice: z.boolean().optional(),
+});
+
+export const customerRegisterSchema = z.object({
+  email: z.email(),
+  password: z.string().min(8),
+  firstName: z.string().trim().min(1).max(80),
+  lastName: z.string().trim().min(1).max(80),
   rememberDevice: z.boolean().optional(),
 });
 
@@ -127,7 +140,7 @@ export const merchantRegistrationSchema = z.object({
   referralCode: z.string().trim().max(40).optional(),
   delivery: z.boolean(),
   takeaway: z.boolean(),
-  paymentMethods: z.array(z.enum(['CARD', 'BENEFIT', 'BENEFIT_PAY', 'CASH'])).min(1).max(4).optional(),
+  paymentMethods: z.array(paymentMethodCodeSchema).min(1).max(PAYMENT_METHOD_CODES.length).optional(),
 });
 
 export const branchSchema = z.object({
@@ -230,7 +243,7 @@ export const promoApplySchema = z.object({
 });
 
 export const checkoutSchema = z.object({
-  paymentMethod: z.enum(['CARD', 'BENEFIT', 'BENEFIT_PAY', 'CASH']),
+  paymentMethod: paymentMethodCodeSchema,
   fulfillmentType: z.enum(['DELIVERY', 'TAKEAWAY', 'DINE_IN']),
   addressId: z.uuid().optional().nullable(),
   tableId: z.uuid().optional().nullable(),

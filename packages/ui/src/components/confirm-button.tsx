@@ -33,7 +33,7 @@ export function ConfirmButton({
           </Button>
           <Button
             variant={tone === 'destructive' ? 'destructive' : 'default'}
-            disabled={pending}
+            loading={pending}
             onClick={async () => {
               setPending(true);
               try {

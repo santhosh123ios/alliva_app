@@ -1,0 +1,359 @@
+<div id="alliva-marketing-page">
+  <style>
+    #alliva-marketing-page {
+      --al-yellow: #f6c915;
+      --al-yellow-soft: #fff9dc;
+      --al-ink: #171712;
+      --al-muted: #74746c;
+      --al-line: #e9e7df;
+      --al-bg: #f6f5f0;
+      --al-white: #ffffff;
+      --al-green: #147d54;
+      --al-red: #c13f35;
+      --al-blue: #2f62c9;
+      color: var(--al-ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--al-bg);
+      min-height: 1120px;
+    }
+    #alliva-marketing-page * { box-sizing: border-box; }
+    #alliva-marketing-page button,
+    #alliva-marketing-page input,
+    #alliva-marketing-page select,
+    #alliva-marketing-page textarea { font: inherit; }
+    #alliva-marketing-page button { cursor: pointer; }
+    #alliva-marketing-page .al-shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 1120px; }
+    #alliva-marketing-page .al-sidebar { background: var(--al-ink); color: white; padding: 22px 15px; display: flex; flex-direction: column; }
+    #alliva-marketing-page .al-brand { display: flex; align-items: center; gap: 10px; padding: 0 9px 24px; font-size: 21px; font-weight: 800; letter-spacing: -.6px; }
+    #alliva-marketing-page .al-mark { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: var(--al-yellow); color: var(--al-ink); font-weight: 900; }
+    #alliva-marketing-page .al-nav-label { padding: 12px 10px 7px; color: #8e8e86; font-size: 10px; text-transform: uppercase; letter-spacing: 1.3px; font-weight: 700; }
+    #alliva-marketing-page .al-nav { display: grid; gap: 4px; }
+    #alliva-marketing-page .al-nav-item { border: 0; background: transparent; color: #bcbcb4; display: flex; gap: 11px; align-items: center; width: 100%; padding: 11px 12px; border-radius: 10px; text-align: left; }
+    #alliva-marketing-page .al-nav-item svg { width: 17px; height: 17px; }
+    #alliva-marketing-page .al-nav-item.active { background: var(--al-yellow); color: var(--al-ink); font-weight: 750; }
+    #alliva-marketing-page .al-sidebar-foot { margin-top: auto; border-top: 1px solid #34342f; padding: 16px 8px 0; display: flex; gap: 10px; align-items: center; }
+    #alliva-marketing-page .al-avatar { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #fff2a6; color: var(--al-ink); font-size: 12px; font-weight: 800; }
+    #alliva-marketing-page .al-sidebar-foot strong { display: block; font-size: 12px; }
+    #alliva-marketing-page .al-sidebar-foot span { color: #8f8f87; font-size: 11px; }
+    #alliva-marketing-page .al-main { min-width: 0; }
+    #alliva-marketing-page .al-topbar { height: 66px; background: var(--al-white); border-bottom: 1px solid var(--al-line); display: flex; align-items: center; justify-content: space-between; padding: 0 26px; }
+    #alliva-marketing-page .al-search { width: min(360px, 46%); position: relative; }
+    #alliva-marketing-page .al-search input { width: 100%; height: 40px; border: 1px solid var(--al-line); background: #fafaf8; border-radius: 12px; padding: 0 12px 0 38px; color: var(--al-ink); }
+    #alliva-marketing-page .al-search svg { position: absolute; left: 13px; top: 11px; width: 17px; height: 17px; color: var(--al-muted); }
+    #alliva-marketing-page .al-top-actions { display: flex; align-items: center; gap: 10px; }
+    #alliva-marketing-page .al-icon-btn { width: 39px; height: 39px; border: 1px solid var(--al-line); background: white; border-radius: 11px; display: grid; place-items: center; position: relative; }
+    #alliva-marketing-page .al-icon-btn svg { width: 17px; height: 17px; }
+    #alliva-marketing-page .al-alert-dot { position: absolute; width: 7px; height: 7px; background: var(--al-red); border: 2px solid white; border-radius: 50%; top: 7px; right: 7px; }
+    #alliva-marketing-page .al-content { padding: 25px 26px 32px; }
+    #alliva-marketing-page .al-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+    #alliva-marketing-page .al-heading-row h1 { margin: 0 0 5px; font-size: 27px; line-height: 1.15; letter-spacing: -.75px; }
+    #alliva-marketing-page .al-heading-row p { margin: 0; color: var(--al-muted); font-size: 13px; }
+    #alliva-marketing-page .al-actions { display: flex; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
+    #alliva-marketing-page .al-btn { border: 1px solid var(--al-line); min-height: 40px; padding: 0 14px; border-radius: 11px; background: white; color: var(--al-ink); font-weight: 700; display: inline-flex; align-items: center; gap: 8px; }
+    #alliva-marketing-page .al-btn svg { width: 16px; height: 16px; }
+    #alliva-marketing-page .al-btn-primary { background: var(--al-yellow); border-color: var(--al-yellow); }
+    #alliva-marketing-page .al-btn-dark { background: var(--al-ink); border-color: var(--al-ink); color: white; }
+    #alliva-marketing-page .al-tabs { display: flex; gap: 5px; border-bottom: 1px solid var(--al-line); margin-top: 22px; overflow-x: auto; }
+    #alliva-marketing-page .al-tab { flex: 0 0 auto; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--al-muted); padding: 11px 12px 10px; font-weight: 650; }
+    #alliva-marketing-page .al-tab.active { color: var(--al-ink); border-color: var(--al-yellow); }
+    #alliva-marketing-page .al-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 17px; }
+    #alliva-marketing-page .al-stat { background: var(--al-white); border: 1px solid var(--al-line); border-radius: 15px; padding: 15px; min-width: 0; }
+    #alliva-marketing-page .al-stat-top { display: flex; justify-content: space-between; align-items: center; color: var(--al-muted); font-size: 11px; font-weight: 700; }
+    #alliva-marketing-page .al-stat-icon { width: 30px; height: 30px; border-radius: 9px; background: var(--al-yellow-soft); display: grid; place-items: center; color: #8b6c00; }
+    #alliva-marketing-page .al-stat-icon svg { width: 15px; height: 15px; }
+    #alliva-marketing-page .al-stat-value { margin-top: 9px; font-size: 23px; font-weight: 800; letter-spacing: -.5px; }
+    #alliva-marketing-page .al-stat-note { margin-top: 3px; font-size: 11px; color: var(--al-muted); }
+    #alliva-marketing-page .al-up { color: var(--al-green); font-weight: 700; }
+    #alliva-marketing-page .al-grid { display: grid; grid-template-columns: minmax(0, 1.58fr) minmax(250px, .82fr); gap: 14px; margin-top: 14px; align-items: start; }
+    #alliva-marketing-page .al-panel { background: white; border: 1px solid var(--al-line); border-radius: 15px; min-width: 0; overflow: hidden; }
+    #alliva-marketing-page .al-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 15px 16px; border-bottom: 1px solid var(--al-line); }
+    #alliva-marketing-page .al-panel-head h2 { margin: 0; font-size: 15px; letter-spacing: -.2px; }
+    #alliva-marketing-page .al-panel-head p { margin: 3px 0 0; color: var(--al-muted); font-size: 11px; }
+    #alliva-marketing-page .al-link { border: 0; background: transparent; color: #886b00; font-weight: 750; padding: 5px; white-space: nowrap; }
+    #alliva-marketing-page .al-team-list { padding: 4px 0; }
+    #alliva-marketing-page .al-head-row { padding: 13px 16px; border-bottom: 1px solid #f0eee7; }
+    #alliva-marketing-page .al-head-row:last-child { border-bottom: 0; }
+    #alliva-marketing-page .al-head-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 13px; align-items: center; }
+    #alliva-marketing-page .al-user { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    #alliva-marketing-page .al-user-copy { min-width: 0; }
+    #alliva-marketing-page .al-user-copy strong { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #alliva-marketing-page .al-user-copy span { display: block; color: var(--al-muted); font-size: 11px; margin-top: 2px; }
+    #alliva-marketing-page .al-mini-metric { text-align: right; min-width: 66px; }
+    #alliva-marketing-page .al-mini-metric strong { display: block; font-size: 13px; }
+    #alliva-marketing-page .al-mini-metric span { color: var(--al-muted); font-size: 10px; }
+    #alliva-marketing-page .al-status { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 5px 8px; font-size: 10px; font-weight: 750; background: #eaf7f0; color: var(--al-green); }
+    #alliva-marketing-page .al-status::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+    #alliva-marketing-page .al-staff-strip { margin: 11px 0 0 44px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+    #alliva-marketing-page .al-person-chip { display: flex; align-items: center; gap: 6px; background: #f7f6f1; padding: 5px 8px 5px 5px; border-radius: 999px; font-size: 10px; }
+    #alliva-marketing-page .al-person-chip .al-avatar { width: 22px; height: 22px; font-size: 8px; }
+    #alliva-marketing-page .al-add-chip { border: 1px dashed #d7d3c5; background: transparent; border-radius: 999px; padding: 7px 10px; font-size: 10px; color: var(--al-muted); }
+    #alliva-marketing-page .al-alert-list { padding: 5px 14px 13px; }
+    #alliva-marketing-page .al-alert { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; padding: 11px 0; border-bottom: 1px solid #f0eee7; }
+    #alliva-marketing-page .al-alert:last-child { border: 0; }
+    #alliva-marketing-page .al-alert-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: #fff2a8; color: #7d6100; }
+    #alliva-marketing-page .al-alert-icon.red { background: #ffede9; color: var(--al-red); }
+    #alliva-marketing-page .al-alert-icon.blue { background: #edf3ff; color: var(--al-blue); }
+    #alliva-marketing-page .al-alert-icon svg { width: 14px; height: 14px; }
+    #alliva-marketing-page .al-alert strong { display: block; font-size: 11px; }
+    #alliva-marketing-page .al-alert p { margin: 3px 0; font-size: 10px; color: var(--al-muted); line-height: 1.4; }
+    #alliva-marketing-page .al-alert time { color: #a09e93; font-size: 9px; }
+    #alliva-marketing-page .al-table-wrap { overflow-x: auto; }
+    #alliva-marketing-page table { width: 100%; border-collapse: collapse; min-width: 710px; }
+    #alliva-marketing-page th { text-align: left; font-size: 10px; color: var(--al-muted); font-weight: 750; padding: 10px 15px; background: #faf9f5; }
+    #alliva-marketing-page td { padding: 12px 15px; border-top: 1px solid #efede6; font-size: 11px; vertical-align: middle; }
+    #alliva-marketing-page .al-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 750; background: var(--al-yellow-soft); padding: 5px 7px; border-radius: 7px; }
+    #alliva-marketing-page .al-money { font-weight: 800; }
+    #alliva-marketing-page .al-payout { color: var(--al-green); font-weight: 700; }
+    #alliva-marketing-page .al-bottom-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 14px; margin-top: 14px; }
+    #alliva-marketing-page .al-wide-section { margin-top: 14px; }
+    #alliva-marketing-page .al-commission-box { margin: 14px; background: var(--al-ink); color: white; border-radius: 14px; padding: 15px; display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; }
+    #alliva-marketing-page .al-commission-box .label { color: #aaa99f; font-size: 10px; }
+    #alliva-marketing-page .al-commission-box strong { display: block; font-size: 21px; margin-top: 3px; }
+    #alliva-marketing-page .al-split { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+    #alliva-marketing-page .al-split span { background: #2a2a25; padding: 5px 8px; border-radius: 8px; font-size: 9px; color: #dbdad0; }
+    #alliva-marketing-page .al-split b { color: var(--al-yellow); }
+    #alliva-marketing-page .al-mini-btn { border: 0; background: var(--al-yellow); color: var(--al-ink); padding: 9px 10px; border-radius: 9px; font-weight: 800; white-space: nowrap; }
+    #alliva-marketing-page .al-rules { padding: 0 14px 14px; display: grid; gap: 9px; }
+    #alliva-marketing-page .al-rule { display: flex; justify-content: space-between; align-items: center; gap: 15px; font-size: 10px; }
+    #alliva-marketing-page .al-rule span { color: var(--al-muted); }
+    #alliva-marketing-page .al-rule strong { text-align: right; }
+    #alliva-marketing-page .al-timeline { padding: 5px 14px 14px; }
+    #alliva-marketing-page .al-event { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 9px; align-items: start; padding: 9px 0; }
+    #alliva-marketing-page .al-event-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--al-yellow); margin-top: 4px; box-shadow: 0 0 0 4px var(--al-yellow-soft); }
+    #alliva-marketing-page .al-event strong { display: block; font-size: 10px; }
+    #alliva-marketing-page .al-event p { margin: 2px 0 0; color: var(--al-muted); font-size: 10px; line-height: 1.4; }
+    #alliva-marketing-page .al-event time { font-size: 9px; color: #a09e93; white-space: nowrap; }
+    #alliva-marketing-page .al-toast { position: absolute; right: 26px; top: 76px; z-index: 20; background: var(--al-ink); color: white; padding: 11px 14px; border-radius: 10px; font-size: 11px; opacity: 0; transform: translateY(-5px); pointer-events: none; transition: .2s ease; }
+    #alliva-marketing-page .al-toast.show { opacity: 1; transform: translateY(0); }
+    #alliva-marketing-page .al-modal-backdrop { position: absolute; inset: 0; z-index: 30; background: rgba(17,17,14,.48); padding: 70px 22px; display: none; align-items: flex-start; justify-content: center; }
+    #alliva-marketing-page .al-modal-backdrop.show { display: flex; }
+    #alliva-marketing-page .al-modal { width: min(540px, 100%); background: white; border-radius: 18px; box-shadow: 0 24px 70px rgba(0,0,0,.2); overflow: hidden; }
+    #alliva-marketing-page .al-modal-head { padding: 18px 20px; border-bottom: 1px solid var(--al-line); display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
+    #alliva-marketing-page .al-modal-head h2 { margin: 0; font-size: 18px; }
+    #alliva-marketing-page .al-modal-head p { margin: 4px 0 0; color: var(--al-muted); font-size: 11px; }
+    #alliva-marketing-page .al-close { border: 0; background: #f3f2ed; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; }
+    #alliva-marketing-page .al-close svg { width: 16px; height: 16px; }
+    #alliva-marketing-page .al-form { padding: 18px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    #alliva-marketing-page .al-field { display: grid; gap: 6px; min-width: 0; }
+    #alliva-marketing-page .al-field.full { grid-column: 1 / -1; }
+    #alliva-marketing-page .al-field label { font-size: 10px; font-weight: 750; }
+    #alliva-marketing-page .al-field label em { color: var(--al-red); font-style: normal; }
+    #alliva-marketing-page .al-field input,
+    #alliva-marketing-page .al-field select,
+    #alliva-marketing-page .al-field textarea { width: 100%; border: 1px solid var(--al-line); border-radius: 10px; min-height: 40px; padding: 9px 10px; color: var(--al-ink); background: white; }
+    #alliva-marketing-page .al-field small { color: var(--al-muted); font-size: 9px; }
+    #alliva-marketing-page .al-inline-note { grid-column: 1 / -1; background: var(--al-yellow-soft); border-radius: 11px; padding: 10px 12px; font-size: 10px; line-height: 1.5; }
+    #alliva-marketing-page .al-modal-foot { padding: 14px 20px; border-top: 1px solid var(--al-line); display: flex; justify-content: flex-end; gap: 9px; }
+    #alliva-marketing-page .al-empty { padding: 44px 20px; text-align: center; color: var(--al-muted); }
+    #alliva-marketing-page .al-empty strong { display: block; color: var(--al-ink); font-size: 15px; margin-bottom: 5px; }
+    #alliva-marketing-page [hidden] { display: none !important; }
+    @media (max-width: 860px) {
+      #alliva-marketing-page .al-shell { grid-template-columns: 76px minmax(0, 1fr); }
+      #alliva-marketing-page .al-brand span, #alliva-marketing-page .al-nav-item span, #alliva-marketing-page .al-nav-label, #alliva-marketing-page .al-sidebar-foot div:last-child { display: none; }
+      #alliva-marketing-page .al-brand, #alliva-marketing-page .al-nav-item { justify-content: center; }
+      #alliva-marketing-page .al-stats { grid-template-columns: 1fr 1fr; }
+      #alliva-marketing-page .al-grid, #alliva-marketing-page .al-bottom-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      #alliva-marketing-page { min-height: 0; }
+      #alliva-marketing-page .al-shell { display: block; min-height: 0; }
+      #alliva-marketing-page .al-sidebar { display: none; }
+      #alliva-marketing-page .al-topbar { padding: 0 14px; }
+      #alliva-marketing-page .al-search { width: 70%; }
+      #alliva-marketing-page .al-content { padding: 18px 14px 26px; }
+      #alliva-marketing-page .al-heading-row { display: block; }
+      #alliva-marketing-page .al-actions { justify-content: flex-start; margin-top: 14px; }
+      #alliva-marketing-page .al-stats { grid-template-columns: 1fr 1fr; }
+      #alliva-marketing-page .al-head-summary { grid-template-columns: minmax(0, 1fr) auto; }
+      #alliva-marketing-page .al-head-summary .al-mini-metric:nth-of-type(2) { display: none; }
+      #alliva-marketing-page .al-staff-strip { margin-left: 0; }
+      #alliva-marketing-page .al-form { grid-template-columns: 1fr; }
+      #alliva-marketing-page .al-field.full, #alliva-marketing-page .al-inline-note { grid-column: auto; }
+      #alliva-marketing-page .al-modal-backdrop { padding: 30px 12px; }
+    }
+  </style>
+
+  <div class="al-shell">
+    <aside class="al-sidebar" aria-label="Admin navigation">
+      <div class="al-brand"><div class="al-mark">A</div><span>Alliva</span></div>
+      <div class="al-nav-label">Workspace</div>
+      <nav class="al-nav">
+        <button class="al-nav-item"><i data-lucide="layout-dashboard" aria-hidden="true"></i><span>Dashboard</span></button>
+        <button class="al-nav-item"><i data-lucide="store" aria-hidden="true"></i><span>Merchants</span></button>
+        <button class="al-nav-item"><i data-lucide="badge-dollar-sign" aria-hidden="true"></i><span>Subscriptions</span></button>
+        <button class="al-nav-item active"><i data-lucide="users-round" aria-hidden="true"></i><span>Marketing team</span></button>
+        <button class="al-nav-item"><i data-lucide="ticket-percent" aria-hidden="true"></i><span>Promo codes</span></button>
+        <button class="al-nav-item"><i data-lucide="wallet-cards" aria-hidden="true"></i><span>Accounts</span></button>
+        <button class="al-nav-item"><i data-lucide="chart-no-axes-combined" aria-hidden="true"></i><span>Analytics</span></button>
+      </nav>
+      <div class="al-nav-label">System</div>
+      <nav class="al-nav">
+        <button class="al-nav-item"><i data-lucide="shield-check" aria-hidden="true"></i><span>Roles & staff</span></button>
+        <button class="al-nav-item"><i data-lucide="settings-2" aria-hidden="true"></i><span>Settings</span></button>
+      </nav>
+      <div class="al-sidebar-foot"><div class="al-avatar">SA</div><div><strong>Super Admin</strong><span>admin@alliva.app</span></div></div>
+    </aside>
+
+    <main class="al-main">
+      <header class="al-topbar">
+        <label class="al-search"><i data-lucide="search" aria-hidden="true"></i><span class="sr-only">Search</span><input type="search" placeholder="Search team, store or referral code" /></label>
+        <div class="al-top-actions">
+          <button class="al-icon-btn" aria-label="Notifications"><i data-lucide="bell" aria-hidden="true"></i><span class="al-alert-dot"></span></button>
+          <div class="al-avatar">SA</div>
+        </div>
+      </header>
+
+      <section class="al-content">
+        <div class="al-heading-row">
+          <div><h1>Marketing Team</h1><p>Manage team hierarchy, referrals, follow-ups, first-payment commissions and wallet payouts.</p></div>
+          <div class="al-actions">
+            <button class="al-btn" data-open="head"><i data-lucide="user-round-plus" aria-hidden="true"></i>Create head</button>
+            <button class="al-btn al-btn-primary" data-open="staff"><i data-lucide="users-round" aria-hidden="true"></i>Create staff</button>
+          </div>
+        </div>
+
+        <div class="al-tabs" role="tablist" aria-label="Marketing team views">
+          <button class="al-tab active" role="tab" aria-selected="true" data-view="overview">Overview</button>
+          <button class="al-tab" role="tab" aria-selected="false" data-view="directory">Team directory</button>
+          <button class="al-tab" role="tab" aria-selected="false" data-view="referrals">Referrals & stores</button>
+          <button class="al-tab" role="tab" aria-selected="false" data-view="wallet">Wallet & payouts</button>
+          <button class="al-tab" role="tab" aria-selected="false" data-view="followups">Follow-ups</button>
+        </div>
+
+        <div id="al-overview">
+          <div class="al-stats">
+            <article class="al-stat"><div class="al-stat-top"><span>Marketing heads</span><span class="al-stat-icon"><i data-lucide="crown" aria-hidden="true"></i></span></div><div class="al-stat-value">6</div><div class="al-stat-note">Managing 28 active staff</div></article>
+            <article class="al-stat"><div class="al-stat-top"><span>Stores onboarded</span><span class="al-stat-icon"><i data-lucide="store" aria-hidden="true"></i></span></div><div class="al-stat-value">148</div><div class="al-stat-note"><span class="al-up">+12 this month</span></div></article>
+            <article class="al-stat"><div class="al-stat-top"><span>First payments</span><span class="al-stat-icon"><i data-lucide="badge-check" aria-hidden="true"></i></span></div><div class="al-stat-value">BHD 1,920</div><div class="al-stat-note">Eligible subscription revenue</div></article>
+            <article class="al-stat"><div class="al-stat-top"><span>Commission payable</span><span class="al-stat-icon"><i data-lucide="wallet" aria-hidden="true"></i></span></div><div class="al-stat-value">BHD 486</div><div class="al-stat-note">Next payout: 25 Oct 2026</div></article>
+          </div>
+
+          <div class="al-grid">
+            <section class="al-panel">
+              <div class="al-panel-head"><div><h2>Team hierarchy & performance</h2><p>Marketing heads with their assigned staff and first-payment results.</p></div><button class="al-link" data-switch="directory">View directory</button></div>
+              <div class="al-team-list">
+                <article class="al-head-row">
+                  <div class="al-head-summary"><div class="al-user"><div class="al-avatar">FM</div><div class="al-user-copy"><strong>Faris Mohammed</strong><span>Marketing Head · MKT-H001</span></div></div><div class="al-mini-metric"><strong>11</strong><span>Team members</span></div><div class="al-mini-metric"><strong>BHD 13.80</strong><span>Head commission</span></div></div>
+                  <div class="al-staff-strip"><span class="al-person-chip"><span class="al-avatar">AK</span>Ahmed</span><span class="al-person-chip"><span class="al-avatar">NM</span>Noor</span><span class="al-person-chip"><span class="al-avatar">SA</span>Salman</span><span class="al-person-chip">+8 more</span><button class="al-add-chip" data-open="staff">+ Assign staff</button></div>
+                </article>
+                <article class="al-head-row">
+                  <div class="al-head-summary"><div class="al-user"><div class="al-avatar">LM</div><div class="al-user-copy"><strong>Layla Mahmood</strong><span>Marketing Head · MKT-H002</span></div></div><div class="al-mini-metric"><strong>9</strong><span>Team members</span></div><div class="al-mini-metric"><strong>BHD 10.40</strong><span>Head commission</span></div></div>
+                  <div class="al-staff-strip"><span class="al-person-chip"><span class="al-avatar">RA</span>Rashid</span><span class="al-person-chip"><span class="al-avatar">FA</span>Fatima</span><span class="al-person-chip"><span class="al-avatar">YO</span>Yousif</span><span class="al-person-chip">+6 more</span><button class="al-add-chip" data-open="staff">+ Assign staff</button></div>
+                </article>
+                <article class="al-head-row">
+                  <div class="al-head-summary"><div class="al-user"><div class="al-avatar">OH</div><div class="al-user-copy"><strong>Omar Hassan</strong><span>Marketing Head · MKT-H003</span></div></div><div class="al-mini-metric"><strong>8</strong><span>Team members</span></div><div class="al-mini-metric"><strong>BHD 8.10</strong><span>Head commission</span></div></div>
+                  <div class="al-staff-strip"><span class="al-person-chip"><span class="al-avatar">MK</span>Mariam</span><span class="al-person-chip"><span class="al-avatar">JA</span>Jassim</span><span class="al-person-chip"><span class="al-avatar">HA</span>Huda</span><span class="al-person-chip">+5 more</span><button class="al-add-chip" data-open="staff">+ Assign staff</button></div>
+                </article>
+              </div>
+            </section>
+
+            <aside class="al-panel">
+              <div class="al-panel-head"><div><h2>Follow-up alerts</h2><p>Due and overdue merchant actions.</p></div><button class="al-link" data-switch="followups">View all</button></div>
+              <div class="al-alert-list">
+                <article class="al-alert"><div class="al-alert-icon red"><i data-lucide="alarm-clock" aria-hidden="true"></i></div><div><strong>3 follow-ups overdue</strong><p>Al Noor Café, Fresh Basket and City Mart need an update.</p><time>Due yesterday</time></div></article>
+                <article class="al-alert"><div class="al-alert-icon"><i data-lucide="calendar-clock" aria-hidden="true"></i></div><div><strong>Subscription decision</strong><p>Ahmed must contact Spice Route about the Core plan.</p><time>Today · 3:30 PM</time></div></article>
+                <article class="al-alert"><div class="al-alert-icon blue"><i data-lucide="file-text" aria-hidden="true"></i></div><div><strong>Story update missing</strong><p>No progress note added for Bahrain Bakery in 5 days.</p><time>5 days ago</time></div></article>
+              </div>
+            </aside>
+          </div>
+
+          <div class="al-wide-section">
+            <section class="al-panel">
+              <div class="al-panel-head"><div><h2>Latest referrals & store conversions</h2><p>The promo discount and commissions apply only to the first successful payment.</p></div><button class="al-link" data-switch="referrals">View all referrals</button></div>
+              <div class="al-table-wrap"><table><thead><tr><th>Store</th><th>Marketing staff</th><th>Reference code</th><th>Plan / first payment</th><th>Staff commission</th><th>Status</th></tr></thead><tbody>
+                <tr><td><strong>Al Noor Café</strong><br><span class="al-muted">Food & beverage</span></td><td>Ahmed Khalid<br><span class="al-muted">Head: Faris</span></td><td><span class="al-code">AHMED50</span></td><td>Core · BHD 20</td><td><span class="al-money">BHD 10.00</span><br><span class="al-muted">50%</span></td><td><span class="al-status">Credited</span></td></tr>
+                <tr><td><strong>Fresh Basket</strong><br><span class="al-muted">Grocery</span></td><td>Fatima Ali<br><span class="al-muted">Head: Layla</span></td><td><span class="al-code">FATIMA24</span></td><td>Pro · BHD 40</td><td><span class="al-money">BHD 20.00</span><br><span class="al-muted">50%</span></td><td><span class="al-status">Credited</span></td></tr>
+                <tr><td><strong>City Mart</strong><br><span class="al-muted">Supermarket</span></td><td>Mariam Kader<br><span class="al-muted">Head: Omar</span></td><td><span class="al-code">MARIAM10</span></td><td>Base · BHD 10</td><td><span class="al-money">BHD 5.00</span><br><span class="al-muted">50%</span></td><td><span class="al-status">Pending</span></td></tr>
+              </tbody></table></div>
+            </section>
+          </div>
+
+          <div class="al-wide-section">
+            <section class="al-panel"><div class="al-panel-head"><div><h2>Recent team activity</h2><p>Combined story, status and follow-up history.</p></div><button class="al-link" data-toast="Activity log opened">Open activity log</button></div><div class="al-timeline">
+              <article class="al-event"><span class="al-event-dot"></span><div><strong>Ahmed added a merchant story</strong><p>Al Noor Café requested the Core plan and payment-link demonstration.</p></div><time>12 min ago</time></article>
+              <article class="al-event"><span class="al-event-dot"></span><div><strong>Fatima updated referral status</strong><p>Fresh Basket moved from “Interested” to “Subscribed”.</p></div><time>38 min ago</time></article>
+              <article class="al-event"><span class="al-event-dot"></span><div><strong>First-payment commission credited</strong><p>BHD 20.00 added to Fatima’s wallet and BHD 0.40 to Layla’s wallet.</p></div><time>1 hr ago</time></article>
+            </div></section>
+          </div>
+        </div>
+
+        <div id="al-placeholder" hidden class="al-panel" style="margin-top:17px"><div class="al-empty"><strong id="al-placeholder-title">Team directory</strong><span id="al-placeholder-copy">Detailed page view selected. The overview remains the primary design shown above.</span></div></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="al-toast" role="status" aria-live="polite"></div>
+  <div class="al-modal-backdrop" id="al-modal" role="dialog" aria-modal="true" aria-labelledby="al-modal-title">
+    <div class="al-modal">
+      <div class="al-modal-head"><div><h2 id="al-modal-title">Create marketing staff</h2><p id="al-modal-subtitle">Create a staff profile and connect the referral offer.</p></div><button class="al-close" aria-label="Close"><i data-lucide="x" aria-hidden="true"></i></button></div>
+      <form id="al-form">
+        <div class="al-form">
+          <div class="al-field"><label>Full name <em>*</em></label><input required placeholder="Enter full name" /></div>
+          <div class="al-field"><label>Mobile number <em>*</em></label><input required placeholder="+973" /></div>
+          <div class="al-field full al-head-only"><label>Email address <em>*</em></label><input type="email" required placeholder="name@alliva.app" /></div>
+          <div class="al-field al-staff-only"><label>Marketing head <em>*</em></label><select required><option value="">Select marketing head</option><option>Faris Mohammed</option><option>Layla Mahmood</option><option>Omar Hassan</option></select><small>Every marketing staff account must be assigned to one head.</small></div>
+          <div class="al-field al-staff-only"><label>Reference code <em>*</em></label><input required placeholder="Example: AHMED50" /><small>Must be unique and cannot be changed after first use.</small></div>
+          <div class="al-field al-staff-only"><label>Connected promo code <em>*</em></label><select required><option value="">Select promo offer</option><option>WELCOME10 — 10% off first subscription</option><option>CORE5 — BHD 5 off Core plan</option></select></div>
+          <div class="al-field"><label>Status <em>*</em></label><select required><option>Active</option><option>Inactive</option><option>On hold</option></select></div>
+          <div class="al-inline-note al-staff-only"><strong>Commission rule:</strong> The selected staff receives 50% and their assigned head receives 1% of the store’s first successful subscription payment. Rates and redemption terms are controlled from Settings.</div>
+        </div>
+        <div class="al-modal-foot"><button type="button" class="al-btn al-cancel">Cancel</button><button type="submit" class="al-btn al-btn-primary" id="al-submit">Create marketing staff</button></div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const root = document.getElementById('alliva-marketing-page');
+      const modal = root.querySelector('#al-modal');
+      const title = root.querySelector('#al-modal-title');
+      const subtitle = root.querySelector('#al-modal-subtitle');
+      const submit = root.querySelector('#al-submit');
+      const toast = root.querySelector('.al-toast');
+      const overview = root.querySelector('#al-overview');
+      const placeholder = root.querySelector('#al-placeholder');
+      const placeholderTitle = root.querySelector('#al-placeholder-title');
+      const labels = { directory: 'Team directory', referrals: 'Referrals & stores', wallet: 'Wallet & payouts', followups: 'Follow-ups' };
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add('show');
+        window.setTimeout(() => toast.classList.remove('show'), 1800);
+      }
+      function openModal(type) {
+        const isHead = type === 'head';
+        title.textContent = isHead ? 'Create marketing head' : 'Create marketing staff';
+        subtitle.textContent = isHead ? 'Add a team leader who can manage assigned marketing staff.' : 'Assign a head, create a reference code and connect a promo offer.';
+        submit.textContent = isHead ? 'Create marketing head' : 'Create marketing staff';
+        root.querySelectorAll('.al-staff-only').forEach(el => el.hidden = isHead);
+        root.querySelectorAll('.al-head-only').forEach(el => el.hidden = !isHead);
+        modal.classList.add('show');
+      }
+      function closeModal() { modal.classList.remove('show'); }
+      function switchView(view) {
+        root.querySelectorAll('.al-tab').forEach(tab => {
+          const active = tab.dataset.view === view;
+          tab.classList.toggle('active', active);
+          tab.setAttribute('aria-selected', String(active));
+        });
+        const isOverview = view === 'overview';
+        overview.hidden = !isOverview;
+        placeholder.hidden = isOverview;
+        if (!isOverview) placeholderTitle.textContent = labels[view] || 'Marketing team';
+      }
+
+      root.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.open)));
+      root.querySelectorAll('[data-toast]').forEach(btn => btn.addEventListener('click', () => showToast(btn.dataset.toast)));
+      root.querySelectorAll('.al-tab').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
+      root.querySelectorAll('[data-switch]').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.switch)));
+      root.querySelector('.al-close').addEventListener('click', closeModal);
+      root.querySelector('.al-cancel').addEventListener('click', closeModal);
+      modal.addEventListener('click', event => { if (event.target === modal) closeModal(); });
+      root.querySelector('#al-form').addEventListener('submit', event => {
+        event.preventDefault();
+        closeModal();
+        showToast(submit.textContent + ' — sample action completed');
+      });
+    })();
+  </script>
+</div>

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-export const PAYMENT_METHOD_CODES = ['CARD', 'BENEFIT', 'BENEFIT_PAY', 'CASH'] as const;
+/** The methods Alliva can offer. Which of them are switched on is decided by the admin in platform settings. */
+export const PAYMENT_METHOD_CODES = ['BANK_TRANSFER', 'BENEFIT_PAY', 'TAP_PAY', 'PAYPAL'] as const;
 
 export const paymentMethodCodeSchema = z.enum(PAYMENT_METHOD_CODES);
 
@@ -12,12 +13,41 @@ export type PaymentMethodConfig = {
   name: { en: string; ar: string };
 };
 
+/** Methods the customer settles outside a payment gateway. The order is placed and the payment stays pending. */
+export const OFFLINE_PAYMENT_METHODS: readonly PaymentMethodCode[] = ['BANK_TRANSFER'];
+
+export function isOfflinePaymentMethod(code: string): boolean {
+  return (OFFLINE_PAYMENT_METHODS as readonly string[]).includes(code);
+}
+
 const DEFAULTS: PaymentMethodConfig[] = [
-  { code: 'CARD', enabled: true, name: { en: 'Card', ar: 'بطاقة' } },
-  { code: 'BENEFIT', enabled: true, name: { en: 'Benefit', ar: 'بنفت' } },
+  { code: 'BANK_TRANSFER', enabled: true, name: { en: 'Bank transfer', ar: 'تحويل بنكي' } },
   { code: 'BENEFIT_PAY', enabled: true, name: { en: 'BenefitPay', ar: 'بنفت باي' } },
-  { code: 'CASH', enabled: true, name: { en: 'Cash', ar: 'نقداً' } },
+  { code: 'TAP_PAY', enabled: true, name: { en: 'Tap Pay', ar: 'تاب باي' } },
+  { code: 'PAYPAL', enabled: true, name: { en: 'PayPal', ar: 'باي بال' } },
 ];
+
+/**
+ * Codes used before the catalog was reduced to the four methods above. Stores and saved settings may still carry
+ * them, so they are translated instead of being dropped. Cash has no equivalent and is not carried over.
+ */
+const LEGACY_CODES: Record<string, PaymentMethodCode | null> = {
+  CARD: 'TAP_PAY',
+  BENEFIT: 'BENEFIT_PAY',
+  BENEFIT_PAY: 'BENEFIT_PAY',
+  CASH: null,
+};
+
+function isCode(value: unknown): value is PaymentMethodCode {
+  return typeof value === 'string' && (PAYMENT_METHOD_CODES as readonly string[]).includes(value);
+}
+
+/** Maps any stored code (current or legacy) to a current code, or null when it no longer exists. */
+export function normalizePaymentMethodCode(value: unknown): PaymentMethodCode | null {
+  if (isCode(value)) return value;
+  if (typeof value === 'string' && value in LEGACY_CODES) return LEGACY_CODES[value] ?? null;
+  return null;
+}
 
 export function defaultPaymentMethods(): PaymentMethodConfig[] {
   return DEFAULTS.map((row) => ({ code: row.code, enabled: row.enabled, name: { ...row.name } }));
@@ -30,10 +60,11 @@ export function parsePaymentMethods(value: unknown): PaymentMethodConfig[] {
     for (const row of value) {
       if (!row || typeof row !== 'object') continue;
       const code = (row as { code?: unknown }).code;
-      if (typeof code !== 'string' || !PAYMENT_METHOD_CODES.includes(code as PaymentMethodCode)) continue;
+      // Only current codes carry their saved name and switch; a legacy row must not overwrite a current one.
+      if (!isCode(code)) continue;
       const name = (row as { name?: unknown }).name;
       const enabled = (row as { enabled?: unknown }).enabled;
-      saved.set(code as PaymentMethodCode, {
+      saved.set(code, {
         enabled: typeof enabled === 'boolean' ? enabled : undefined,
         en: name && typeof name === 'object' && typeof (name as { en?: unknown }).en === 'string' ? (name as { en: string }).en.trim() : undefined,
         ar: name && typeof name === 'object' && typeof (name as { ar?: unknown }).ar === 'string' ? (name as { ar: string }).ar.trim() : undefined,
@@ -82,10 +113,17 @@ export function resolveRegistrationMethods(requested: readonly string[] | undefi
   return chosen;
 }
 
-/** A missing store selection accepts every method that is still enabled. An explicit list is intersected with that catalog. */
+/**
+ * A missing store selection accepts every method that is still enabled. An explicit list is translated from any
+ * legacy codes and intersected with the enabled catalog, so turning a method off removes it from every store.
+ */
 export function acceptedPaymentMethods(stored: unknown, catalog: PaymentMethodConfig[]): PaymentMethodCode[] {
   const enabled = catalog.filter((row) => row.enabled).map((row) => row.code);
   if (!Array.isArray(stored)) return enabled;
-  const chosen = new Set(stored.filter((code): code is PaymentMethodCode => typeof code === 'string' && PAYMENT_METHOD_CODES.includes(code as PaymentMethodCode)));
+  const chosen = new Set<PaymentMethodCode>();
+  for (const code of stored) {
+    const current = normalizePaymentMethodCode(code);
+    if (current) chosen.add(current);
+  }
   return enabled.filter((code) => chosen.has(code));
 }

@@ -32,6 +32,28 @@ export type StaffInput = MemberInput & { headUserId: string; referralCode?: stri
 
 type Kind = 'HEAD' | 'STAFF';
 
+/** The promo currently linked to a marketing profile, when it is live. */
+function connectedPromo(promo: {
+  code: string;
+  discountType: string;
+  discountValue: { toFixed: (digits: number) => string };
+  firstOrderOnly: boolean;
+  active: boolean;
+  startsAt: Date;
+  endsAt: Date;
+  deletedAt: Date | null;
+} | null) {
+  if (!promo || promo.deletedAt) return null;
+  const now = new Date();
+  if (!promo.active || promo.startsAt > now || promo.endsAt < now) return null;
+  return {
+    code: promo.code,
+    discountType: promo.discountType,
+    discountValue: dec(promo.discountValue),
+    firstTimeMerchantOnly: promo.firstOrderOnly,
+  };
+}
+
 export class MarketingTeamService {
   constructor(
     private readonly prisma: PrismaService,
@@ -382,7 +404,7 @@ export class MarketingTeamService {
 
   /** Own profile for the portal. */
   async me(actor: RequestUser) {
-    const profile = await this.prisma.marketingProfile.findUnique({ where: { userId: actor.id }, include: { user: true, parent: true } });
+    const profile = await this.prisma.marketingProfile.findUnique({ where: { userId: actor.id }, include: { user: true, parent: true, promoCode: true } });
     if (!profile) throw notFound('No marketing account');
     const settings = await this.settings.get();
     return {
@@ -392,6 +414,7 @@ export class MarketingTeamService {
       headUserId: profile.parentUserId,
       referralCode: profile.referralCode,
       capabilities: { headsCanReassignLeads: settings.headsCanReassignLeads, headsSeeReports: settings.headsSeeReports, referralPrefix: settings.referralPrefix },
+      connectedPromo: connectedPromo(profile.promoCode),
     };
   }
 

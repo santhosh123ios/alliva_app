@@ -96,6 +96,16 @@ export class BenefitGateway implements PaymentGateway {
   }
 }
 
+export class PaypalGateway implements PaymentGateway {
+  readonly name = 'PAYPAL' as const;
+  async createCharge(input: { amount: string; reference: string; method: string }) {
+    return { externalId: `paypal_${input.reference}`, status: 'CAPTURED' as const };
+  }
+  verifyWebhook(rawBody: Buffer, signature: string | undefined) {
+    return verify(process.env.PAYPAL_WEBHOOK_SECRET ?? 'dev-paypal-secret', rawBody, signature);
+  }
+}
+
 export function extensionFor(mime: string): string {
   if (mime === 'image/jpeg') return '.jpg';
   if (mime === 'image/png') return '.png';

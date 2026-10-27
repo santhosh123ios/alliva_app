@@ -17,7 +17,7 @@ export function StoresScreen({ params }: { params: Record<string, string> }) {
   const { role } = useConsole();
   const t = useT();
   const lang = useLang();
-  const filters = useFilters({ q: '', merchantStatus: '', staffId: '', from: '', to: '' });
+  const filters = useFilters({ q: params.q ?? '', merchantStatus: '', staffId: '', from: '', to: '' });
   const query = useList<StoreRow>('stores', '/stores', filters.params);
   const staff = useStaffOptions(role !== 'STAFF');
   const [creating, setCreating] = useState(Boolean(params.leadId));
@@ -74,7 +74,7 @@ function ReassignStore({ row, onClose }: { row: StoreRow; onClose: () => void })
   );
 }
 
-function StoreForm({ leadId, onClose }: { leadId?: string; onClose: () => void }) {
+export function StoreForm({ leadId, onClose }: { leadId?: string; onClose: () => void }) {
   const { api } = useConsole();
   const t = useT();
   const lang = useLang();
@@ -166,7 +166,8 @@ function StoreForm({ leadId, onClose }: { leadId?: string; onClose: () => void }
 
 // ---------------------------------------------------------------------------------------------- referral code
 
-export function ReferralScreen() {
+/** Share block shown with the wallet on the staff money page. */
+export function ReferralPanel() {
   const { me, registerUrl } = useConsole();
   const t = useT();
   const lang = useLang();
@@ -176,7 +177,7 @@ export function ReferralScreen() {
   const link = code ? `${registerUrl}${registerUrl.includes('?') ? '&' : '?'}ref=${encodeURIComponent(code)}` : '';
   const whatsapp = code ? `https://wa.me/?text=${encodeURIComponent(`${t('shareMessage', { code })} ${link}`)}` : '';
   return (
-    <Page title={t('referralTitle')} subtitle={t('referralSubtitle')}>
+    <>
       {code ? (
         <div className="grid gap-5 lg:grid-cols-2">
           <Section title={t('yourCode')} subtitle={t('yourCodeHint')}>
@@ -229,7 +230,7 @@ export function ReferralScreen() {
       ) : (
         <p className="text-sm text-muted-foreground">{t('noReferralCode')}</p>
       )}
-    </Page>
+    </>
   );
 }
 

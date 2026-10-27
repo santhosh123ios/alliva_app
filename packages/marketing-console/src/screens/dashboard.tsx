@@ -6,6 +6,7 @@ import { formatDateTime, formatMoney, formatNumber } from '../format';
 import { useLang, useT, type MessageKey } from '../i18n';
 import { DateRange, Kpi, Page, QueryBoundary, Section, StatusPill, Toolbar, useData, useFilters } from '../kit';
 import type { AppointmentRow, Wallet } from '../types';
+import { StaffHome } from './staff-home';
 
 type Dashboard = {
   kpis: Record<string, string | number>;
@@ -18,6 +19,12 @@ type Dashboard = {
 type KpiDef = { key: string; label: MessageKey; kind: 'num' | 'money' | 'percent'; tone?: 'warn' | 'bad' | 'good' };
 
 export function DashboardScreen() {
+  const { role } = useConsole();
+  if (role === 'STAFF') return <StaffHome />;
+  return <ManagementDashboard />;
+}
+
+function ManagementDashboard() {
   const { api, role, navigate } = useConsole();
   const t = useT();
   const lang = useLang();

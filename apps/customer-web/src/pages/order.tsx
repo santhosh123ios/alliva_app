@@ -2,7 +2,7 @@ import { api } from '@/components/providers';
 import { Link, useRouter } from '@/i18n/navigation';
 import { ActiveDeliveryCard, HistoryRow, isScheduledOrder, orderStatusLabel, supportHref } from '@/components/order-board';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
-import { ErrorState, Skeleton, SkeletonText } from '@alliva/ui';
+import { Button, ErrorState, Skeleton, SkeletonText } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -110,14 +110,14 @@ export default function OrderDetailPage() {
       ) : null}
       <div className="flex flex-wrap gap-2">
         {data.status === 'PENDING' ? (
-          <button type="button" disabled={cancel.isPending} onClick={() => cancel.mutate()} className="inline-flex h-11 items-center rounded-full border border-[#f0c8c5] px-5 text-sm font-semibold text-[#d9342b] disabled:opacity-60">
+          <Button type="button" variant="outline" className="h-11 rounded-full border-[#f0c8c5] px-5 text-[#d9342b] hover:bg-[#fdecea]" loading={cancel.isPending} onClick={() => cancel.mutate()}>
             {t('common.cancel')}
-          </button>
+          </Button>
         ) : null}
         {data.status === 'DELIVERED' ? null : open ? (
-          <button type="button" disabled={reorder.isPending} onClick={() => reorder.mutate()} className="inline-flex h-11 items-center rounded-full bg-primary px-5 text-sm font-bold text-[#111] disabled:opacity-60">
+          <Button type="button" variant="yellow" className="h-11 rounded-full px-5" loading={reorder.isPending} onClick={() => reorder.mutate()}>
             {t('customer.orders.reorder')}
-          </button>
+          </Button>
         ) : null}
         <a href={supportHref(data.number)} className="inline-flex h-11 items-center rounded-full bg-[#f2f2ee] px-5 text-sm font-semibold">
           {t('customer.orders.getHelp')}

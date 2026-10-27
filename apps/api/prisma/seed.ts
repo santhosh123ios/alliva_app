@@ -362,10 +362,12 @@ async function main() {
 
   const customer = await prisma.user.upsert({
     where: { phone: '+97336000001' },
-    update: {},
+    update: { email: 'customer@alliva.bh', passwordHash, status: 'ACTIVE' },
     create: {
       id: id(950),
       phone: '+97336000001',
+      email: 'customer@alliva.bh',
+      passwordHash,
       kind: 'CUSTOMER',
       status: 'ACTIVE',
       firstName: 'Abdulla',
@@ -527,7 +529,7 @@ async function main() {
   await prisma.payment.upsert({
     where: { idempotencyKey: 'seed-order-10001' },
     update: {},
-    create: { orderId: order.id, customerId: customer.customer!.id, merchantId: id(501), provider: 'TAP', method: 'CARD', status: 'CAPTURED', amount: quote.total, gatewayFee: moneyString(money(quote.total).mul('0.025')), idempotencyKey: 'seed-order-10001', externalId: 'tap_seed' },
+    create: { orderId: order.id, customerId: customer.customer!.id, merchantId: id(501), provider: 'TAP', method: 'TAP_PAY', status: 'CAPTURED', amount: quote.total, gatewayFee: moneyString(money(quote.total).mul('0.025')), idempotencyKey: 'seed-order-10001', externalId: 'tap_seed' },
   });
   await prisma.order.upsert({
     where: { number: 'ALV-10002' },
@@ -734,6 +736,7 @@ async function main() {
   await prisma.freeDeliveryRule.create({ data: { minimumOrder: '8.000' } }).catch(() => undefined);
   await prisma.paymentGatewayConfig.upsert({ where: { provider: 'TAP' }, update: {}, create: { provider: 'TAP', enabled: true, publicConfig: { feeRate: '0.025' } } });
   await prisma.paymentGatewayConfig.upsert({ where: { provider: 'BENEFIT' }, update: {}, create: { provider: 'BENEFIT', enabled: true, publicConfig: { feeRate: '0.025' } } });
+  await prisma.paymentGatewayConfig.upsert({ where: { provider: 'PAYPAL' }, update: {}, create: { provider: 'PAYPAL', enabled: true, publicConfig: { feeRate: '0.025' } } });
   await prisma.notificationTemplate.upsert({
     where: { key: 'order.updated' },
     update: {},

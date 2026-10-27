@@ -1,6 +1,6 @@
 import { EmptyState } from '@alliva/ui';
 import {
-  BarChart3, Bell, Building2, CalendarClock, ClipboardList, Footprints, LayoutGrid, Link2, Megaphone, Receipt, Settings, Store, Ticket, UserCircle, UserRoundSearch, Users, Wallet, Banknote, Percent, type LucideIcon,
+  BarChart3, Bell, Building2, CalendarClock, ClipboardList, Footprints, LayoutGrid, Megaphone, Settings, Store, Ticket, UserCircle, UserRoundSearch, Users, Wallet, Percent, type LucideIcon,
 } from 'lucide-react';
 import { useConsole, type Role } from './context';
 import { useT, type MessageKey } from './i18n';
@@ -8,15 +8,15 @@ import { AppointmentsScreen } from './screens/appointments';
 import { DashboardScreen } from './screens/dashboard';
 import { ActivityScreen, NotificationsScreen, ProfileScreen } from './screens/inbox';
 import { LeadsScreen, VisitsScreen } from './screens/leads';
-import { CommissionTransactionsScreen, CommissionsScreen, WalletScreen, WalletsAdminScreen } from './screens/money';
+import { CommissionsScreen, WalletScreen, WalletsAdminScreen } from './screens/money';
 import { PromosScreen } from './screens/promos';
 import { ReportsScreen } from './screens/reports';
 import { SettingsScreen } from './screens/settings';
-import { ReferralScreen, StoresScreen } from './screens/stores';
+import { StoresScreen } from './screens/stores';
 import { MembersScreen } from './screens/team';
 
 export type ScreenId =
-  | 'dashboard' | 'heads' | 'staff' | 'leads' | 'visits' | 'appointments' | 'stores' | 'referral' | 'commissions' | 'transactions'
+  | 'dashboard' | 'heads' | 'staff' | 'leads' | 'visits' | 'appointments' | 'stores' | 'referral' | 'commissions'
   | 'wallet' | 'wallets' | 'reports' | 'settings' | 'notifications' | 'activity' | 'profile' | 'promos';
 
 export type NavItem = { id: ScreenId; label: MessageKey; icon: LucideIcon };
@@ -31,7 +31,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { id: 'appointments', label: 'navAppointments', icon: CalendarClock },
     { id: 'stores', label: 'navReferralTracking', icon: Store },
     { id: 'commissions', label: 'navCommissions', icon: Percent },
-    { id: 'wallets', label: 'navWalletsWithdrawals', icon: Wallet },
+    { id: 'wallets', label: 'navReferralWallet', icon: Wallet },
     { id: 'promos', label: 'navPromos', icon: Ticket },
     { id: 'reports', label: 'navReports', icon: BarChart3 },
     { id: 'activity', label: 'navActivity', icon: ClipboardList },
@@ -46,8 +46,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { id: 'appointments', label: 'navAppointments', icon: CalendarClock },
     { id: 'activity', label: 'navTeamActivity', icon: Megaphone },
     { id: 'commissions', label: 'navMyCommission', icon: Percent },
-    { id: 'transactions', label: 'navCommissionTransactions', icon: Receipt },
-    { id: 'wallet', label: 'navMyWallet', icon: Wallet },
+    { id: 'wallet', label: 'navReferralWallet', icon: Wallet },
     { id: 'reports', label: 'navReports', icon: BarChart3 },
     { id: 'notifications', label: 'navNotifications', icon: Bell },
   ],
@@ -56,10 +55,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { id: 'leads', label: 'navMyLeads', icon: UserRoundSearch },
     { id: 'stores', label: 'navMyStores', icon: Store },
     { id: 'appointments', label: 'navAppointmentsFollowUps', icon: CalendarClock },
-    { id: 'referral', label: 'navReferralCode', icon: Link2 },
-    { id: 'commissions', label: 'navCommission', icon: Banknote },
-    { id: 'transactions', label: 'navCommissionTransactions', icon: Receipt },
-    { id: 'wallet', label: 'navWallet', icon: Wallet },
+    { id: 'wallet', label: 'navReferralWallet', icon: Wallet },
     { id: 'notifications', label: 'navNotifications', icon: Bell },
     { id: 'profile', label: 'navProfile', icon: UserCircle },
   ],
@@ -72,7 +68,9 @@ export function allowedScreens(role: Role, headsSeeReports = true): ScreenId[] {
 export function MarketingScreen({ id, params = {} }: { id: string; params?: Record<string, string> }) {
   const { role, me } = useConsole();
   const t = useT();
-  const screen = role === 'STAFF' && id === 'visits' ? 'leads' : id;
+  let screen = id;
+  if (role === 'STAFF' && screen === 'visits') screen = 'leads';
+  if (role !== 'ADMIN' && screen === 'referral') screen = 'wallet';
   const allowed = allowedScreens(role, me?.capabilities.headsSeeReports ?? true);
   const extra: ScreenId[] = ['notifications', 'profile'];
   if (!(allowed.includes(screen as ScreenId) || (extra.includes(screen as ScreenId) && role !== 'ADMIN'))) {
@@ -86,9 +84,7 @@ export function MarketingScreen({ id, params = {} }: { id: string; params?: Reco
     case 'visits': return <VisitsScreen />;
     case 'appointments': return <AppointmentsScreen params={params} />;
     case 'stores': return <StoresScreen params={params} />;
-    case 'referral': return <ReferralScreen />;
     case 'commissions': return <CommissionsScreen />;
-    case 'transactions': return <CommissionTransactionsScreen />;
     case 'wallet': return <WalletScreen />;
     case 'wallets': return <WalletsAdminScreen params={params} />;
     case 'reports': return <ReportsScreen />;

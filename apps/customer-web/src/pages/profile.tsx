@@ -34,16 +34,18 @@ import {
   Pencil,
   RotateCcw,
   Store,
+  Wallet,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-type Section = 'overview' | 'addresses' | 'payments' | 'notifications' | 'help';
+type Section = 'overview' | 'addresses' | 'payments' | 'notifications' | 'help' | 'referral';
 type AccountUser = Awaited<ReturnType<typeof api.me>>;
 
 type CustomerProfile = {
   rewardBalance?: string | number;
+  rewardAvailable?: string | number;
   addresses?: {
     id: string;
     label: string;
@@ -170,7 +172,7 @@ export default function ProfilePage() {
                 user={user}
                 orderCount={orders.data?.length ?? 0}
                 favouriteCount={profile.favourites?.length ?? 0}
-                rewards={formatPoints(profile.rewardBalance, locale)}
+                rewards={formatPoints(profile.rewardAvailable ?? profile.rewardBalance, locale)}
                 countsLoading={customer.isLoading || orders.isLoading}
                 alerts={alerts}
                 onToggleAlerts={toggleAlerts}
@@ -186,7 +188,7 @@ export default function ProfilePage() {
                 locale={locale}
                 orderCount={orders.data?.length ?? 0}
                 favouriteCount={profile.favourites?.length ?? 0}
-                rewards={formatPoints(profile.rewardBalance, locale)}
+                rewards={formatPoints(profile.rewardAvailable ?? profile.rewardBalance, locale)}
                 countsLoading={customer.isLoading || orders.isLoading}
                 latest={latest ?? null}
                 logo={logo}
@@ -206,7 +208,10 @@ export default function ProfilePage() {
             addresses={addresses}
             payments={profile.paymentMethods ?? []}
             alerts={alerts}
+            rewards={formatPoints(profile.rewardAvailable ?? profile.rewardBalance, locale)}
+            rewardsLoading={customer.isLoading}
             onToggleAlerts={toggleAlerts}
+            onInvite={() => void invite()}
             onBack={() => setSection('overview')}
           />
         )}
@@ -290,6 +295,7 @@ function MobileOverview({
           <AccountTile icon={MapPin} title={t('customer.account.savedAddresses')} hint={t('customer.account.addressesHint')} onClick={() => onSection('addresses')} />
           <AccountTile href="/favourites" icon={Heart} title={t('customer.account.favorites')} hint={t('customer.account.favoritesHint')} />
           <AccountTile icon={CreditCard} title={t('customer.account.paymentMethods')} hint={t('customer.account.paymentsHint')} onClick={() => onSection('payments')} />
+          <AccountTile icon={Wallet} title={t('nav.referralWallet')} hint={t('customer.account.referralWalletHint')} onClick={() => onSection('referral')} />
         </div>
         <button
           type="button"
@@ -406,6 +412,7 @@ function DesktopOverview({
           <AccountTile icon={MapPin} title={t('customer.account.savedAddresses')} hint={t('customer.account.addressesLong')} onClick={() => onSection('addresses')} />
           <AccountTile href="/favourites" icon={Heart} title={t('customer.account.favorites')} hint={t('customer.account.favoritesLong')} />
           <AccountTile icon={CreditCard} title={t('customer.account.paymentMethods')} hint={t('customer.account.paymentsLong')} onClick={() => onSection('payments')} />
+          <AccountTile icon={Wallet} title={t('nav.referralWallet')} hint={t('customer.account.referralWalletHint')} onClick={() => onSection('referral')} />
         </div>
       </section>
 
@@ -460,6 +467,7 @@ function Sidebar({
     { key: 'addresses', icon: MapPin, label: t('customer.account.savedAddresses'), section: 'addresses' },
     { key: 'favorites', icon: Heart, label: t('customer.account.favorites'), href: '/favourites' },
     { key: 'payments', icon: CreditCard, label: t('customer.account.paymentMethods'), section: 'payments' },
+    { key: 'referral', icon: Wallet, label: t('nav.referralWallet'), section: 'referral' },
     { key: 'notifications', icon: Bell, label: t('customer.account.notifications'), section: 'notifications' },
     { key: 'help', icon: CircleHelp, label: t('customer.account.helpSupport'), section: 'help' },
   ];
@@ -515,14 +523,20 @@ function SectionPanel({
   addresses,
   payments,
   alerts,
+  rewards,
+  rewardsLoading,
   onToggleAlerts,
+  onInvite,
   onBack,
 }: {
   section: Exclude<Section, 'overview'>;
   addresses: NonNullable<CustomerProfile['addresses']>;
   payments: NonNullable<CustomerProfile['paymentMethods']>;
   alerts: boolean;
+  rewards: string;
+  rewardsLoading: boolean;
   onToggleAlerts: () => void;
+  onInvite: () => void;
   onBack: () => void;
 }) {
   const t = useTranslations();
@@ -531,6 +545,7 @@ function SectionPanel({
     payments: t('customer.account.paymentMethods'),
     notifications: t('customer.account.notifications'),
     help: t('customer.account.helpSupport'),
+    referral: t('nav.referralWallet'),
   }[section];
   return (
     <div>
@@ -552,9 +567,161 @@ function SectionPanel({
           </div>
         ) : null}
         {section === 'help' ? <HelpPanel /> : null}
+        {section === 'referral' ? <ReferralPanel rewards={rewards} loading={rewardsLoading} onInvite={onInvite} /> : null}
       </div>
     </div>
   );
+}
+
+function ReferralPanel({ rewards, loading, onInvite }: { rewards: string; loading: boolean; onInvite: () => void }) {
+  const t = useTranslations();
+  const locale = useLocale() as 'en' | 'ar';
+  const client = useQueryClient();
+  const wallet = useQuery({ queryKey: ['customer', 'wallet'], queryFn: () => api.customerWallet() });
+  const [tab, setTab] = useState<'transactions' | 'withdrawals'>('transactions');
+  const [open, setOpen] = useState(false);
+  const available = wallet.data?.available;
+  const shown = available != null ? formatPoints(available, locale) : rewards;
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-2xl border border-[#ecece8] bg-white p-5">
+          <h2 className="text-base font-semibold">{t('customer.account.shareEarn')}</h2>
+          <p className="mt-1 text-sm text-[#6f6f6a]">{t('customer.account.shareLong')}</p>
+          <Button type="button" variant="yellow" className="mt-4 h-11 rounded-xl px-4" onClick={onInvite}>
+            {t('customer.account.invite')}
+          </Button>
+        </section>
+        <section className="rounded-2xl border border-[#ecece8] bg-white p-5">
+          <h2 className="text-base font-semibold">{t('customer.account.rewards')}</h2>
+          <p className="mt-1 text-sm text-[#6f6f6a]">{t('customer.account.referralWalletHint')}</p>
+          {loading && !wallet.data ? <Skeleton className="mt-6 h-9 w-24" /> : <p className="mt-6 text-3xl font-semibold tracking-tight">{shown}</p>}
+          {wallet.data ? (
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <p><span className="block text-xs text-[#8a8a86]">{t('customer.account.pending')}</span><span className="font-semibold">{formatPoints(wallet.data.pending, locale)}</span></p>
+              <p><span className="block text-xs text-[#8a8a86]">{t('customer.account.withdrawn')}</span><span className="font-semibold">{formatPoints(wallet.data.withdrawn, locale)}</span></p>
+            </div>
+          ) : null}
+          <Button type="button" variant="yellow" className="mt-5 h-11 rounded-xl px-4" disabled={!available || Number(available) <= 0} onClick={() => setOpen(true)}>
+            {t('customer.account.requestWithdrawal')}
+          </Button>
+        </section>
+      </div>
+      <div className="flex gap-2">
+        <button type="button" onClick={() => setTab('transactions')} className={tab === 'transactions' ? 'rounded-full bg-[#111] px-4 py-2 text-sm font-semibold text-white' : 'rounded-full bg-white px-4 py-2 text-sm font-semibold ring-1 ring-[#ecece8]'}>{t('customer.account.transactions')}</button>
+        <button type="button" onClick={() => setTab('withdrawals')} className={tab === 'withdrawals' ? 'rounded-full bg-[#111] px-4 py-2 text-sm font-semibold text-white' : 'rounded-full bg-white px-4 py-2 text-sm font-semibold ring-1 ring-[#ecece8]'}>{t('customer.account.withdrawals')}</button>
+      </div>
+      {wallet.isLoading ? <Skeleton className="h-40" /> : tab === 'transactions' ? (
+        <CustomerActivity
+          emptyTitle={t('customer.account.noTransactions')}
+          emptyBody={t('customer.account.noTransactionsBody')}
+          detailHeader={t('customer.account.type')}
+          rows={(wallet.data?.transactions ?? []).map((row) => ({
+            id: row.id,
+            date: formatWhen(row.createdAt, locale),
+            detail: t(row.type === 'REWARD' ? 'customer.account.typeReward' : 'customer.account.typeWithdrawal'),
+            amount: signedPoints(row.amount, locale),
+          }))}
+        />
+      ) : (
+        <CustomerActivity
+          emptyTitle={t('customer.account.noWithdrawals')}
+          emptyBody={t('customer.account.noWithdrawalsBody')}
+          detailHeader={t('customer.account.columnStatus')}
+          rows={(wallet.data?.withdrawals ?? []).map((row) => ({
+            id: row.id,
+            date: formatWhen(row.createdAt, locale),
+            detail: t(`customer.account.status_${row.status}`),
+            amount: formatPoints(row.amount, locale),
+          }))}
+        />
+      )}
+      {open && available ? (
+        <CustomerWithdrawDialog
+          available={available}
+          locale={locale}
+          onClose={() => setOpen(false)}
+          onDone={async () => {
+            setOpen(false);
+            await client.invalidateQueries({ queryKey: ['customer', 'wallet'] });
+            await client.invalidateQueries({ queryKey: ['customer'] });
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function CustomerActivity({ rows, emptyTitle, emptyBody, detailHeader }: { rows: { id: string; date: string; detail: string; amount: string }[]; emptyTitle: string; emptyBody: string; detailHeader: string }) {
+  const t = useTranslations();
+  if (!rows.length) {
+    return (
+      <div className="rounded-2xl border border-[#ecece8] bg-white px-5 py-10 text-center">
+        <p className="font-semibold">{emptyTitle}</p>
+        <p className="mt-1 text-sm text-[#6f6f6a]">{emptyBody}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-hidden rounded-2xl border border-[#ecece8] bg-white">
+      <table className="w-full text-sm">
+        <thead className="text-xs font-semibold tracking-wide text-[#8a8a86] uppercase">
+          <tr>
+            <th className="px-4 py-3 text-start font-semibold">{t('customer.account.date')}</th>
+            <th className="px-4 py-3 text-start font-semibold">{detailHeader}</th>
+            <th className="px-4 py-3 text-end font-semibold">{t('customer.account.amount')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id} className="border-t border-[#ecece8]">
+              <td className="px-4 py-3">{row.date}</td>
+              <td className="px-4 py-3">{row.detail}</td>
+              <td className="px-4 py-3 text-end font-semibold" dir="ltr">{row.amount}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CustomerWithdrawDialog({ available, locale, onClose, onDone }: { available: string; locale: 'en' | 'ar'; onClose: () => void; onDone: () => Promise<void> }) {
+  const t = useTranslations();
+  const common = useTranslations('common');
+  const [amount, setAmount] = useState('');
+  const valid = /^\d+(\.\d{1,3})?$/.test(amount) && Number(amount) > 0 && Number(amount) <= Number(available);
+  const request = useMutation({
+    mutationFn: () => api.requestCustomerWithdrawal(Number(amount).toFixed(3)),
+    onSuccess: async () => {
+      toast.success(t('customer.account.withdrawalRequested'));
+      await onDone();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  return (
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent>
+        <DialogTitle>{t('customer.account.requestWithdrawal')}</DialogTitle>
+        <DialogDescription>{t('customer.account.availableToWithdraw', { amount: formatPoints(available, locale) })}</DialogDescription>
+        <form className="mt-4 space-y-4" onSubmit={(event) => { event.preventDefault(); if (valid) request.mutate(); }}>
+          <div>
+            <Label htmlFor="reward-withdrawal">{t('customer.account.amount')}</Label>
+            <Input id="reward-withdrawal" className="mt-1" inputMode="decimal" dir="ltr" value={amount} onChange={(event) => setAmount(event.target.value)} required />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>{common('cancel')}</Button>
+            <Button type="submit" variant="yellow" disabled={!valid || request.isPending} loading={request.isPending}>{t('customer.account.submitRequest')}</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function signedPoints(amount: string, locale: 'en' | 'ar') {
+  const formatted = formatPoints(amount, locale);
+  return Number(amount) > 0 ? `+${formatted}` : formatted;
 }
 
 function AddressesPanel({ addresses }: { addresses: NonNullable<CustomerProfile['addresses']> }) {
@@ -739,15 +906,17 @@ function RecentOrderCard({
             <Link href={`/orders/${order.id}`} className="inline-flex h-10 items-center rounded-xl border border-[#e4e4de] bg-white px-4 text-sm font-semibold">
               {t('customer.account.viewDetails')}
             </Link>
-            <button
+            <Button
               type="button"
-              disabled={reorder.isPending}
+              variant="yellow"
+              size="sm"
+              className="h-10 rounded-xl px-4"
+              loading={reorder.isPending}
               onClick={() => reorder.mutate(order.id)}
-              className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold disabled:opacity-60"
             >
               <RotateCcw className="size-4" />
               {t('customer.account.reorder')}
-            </button>
+            </Button>
           </div>
         </>
       ) : null}

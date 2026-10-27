@@ -24,6 +24,8 @@ export type Me = {
   effectiveCommissionPercent: string;
   commissionIsDefault: boolean;
   capabilities: { headsCanReassignLeads: boolean; headsSeeReports: boolean; referralPrefix: string };
+  /** Promo linked to this profile, when one is active right now. */
+  connectedPromo: { code: string; discountType: 'PERCENTAGE' | 'FIXED'; discountValue: string; firstTimeMerchantOnly: boolean } | null;
 };
 
 export type ConsoleContextValue = {

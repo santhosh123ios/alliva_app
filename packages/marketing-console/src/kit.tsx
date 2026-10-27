@@ -1,5 +1,5 @@
 import { ApiError } from '@alliva/api-client';
-import { Badge, Button, Card, Dialog, DialogContent, DialogDescription, DialogTitle, EmptyState, ErrorState, Input, Sheet, SheetContent, Skeleton, Textarea, cn, toast } from '@alliva/ui';
+import { Badge, Button, Card, Dialog, DialogContent, DialogDescription, DialogTitle, EmptyState, ErrorState, Input, Sheet, SheetContent, Skeleton, Textarea, cn, toast, trackBusy } from '@alliva/ui';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronLeft, ChevronRight, Copy, Search } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -45,6 +45,7 @@ export function useAction() {
   const client = useQueryClient();
   const t = useT();
   return async function act<T>(run: () => Promise<T>, success?: MessageKey): Promise<{ ok: true; data: T } | { ok: false }> {
+    const release = trackBusy();
     try {
       const data = await run();
       if (success) toast.success(t(success));
@@ -53,6 +54,8 @@ export function useAction() {
     } catch (error) {
       toast.error(errorMessage(error));
       return { ok: false };
+    } finally {
+      release();
     }
   };
 }
@@ -286,9 +289,22 @@ export function ListView<T>({
   emptyTitle?: string;
   emptyBody?: string;
 }) {
+  const t = useT();
   const data = query.data;
+  const refreshing = query.isFetching && !query.isLoading && Boolean(data);
   return (
-    <div className="space-y-3">
+    <div className={cn('relative space-y-3', refreshing && 'opacity-70 transition-opacity')}>
+      {refreshing ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center" aria-live="polite">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#111]/90 px-3 py-1 text-xs font-semibold text-white shadow-sm">
+            <svg className="size-3.5 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+              <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+            </svg>
+            {t('loading')}
+          </span>
+        </div>
+      ) : null}
       <DataTable columns={columns} rows={data?.items} loading={query.isLoading} error={query.error} onRowClick={onRowClick} rowKey={rowKey} emptyTitle={emptyTitle} emptyBody={emptyBody} />
       {data ? <Pager page={data.page} pageSize={data.pageSize} total={data.total} onPage={onPage} /> : null}
     </div>
@@ -494,14 +510,15 @@ export function ConfirmDialog({
 
 // ---------------------------------------------------------------------------------------------- misc
 
-export function CopyButton({ text, label }: { text: string; label?: string }) {
+export function CopyButton({ text, label, variant = 'outline', className }: { text: string; label?: string; variant?: 'outline' | 'yellow'; className?: string }) {
   const t = useT();
   const [done, setDone] = useState(false);
   return (
     <Button
       type="button"
-      variant="outline"
+      variant={variant}
       size="sm"
+      className={className}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(text);

@@ -1,5 +1,6 @@
 import { Providers } from '@/components/providers';
 import { hasLocale, preferredLocale, rememberLocale, type Locale } from '@/i18n/routing';
+import { PageLoader } from '@alliva/ui';
 import { Suspense, use, useLayoutEffect } from 'react';
 import { Navigate, Outlet, ScrollRestoration, useLocation, useParams } from 'react-router';
 import { IntlProvider, type AbstractIntlMessages } from 'use-intl';
@@ -23,7 +24,7 @@ export function LocaleLayout() {
   const { locale } = useParams();
   if (!hasLocale(locale)) return <LocaleRedirect />;
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageLoader />}>
       <LocaleContent locale={locale} />
     </Suspense>
   );

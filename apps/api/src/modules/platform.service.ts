@@ -3,6 +3,7 @@ import type { MarketingPromoService } from './marketing/promo.service';
 import { assertFeatureAllowed, assertFeatureEnabled, assertWithinLimit, EntitlementError, readEntitlement } from '../domain/entitlements';
 import { assignmentBlockReason, validatePlanEntitlements, type EntitlementRow } from '../domain/subscriptions';
 import { money, moneyString } from '../domain/money';
+import { availableBalance } from '../domain/wallet';
 import { badRequest, notFound } from '../common/errors';
 import { dec, loc } from '../common/crypto';
 import { CryptoService } from '../common/crypto';
@@ -163,23 +164,28 @@ export class PlatformService {
     return this.remember(`merchant-dashboard:${merchantId}`, 15_000, () => this.buildMerchantDashboard(merchantId));
   }
 
+  forgetMerchantDashboard(merchantId: string) {
+    this.readCache.delete(`merchant-dashboard:${merchantId}`);
+  }
+
   private async buildMerchantDashboard(merchantId: string) {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
-    const [orders, cash, settled, owed, lowStock, usage, reviews] = await Promise.all([
+    const [orders, cash, settled, reserved, owed, lowStock, usage, reviews] = await Promise.all([
       this.prisma.order.findMany({
         where: { merchantId, createdAt: { gte: start } },
         select: { status: true, total: true, items: { select: { id: true, productId: true, name: true, quantity: true } } },
       }),
       this.prisma.cashCollection.aggregate({ where: { merchantId, status: { in: ['COLLECTED', 'CONFIRMED'] } }, _sum: { amount: true } }),
       this.prisma.settlement.aggregate({ where: { merchantId, status: { in: ['APPROVED', 'PAID'] } }, _sum: { amount: true } }),
+      this.prisma.settlement.aggregate({ where: { merchantId, status: { in: ['DRAFT', 'PENDING_APPROVAL'] } }, _sum: { amount: true } }),
       this.prisma.order.aggregate({ where: { merchantId, status: 'DELIVERED' }, _sum: { merchantNet: true } }),
       this.prisma.inventoryItem.findMany({ where: { merchantId }, select: { productId: true, quantity: true, lowStockThreshold: true, product: { select: { name: true } } } }),
       this.entitlementUsage(merchantId),
       this.prisma.review.aggregate({ where: { merchantId }, _avg: { rating: true }, _count: true }),
     ]);
-    const paid = money(dec(settled._sum.amount));
-    const net = money(dec(owed._sum.merchantNet));
+    const paid = dec(settled._sum.amount);
+    const net = dec(owed._sum.merchantNet);
     const productCounts = new Map<string, { name: unknown; quantity: number }>();
     for (const order of orders) {
       for (const item of order.items) {
@@ -194,7 +200,7 @@ export class PlatformService {
       preparingOrders: orders.filter((order) => order.status === 'PREPARING').length,
       revenueToday: moneyString(orders.reduce((sum, order) => sum.plus(dec(order.total)), money(0))),
       cashCollections: moneyString(money(dec(cash._sum.amount))),
-      settlementBalance: moneyString(net.minus(paid)),
+      settlementBalance: availableBalance(net, paid, dec(reserved._sum.amount)),
       topProducts: [...productCounts.entries()].map(([id, value]) => ({ id, name: loc(value.name), quantity: value.quantity })).slice(0, 5),
       lowStock: lowStock.filter((row) => row.quantity <= row.lowStockThreshold).map((row) => ({ id: row.productId, name: loc(row.product.name), quantity: row.quantity })),
       subscriptionUsage: usage,

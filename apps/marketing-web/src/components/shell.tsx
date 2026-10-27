@@ -2,8 +2,8 @@ import { api } from '@/components/providers';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { NAV, NotificationBell, allowedScreens, useConsole, useT } from '@alliva/marketing-console';
 import { useQueryClient } from '@tanstack/react-query';
-import { LogOut, Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { LogOut, Menu, Search, X } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
 import { useLocale } from 'use-intl';
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
@@ -69,6 +69,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           <button type="button" className="grid size-10 place-items-center rounded-xl border border-[#E9E7DF] md:hidden" onClick={() => setOpen(true)} aria-label={t('shellMenu')}>
             <Menu className="size-4" />
           </button>
+          {role === 'STAFF' ? <StaffSearch /> : null}
           <div className="ms-auto flex items-center gap-2">
             <NotificationBell />
             <Link href={pathname} locale={locale === 'en' ? 'ar' : 'en'} className="grid h-10 min-w-10 place-items-center rounded-xl border border-[#E9E7DF] bg-white px-2 text-xs font-semibold">
@@ -86,5 +87,29 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
         <main className="mx-auto w-full max-w-[1280px] p-4 md:p-6">{children}</main>
       </div>
     </div>
+  );
+}
+
+function StaffSearch() {
+  const t = useT();
+  const router = useRouter();
+  const [q, setQ] = useState('');
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const query = q.trim();
+    router.push(query ? `/stores?q=${encodeURIComponent(query)}` : '/stores');
+  };
+  return (
+    <form className="relative min-w-0 flex-1" onSubmit={submit}>
+      <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[#74746c]" />
+      <input
+        type="search"
+        value={q}
+        onChange={(event) => setQ(event.target.value)}
+        placeholder={t('staffSearch')}
+        aria-label={t('search')}
+        className="h-10 w-full max-w-md rounded-xl border border-[#E9E7DF] bg-[#fafaf8] ps-10 pe-3 text-sm outline-none ring-[#F5C518] placeholder:text-[#8d8d86] focus:ring-2"
+      />
+    </form>
   );
 }

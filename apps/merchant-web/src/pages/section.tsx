@@ -2,6 +2,7 @@ import { BusinessPage } from '@/components/business';
 import { OrdersPage, type MerchantOrder } from '@/components/orders';
 import { Overview } from '@/components/overview';
 import { ProductsPage } from '@/components/products';
+import { ReferralWalletPage } from '@/components/referral';
 import { SubscriptionPage } from '@/components/subscription';
 import { StaffPage, type StaffRow } from '@/components/staff';
 import { TablesPage } from '@/components/tables';
@@ -16,7 +17,7 @@ export default function SectionPage() {
   const section = useParams()['*']?.split('/').filter(Boolean);
   const key = section?.[0] ?? 'dashboard';
   const client = useQueryClient();
-  const data = useQuery({ queryKey: ['merchant', key], queryFn: () => load(key), enabled: key !== 'products' && key !== 'subscription' });
+  const data = useQuery({ queryKey: ['merchant', key], queryFn: () => load(key), enabled: key !== 'products' && key !== 'subscription' && key !== 'referral' });
   useEffect(() => {
     if (key !== 'orders') return;
     let socket: ReturnType<typeof io> | undefined;
@@ -30,6 +31,7 @@ export default function SectionPage() {
   }, [client, key]);
   if (key === 'products') return <ProductsPage />;
   if (key === 'subscription') return <SubscriptionPage />;
+  if (key === 'referral') return <ReferralWalletPage />;
   if (data.isLoading) return <SectionSkeleton section={key} />;
   if (data.error) return <ErrorState title="Could not load" body={(data.error as Error).message} />;
   if (key === 'dashboard' && data.data) {

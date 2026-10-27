@@ -31,6 +31,7 @@ const groups = [
       { href: '/staff', label: 'staff', icon: Users, permission: 'staff.manage' },
       { href: '/tables', label: 'tables', icon: UtensilsCrossed, permission: 'table.manage' },
       { href: '/payments', label: 'payments', icon: Wallet, permission: 'payment.view' },
+      { href: '/referral', label: 'referralWallet', icon: Wallet, permission: 'payment.view' },
       { href: '/subscription', label: 'subscription', icon: Crown, permission: 'payment.view' },
     ],
   },
@@ -81,7 +82,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     return groups
       .map((group) => ({
         ...group,
-        items: group.items.filter((item) => item.href === '/dashboard' || allowed(me.data, item.permission)),
+        items: group.items.filter((item) => item.href === '/dashboard' || item.href === '/referral' || allowed(me.data, item.permission)),
       }))
       .filter((group) => group.items.length > 0);
   }, [me.data]);

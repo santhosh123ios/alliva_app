@@ -56,6 +56,9 @@ enum PaymentMethod {
   BENEFIT
   BENEFIT_PAY
   CASH
+  BANK_TRANSFER
+  TAP_PAY
+  PAYPAL
 }
 
 enum PaymentProvider {
@@ -63,12 +66,20 @@ enum PaymentProvider {
   BENEFIT
   MOCK
   CASH
+  PAYPAL
+  BANK_TRANSFER
 }
 
 enum SettlementStatus {
   DRAFT
   PENDING_APPROVAL
   APPROVED
+  PAID
+  REJECTED
+}
+
+enum CustomerWithdrawalStatus {
+  REQUESTED
   PAID
   REJECTED
 }

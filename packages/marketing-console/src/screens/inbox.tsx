@@ -9,16 +9,17 @@ import { CommissionRate, DateRange, DetailRow, FilterSelect, ListView, Page, Sec
 import type { ActivityRow, MemberDetail, NotificationRow } from '../types';
 
 /** Maps a server notification link (`/leads?lead=ID`, `/commission`) to a console screen + params. */
-export function linkToScreen(link: string | null): { screen: string; params: Record<string, string> } | null {
+export function linkToScreen(link: string | null, role?: string): { screen: string; params: Record<string, string> } | null {
   if (!link) return null;
   const [path = '', search = ''] = link.split('?');
-  const screen = path.replace(/^\//, '') === 'commission' ? 'commissions' : path.replace(/^\//, '');
+  let screen = path.replace(/^\//, '') === 'commission' ? 'commissions' : path.replace(/^\//, '');
   if (!screen) return null;
+  if (screen === 'transactions' || (role === 'STAFF' && screen === 'commissions')) screen = 'wallet';
   return { screen, params: Object.fromEntries(new URLSearchParams(search)) };
 }
 
 export function NotificationBell() {
-  const { api, navigate } = useConsole();
+  const { api, navigate, role } = useConsole();
   const t = useT();
   const lang = useLang();
   const act = useAction();
@@ -37,7 +38,7 @@ export function NotificationBell() {
 
   const go = async (row: NotificationRow) => {
     if (!row.read) await act(() => api.mk.post(`/notifications/${row.id}/read`));
-    const target = linkToScreen(row.link);
+    const target = linkToScreen(row.link, role);
     setOpen(false);
     if (target) navigate(target.screen, target.params);
   };
@@ -73,7 +74,7 @@ export function NotificationBell() {
 }
 
 export function NotificationsScreen() {
-  const { api, navigate } = useConsole();
+  const { api, navigate, role } = useConsole();
   const t = useT();
   const lang = useLang();
   const act = useAction();
@@ -98,7 +99,7 @@ export function NotificationsScreen() {
         emptyBody={t('noNotificationsBody')}
         onRowClick={async (row) => {
           if (!row.read) await act(() => api.mk.post(`/notifications/${row.id}/read`));
-          const target = linkToScreen(row.link);
+          const target = linkToScreen(row.link, role);
           if (target) navigate(target.screen, target.params);
         }}
       />

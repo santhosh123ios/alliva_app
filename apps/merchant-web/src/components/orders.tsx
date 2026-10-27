@@ -1,6 +1,6 @@
 import { api } from '@/components/providers';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
-import type { FulfillmentType, OrderStatus, PaymentMethod } from '@alliva/types';
+import type { FulfillmentType, OrderPaymentMethod, OrderStatus } from '@alliva/types';
 import { Button, EmptyState } from '@alliva/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Banknote, Bike, Calendar, ChevronDown, ChevronRight, ClipboardList, Download, MapPin, Plus, Search, ShoppingBag, Truck, User, UtensilsCrossed, X, type LucideIcon } from 'lucide-react';
@@ -15,7 +15,7 @@ export type MerchantOrder = {
   customerName: string;
   tableNumber: string | null;
   address: string | null;
-  paymentMethod: PaymentMethod | null;
+  paymentMethod: OrderPaymentMethod | null;
   items: { name: { en?: string; ar?: string }; quantity: number; lineTotal: string }[];
   pricing: { subtotal: string; deliveryFee: string; total: string };
   createdAt: string;
@@ -330,14 +330,14 @@ function OrderPanel({ order, locale, onClose, onChanged }: { order: MerchantOrde
             {error ? <p className="mb-3 text-sm font-medium text-[#B42318]">{error}</p> : null}
             <div className={`grid gap-2 ${next && canReject ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {canReject ? (
-                <button type="button" className="h-11 rounded-xl border border-[#F3C1BC] bg-white text-sm font-semibold text-[#D9342B] disabled:opacity-60" disabled={save.isPending} onClick={() => save.mutate({ status: 'CANCELLED', cancellationReason: t('rejected') })}>
+                <Button type="button" variant="outline" className="h-11 rounded-xl border-[#F3C1BC] text-[#D9342B] hover:bg-[#fdecea]" loading={save.isPending} onClick={() => save.mutate({ status: 'CANCELLED', cancellationReason: t('rejected') })}>
                   {t('reject')}
-                </button>
+                </Button>
               ) : null}
               {next ? (
-                <button type="button" className="h-11 rounded-xl bg-[#111111] text-sm font-semibold text-white disabled:opacity-60" disabled={save.isPending} onClick={() => save.mutate(next.body)}>
+                <Button type="button" className="h-11 rounded-xl" loading={save.isPending} onClick={() => save.mutate(next.body)}>
                   {t(next.label)}
-                </button>
+                </Button>
               ) : null}
             </div>
             {next?.label === 'accept' ? <p className="mt-2 text-center text-xs text-[#8A8A86]">{t('acceptHint')}</p> : null}
@@ -447,7 +447,10 @@ function statusKey(status: OrderStatus) {
   return 'refunded' as const;
 }
 
-function paymentKey(method: PaymentMethod | null) {
+function paymentKey(method: OrderPaymentMethod | null) {
+  if (method === 'BANK_TRANSFER') return 'bankTransfer' as const;
+  if (method === 'TAP_PAY') return 'tapPay' as const;
+  if (method === 'PAYPAL') return 'paypal' as const;
   if (method === 'CASH') return 'cash' as const;
   if (method === 'CARD') return 'card' as const;
   if (method === 'BENEFIT') return 'benefit' as const;

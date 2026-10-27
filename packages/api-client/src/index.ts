@@ -35,6 +35,15 @@ export type SubscriptionQuote = {
   referral: { valid: true; code: string; staffName: string } | { valid: false; reason: string } | null;
 };
 
+export type PortalWallet = {
+  available: string;
+  pending: string;
+  withdrawn: string;
+  canWithdraw?: boolean;
+  transactions: { id: string; createdAt: string; type: 'EARNED' | 'WITHDRAWAL' | 'REWARD'; amount: string }[];
+  withdrawals: { id: string; createdAt: string; amount: string; status: string }[];
+};
+
 export type SubscriptionPaymentsView = {
   currentPeriodVerified: boolean;
   payments: {
@@ -102,6 +111,8 @@ export function createApiClient(baseUrl = '') {
     guest: () => send<{ id: string; csrfToken?: string }>('/api/guests', 'POST'),
     login: (body: { email: string; password: string; rememberDevice?: boolean }) =>
       send<LoginResult>('/api/auth/login', 'POST', body),
+    registerCustomer: (body: { email: string; password: string; firstName: string; lastName: string; rememberDevice?: boolean }) =>
+      send<LoginResult>('/api/auth/customer/register', 'POST', body),
     verifyTwoFactor: (body: { challengeId: string; code: string }) =>
       send<LoginResult>('/api/auth/2fa/verify', 'POST', body),
     logout: () => send('/api/auth/logout', 'POST'),
@@ -140,12 +151,14 @@ export function createApiClient(baseUrl = '') {
     transition: (id: string, body: Json) => send<OrderView>(`/api/orders/${id}/transition`, 'POST', body),
     adminDashboard: () => request<AdminDashboard>('/api/admin/dashboard'),
     merchantDashboard: () => request<MerchantDashboard>('/api/merchant/dashboard'),
+    merchantWallet: () => request<PortalWallet>('/api/merchant/wallet'),
+    requestMerchantWithdrawal: (amount: string) => send<{ id: string; amount: string; status: string }>('/api/merchant/wallet/withdrawals', 'POST', { amount }),
     merchants: () => request<Json[]>('/api/admin/merchants'),
     publicPlans: () => request<SubscriptionPlanView[]>('/api/public/plans'),
     publicPaymentMethods: () => request<StorePaymentMethod[]>('/api/public/payment-methods'),
     registerMerchant: (body: Json) => send('/api/public/merchant-registration', 'POST', body),
     createMerchant: (body: Json) => send('/api/admin/merchants', 'POST', body),
-    approveMerchant: (id: string) => send(`/api/admin/merchants/${id}/approve`, 'POST'),
+    approveMerchant: (id: string, options?: { confirmPayment?: boolean }) => send(`/api/admin/merchants/${id}/approve`, 'POST', { confirmPayment: options?.confirmPayment === true }),
     suspendMerchant: (id: string) => send(`/api/admin/merchants/${id}/suspend`, 'POST'),
     businessCategories: () => request<{ id: string; slug: string; name: { en?: string; ar?: string } }[]>('/api/business-categories'),
     plans: () => request<SubscriptionPlanView[]>('/api/admin/plans'),
@@ -235,6 +248,8 @@ export function createApiClient(baseUrl = '') {
     areas: () => request<Json[]>('/api/service-areas'),
     enterQr: (code: string) => send<Json>(`/api/qr/${code}/enter`, 'POST'),
     customer: () => request<Json>('/api/customers/me'),
+    customerWallet: () => request<PortalWallet>('/api/customers/me/wallet'),
+    requestCustomerWithdrawal: (amount: string) => send<{ id: string; amount: string; status: string }>('/api/customers/me/wallet/withdrawals', 'POST', { amount }),
     favourite: (merchantId: string) => send(`/api/customers/me/favourites/${merchantId}`, 'POST'),
     unfavourite: (merchantId: string) => send(`/api/customers/me/favourites/${merchantId}`, 'DELETE'),
     addAddress: (body: Json) => send('/api/customers/me/addresses', 'POST', body),

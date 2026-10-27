@@ -23,7 +23,11 @@ export type FulfillmentType = 'DELIVERY' | 'TAKEAWAY' | 'DINE_IN';
 
 export type VisibilityMode = 'ALL_STORES' | 'EXCLUDE_SAME_BUSINESS_TYPE' | 'CURRENT_STORE_ONLY' | 'MARKETPLACE' | 'EXCLUSIVE_STOREFRONT';
 
-export type PaymentMethod = 'CARD' | 'BENEFIT' | 'BENEFIT_PAY' | 'CASH';
+/** Methods a store can accept today. */
+export type PaymentMethod = 'BANK_TRANSFER' | 'BENEFIT_PAY' | 'TAP_PAY' | 'PAYPAL';
+
+/** Methods an existing order may carry, including ones retired from the catalog. */
+export type OrderPaymentMethod = PaymentMethod | 'CARD' | 'BENEFIT' | 'CASH';
 
 export type StorePaymentMethod = {
   code: PaymentMethod;
@@ -310,7 +314,7 @@ export type OrderView = {
   customerName: string;
   tableNumber: string | null;
   address: string | null;
-  paymentMethod: PaymentMethod | null;
+  paymentMethod: OrderPaymentMethod | null;
 };
 
 export type SubscriptionPlanView = {

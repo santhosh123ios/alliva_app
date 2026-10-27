@@ -741,6 +741,12 @@ function paymentLabel(method: string | null, t: Translator) {
       return t('customer.orders.benefitPay');
     case 'CASH':
       return t('customer.orders.cash');
+    case 'BANK_TRANSFER':
+      return t('customer.orders.bankTransfer');
+    case 'TAP_PAY':
+      return t('customer.orders.tapPay');
+    case 'PAYPAL':
+      return t('customer.orders.paypal');
     default:
       return '—';
   }

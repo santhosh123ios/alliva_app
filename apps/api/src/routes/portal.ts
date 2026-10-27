@@ -26,6 +26,7 @@ import {
   reportQuerySchema,
   rolePermissionsSchema,
   paymentMethodsSettingSchema,
+  type PaymentMethodCode,
   settingsSchema,
   subscriptionQuoteSchema,
   settlementDecisionSchema,
@@ -35,13 +36,14 @@ import {
   tableUpdateSchema,
 } from '@alliva/validation';
 import { dec, loc } from '../common/crypto';
-import { badRequest } from '../common/errors';
+import { badRequest, forbidden, notFound } from '../common/errors';
 import { RequestUser, scopedMerchantId, validate } from '../common/http';
 import { createRoutes } from '../common/routes';
 import type { Container } from '../container';
 import type { PlatformService } from '../modules/platform.service';
 import { ALLOWED_UPLOAD_TYPES, MAX_UPLOAD_BYTES } from '../providers/interfaces';
 import { paymentMethodsForRegistration, publicPaymentMethods } from '../modules/payment-methods';
+import { customerRewardAvailable, customerWallet, merchantWallet, requestCustomerWithdrawal, requestMerchantWithdrawal } from '../modules/portal-wallet';
 import { adminSignInUrl, merchantSignInUrl, roleLabel, sendWelcomeEmail } from '../providers/welcome-email';
 import { extensionFor, LocalStorageProvider, S3StorageProvider } from '../providers/mock.providers';
 
@@ -66,6 +68,24 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     const user = request.user!;
     if (!user.merchantId) throw badRequest('Merchant account required');
     return platform.merchantDashboard(user.merchantId);
+  });
+
+  routes.get('/merchant/wallet', async (request) => {
+    const user = request.user!;
+    if (!user.merchantId) throw badRequest('Merchant account required');
+    const wallet = await merchantWallet(prisma, user.merchantId);
+    return { ...wallet, canWithdraw: user.permissions.includes('payment.view') };
+  });
+
+  routes.post('/merchant/wallet/withdrawals', async (request) => {
+    const user = request.user!;
+    if (!user.merchantId) throw badRequest('Merchant account required');
+    if (!user.permissions.includes('payment.view')) throw forbidden('You cannot request a withdrawal');
+    const body = request.body as { amount?: unknown };
+    const created = await requestMerchantWithdrawal(prisma, user.merchantId, user.id, body.amount);
+    platform.forgetMerchantDashboard(user.merchantId);
+    await audit.log({ actorId: user.id, action: 'merchant.withdrawal.request', entityType: 'Settlement', entityId: created.id, metadata: { amount: created.amount } });
+    return created;
   });
 
   routes.get('/health', { public: true }, () => ({ ok: true, service: 'alliva-api', currency: 'BHD', timezone: 'Asia/Bahrain' }));
@@ -96,10 +116,10 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
       referralCode?: string;
       delivery: boolean;
       takeaway: boolean;
-      paymentMethods?: ('CARD' | 'BENEFIT' | 'BENEFIT_PAY' | 'CASH')[];
+      paymentMethods?: PaymentMethodCode[];
     }>(merchantRegistrationSchema, request.body);
-    const email = body.email.toLowerCase();
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const ownerEmail = body.email.toLowerCase();
+    const existing = await prisma.user.findUnique({ where: { email: ownerEmail } });
     if (existing) throw badRequest('An account with this email already exists');
     const plan = await prisma.subscriptionPlan.findUnique({ where: { id: body.planId } });
     if (!plan || plan.status !== 'ACTIVE') throw badRequest('Choose an available plan');
@@ -119,7 +139,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     const created = await prisma
       .$transaction(async (tx) => {
         const owner = await tx.user.create({
-          data: { email, passwordHash, firstName: body.firstName, lastName: body.lastName, phone: body.phone, kind: 'MERCHANT_USER', status: 'ACTIVE' },
+          data: { email: ownerEmail, passwordHash, firstName: body.firstName, lastName: body.lastName, phone: body.phone, kind: 'MERCHANT_USER', status: 'ACTIVE' },
         });
         const merchant = await tx.merchant.create({
           data: {
@@ -128,7 +148,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
             description: { en: body.businessName, ar: body.businessNameAr?.trim() || body.businessName },
             businessType: body.businessType,
             phone: body.phone,
-            email,
+            email: ownerEmail,
             websiteUrl: body.website.trim(),
             registrationPromo: promo?.valid ? promo.code : null,
             acceptedPaymentMethods: paymentMethods,
@@ -140,7 +160,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
         });
         await tx.user.update({ where: { id: owner.id }, data: { merchantId: merchant.id } });
         await tx.userRole.create({ data: { userId: owner.id, roleId: role.id, merchantId: merchant.id } });
-        if (referral) await marketing.referrals.attribute(tx, { merchantId: merchant.id, resolved: referral, source: 'SIGNUP', actorId: owner.id, contact: { phone: body.phone, email }, merchantName: body.businessName });
+        if (referral) await marketing.referrals.attribute(tx, { merchantId: merchant.id, resolved: referral, source: 'SIGNUP', actorId: owner.id, contact: { phone: body.phone, email: ownerEmail }, merchantName: body.businessName });
         if (promo?.valid) await marketing.promos.reserve(tx, { merchantId: merchant.id, promoCodeId: promo.promoCodeId });
         return { owner, merchant };
       })
@@ -151,7 +171,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     await platform.assignSubscription(created.merchant.id, body.planId, body.billingInterval, created.owner.id, false);
     await audit.log({ actorId: created.owner.id, action: 'merchant.register', entityType: 'Merchant', entityId: created.merchant.id, metadata: { referralCode: referral?.code ?? null, promoCode: promo?.valid ? promo.code : null, paymentMethods } });
     await sendWelcomeEmail(email, {
-      to: email,
+      to: ownerEmail,
       firstName: body.firstName,
       role: 'Merchant Owner',
       signInUrl: merchantSignInUrl(),
@@ -178,9 +198,19 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     const status = request.query.status as string | undefined;
     const rows = await prisma.merchant.findMany({
       where: { deletedAt: null, ...(status ? { status: status as never } : {}) },
-      include: { branches: true, subscription: { include: { plan: true } }, categories: { include: { category: true } } },
+      include: { branches: true, subscription: { include: { plan: true } }, categories: { include: { category: true } }, referral: { select: { id: true } } },
       orderBy: { createdAt: 'desc' },
     });
+    // A subscription counts as paid once the payment for its current billing period has been verified.
+    const periodKey = (subscription: { id: string; currentPeriodStart: Date }) => `sub:${subscription.id}:${subscription.currentPeriodStart.getTime()}`;
+    const verifiedKeys = new Set(
+      (
+        await prisma.subscriptionPayment.findMany({
+          where: { idempotencyKey: { in: rows.flatMap((merchant) => (merchant.subscription ? [periodKey(merchant.subscription)] : [])) } },
+          select: { idempotencyKey: true },
+        })
+      ).map((payment) => payment.idempotencyKey),
+    );
     return rows.map((merchant) => ({
       id: merchant.id,
       slug: merchant.slug,
@@ -192,6 +222,8 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
       city: merchant.branches[0]?.city ?? '',
       plan: merchant.subscription?.plan.code ?? null,
       planName: merchant.subscription ? loc(merchant.subscription.plan.name) : null,
+      paymentVerified: merchant.subscription ? verifiedKeys.has(periodKey(merchant.subscription)) : null,
+      referred: Boolean(merchant.referral),
       businessType: merchant.businessType,
       logoUrl: merchant.logoUrl,
       createdAt: merchant.createdAt.toISOString(),
@@ -232,9 +264,19 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
   routes.post('/admin/merchants/:id/approve', { permissions: ['merchant.approve'] }, async (request) => {
     const user = request.user!;
     const id = param(request, 'id');
+    const body = (request.body ?? {}) as { confirmPayment?: unknown };
+    const confirmPayment = body.confirmPayment === true;
+    if (!(await prisma.merchant.findFirst({ where: { id, deletedAt: null }, select: { id: true } }))) throw notFound('Merchant not found');
+    // Approving can also record the subscription payment. That is what makes the referring staff's commission eligible.
+    let payment: Awaited<ReturnType<typeof platform.verifySubscriptionPayment>> | null = null;
+    if (confirmPayment) {
+      if (!user.permissions.includes('subscription.manage')) throw forbidden('You need the subscription.manage permission to confirm a payment');
+      const { currentPeriodVerified } = await platform.subscriptionPayments(id);
+      if (!currentPeriodVerified) payment = await platform.verifySubscriptionPayment(id, user.id);
+    }
     const merchant = await prisma.merchant.update({ where: { id }, data: { status: 'ACTIVE', updatedById: user.id } });
-    await audit.log({ actorId: user.id, action: 'merchant.approve', entityType: 'Merchant', entityId: id });
-    return merchant;
+    await audit.log({ actorId: user.id, action: 'merchant.approve', entityType: 'Merchant', entityId: id, metadata: { paymentConfirmed: Boolean(payment) } });
+    return { ...merchant, paymentConfirmed: Boolean(payment) };
   });
 
   routes.post('/admin/merchants/:id/suspend', { permissions: ['merchant.suspend'] }, async (request) => {
@@ -933,9 +975,21 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     return prisma.diningTable.updateMany({ where: { id: param(request, 'id'), merchantId: request.user!.merchantId ?? undefined }, data: { status: body.status } });
   });
 
-  routes.get('/customers/me', (request) =>
-    prisma.customer.findUnique({ where: { userId: request.user!.id }, include: { addresses: true, favourites: true, paymentMethods: true } }),
-  );
+  routes.get('/customers/me', async (request) => {
+    const customer = await prisma.customer.findUnique({ where: { userId: request.user!.id }, include: { addresses: true, favourites: true, paymentMethods: true } });
+    if (!customer) return null;
+    return { ...customer, rewardAvailable: await customerRewardAvailable(prisma, customer.id, customer.rewardBalance) };
+  });
+
+  routes.get('/customers/me/wallet', (request) => customerWallet(prisma, request.user!.id));
+
+  routes.post('/customers/me/wallet/withdrawals', async (request) => {
+    const user = request.user!;
+    const body = request.body as { amount?: unknown };
+    const created = await requestCustomerWithdrawal(prisma, user.id, body.amount);
+    await audit.log({ actorId: user.id, action: 'customer.withdrawal.request', entityType: 'CustomerWithdrawal', entityId: created.id, metadata: { amount: created.amount } });
+    return created;
+  });
 
   routes.post('/customers/me/addresses', async (request) => {
     const body = validate<{ label: string; line1: string; line2?: string; city: string; latitude: string; longitude: string; instructions?: string; isDefault?: boolean }>(addressSchema, request.body);
@@ -968,7 +1022,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     const provider = param(request, 'provider');
     const body = request.body as { externalId?: string; orderId?: string };
     const signature = request.query.signature as string;
-    const gatewaySecret = provider === 'benefit' ? process.env.BENEFIT_WEBHOOK_SECRET : process.env.TAP_WEBHOOK_SECRET;
+    const gatewaySecret = provider === 'benefit' ? process.env.BENEFIT_WEBHOOK_SECRET : provider === 'paypal' ? process.env.PAYPAL_WEBHOOK_SECRET : process.env.TAP_WEBHOOK_SECRET;
     const raw = Buffer.from(JSON.stringify(body));
     const { createHmac, timingSafeEqual } = await import('crypto');
     const digest = createHmac('sha256', gatewaySecret ?? 'dev').update(raw).digest('hex');
@@ -1009,11 +1063,23 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
   async function merchantDetail(id: string) {
     const merchant = await prisma.merchant.findUnique({
       where: { id },
-      include: { branches: { include: { manager: { select: { id: true, firstName: true, lastName: true } } } }, documents: true, hours: true, bankAccounts: true, subscription: { include: { plan: { include: { entitlements: true } } } }, categories: { include: { category: true } } },
+      include: {
+        branches: { include: { manager: { select: { id: true, firstName: true, lastName: true } } } },
+        documents: true,
+        hours: true,
+        bankAccounts: true,
+        subscription: { include: { plan: { include: { entitlements: true } } } },
+        categories: { include: { category: true } },
+        referral: { include: { marketingUser: { select: { firstName: true, lastName: true } } } },
+      },
     });
     if (!merchant) throw badRequest('Merchant not found');
+    const { referral, ...merchantRest } = merchant;
     return {
-      ...merchant,
+      ...merchantRest,
+      referral: referral
+        ? { code: referral.codeUsed, staffName: `${referral.marketingUser.firstName} ${referral.marketingUser.lastName}`.trim() }
+        : null,
       name: loc(merchant.name),
       description: loc(merchant.description),
       minimumOrder: dec(merchant.minimumOrder),

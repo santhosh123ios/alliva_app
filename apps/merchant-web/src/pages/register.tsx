@@ -3,10 +3,10 @@ import { Link, useRouter } from '@/i18n/navigation';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import type { SubscriptionPlanView } from '@alliva/types';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import type { PaymentMethod } from '@alliva/types';
-import { ArrowRight, Banknote, Building2, Check, CreditCard, Hash, Info, Link2, Lock, Mail, Package, Phone, ShoppingCart, Smartphone, Star, Store, Ticket, Users, Wallet } from 'lucide-react';
+import { Button } from '@alliva/ui';
+import { ArrowRight, BarChart3, Building2, Check, CheckCircle2, CreditCard, Crown, Eye, EyeOff, Hash, Landmark, Link2, Lock, Mail, MapPin, Phone, RefreshCw, ShieldCheck, Smartphone, Store, Tag, Ticket, TrendingUp, Truck, Zap } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 export default function RegisterPage() {
@@ -17,10 +17,15 @@ export default function RegisterPage() {
   const plans = useQuery({ queryKey: ['public-plans'], queryFn: () => api.publicPlans() });
   const categories = useQuery({ queryKey: ['business-categories'], queryFn: () => api.businessCategories() });
   const methods = useQuery({ queryKey: ['public-payment-methods'], queryFn: () => api.publicPaymentMethods() });
-  const [selectedMethods, setSelectedMethods] = useState<PaymentMethod[] | null>(null);
   const offered = methods.data ?? [];
-  const chosenMethods = selectedMethods ?? offered.map((method) => method.code);
+  const chosenMethods = offered.map((method) => method.code);
   const [step, setStep] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [paymentChoice, setPaymentChoice] = useState<'card' | 'benefit' | 'bank'>('card');
+  const [saveCard, setSaveCard] = useState(true);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [card, setCard] = useState({ name: '', number: '', expiry: '', cvv: '' });
   const [interval, setInterval] = useState<'MONTHLY' | 'ANNUAL'>(params.get('interval') === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY');
   const [planId, setPlanId] = useState(params.get('plan') ?? '');
   const [form, setForm] = useState({
@@ -56,6 +61,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const list = [...(plans.data ?? [])].sort((a, b) => a.displayOrder - b.displayOrder || Number(a.priceMonthly) - Number(b.priceMonthly));
+  const selectedPlan = list.find((plan) => plan.id === planId);
   const register = useMutation({
     mutationFn: async () => {
       if (!planId) throw new Error(t('selectPlan'));
@@ -89,184 +95,297 @@ export default function RegisterPage() {
     onSuccess: () => router.push('/dashboard'),
     onError: (reason: Error) => setError(reason.message),
   });
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    scroller.current?.scrollTo({ top: 0 });
+  }, [step]);
+
+  const continueAccount = () => {
+    const next: Record<string, string> = {};
+    if (!form.email.includes('@')) next.email = t('emailInvalid');
+    if (form.password.length < 8) next.password = t('passwordShort');
+    if (form.businessName.trim().length < 2) next.businessName = t('required');
+    if (form.phone.trim().length < 8) next.phone = t('required');
+    if (!form.categoryId) next.categoryId = t('required');
+    if (form.categoryId === 'other' && form.otherType.trim().length < 2) next.otherType = t('required');
+    if (!acceptedTerms) next.terms = t('termsRequired');
+    setFieldErrors(next);
+    if (Object.keys(next).length) return;
+    setError('');
+    setStep(1);
+  };
+
+  const continuePlan = () => {
+    if (!planId) {
+      setFieldErrors({ planId: t('selectPlan') });
+      return;
+    }
+    setFieldErrors({});
+    setError('');
+    setStep(2);
+  };
+
+  const submitRegistration = () => {
+    const next: Record<string, string> = {};
+    if (paymentChoice === 'card') {
+      if (card.name.trim().length < 2) next.cardName = t('required');
+      if (card.number.replace(/\D/g, '').length < 12) next.cardNumber = t('cardInvalid');
+      if (card.expiry.replace(/\D/g, '').length < 4) next.expiry = t('required');
+      if (card.cvv.replace(/\D/g, '').length < 3) next.cvv = t('required');
+    }
+    if (!paymentConfirmed) next.paymentConfirmation = t('paymentConfirmationRequired');
+    if (Object.keys(next).length) {
+      setFieldErrors(next);
+      return;
+    }
+    if (methods.isLoading) {
+      setError(t('paymentLoading'));
+      return;
+    }
+    if (!offered.length) {
+      setError(t('paymentEmpty'));
+      return;
+    }
+    if (referralBad || promoBad) {
+      setError(t('fixCodes'));
+      return;
+    }
+    setFieldErrors({});
+    setError('');
+    register.mutate();
+  };
 
   return (
-    <div className="grid h-dvh overflow-hidden bg-white lg:grid-cols-2">
-      <aside className="relative hidden flex-col overflow-hidden bg-primary px-10 py-8 text-[#111111] lg:flex">
+    <div className="grid h-dvh overflow-hidden bg-white lg:grid-cols-[47%_53%]">
+      <aside className="relative hidden flex-col overflow-hidden bg-primary px-10 py-10 text-[#111111] lg:flex xl:px-14 xl:py-14">
         <img src="/route-map.png" alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30" />
-        <div className="relative z-10 max-w-md">
-          <h1 className="font-display text-5xl leading-[0.95] tracking-tight lg:text-6xl">{t('headline')}</h1>
-          <p className="mt-6 max-w-sm text-lg">{t('subhead')}</p>
-        </div>
-        <img src="/merchant-hero.png" alt="" className="relative z-10 mx-auto mt-auto h-auto max-h-72 w-auto max-w-sm object-contain" />
-      </aside>
-      <main className="flex h-dvh min-h-0 flex-col">
-        <div className="shrink-0 px-6 pt-8 sm:px-12">
-          <div className="mx-auto w-full max-w-[560px]">
-            <img src="/logo-on-light.png" alt="Alliva" className="mb-6 h-12 w-auto" />
-            <h2 className="font-display text-3xl tracking-tight">{step === 0 ? t('title') : t('choosePlan')}</h2>
-            <p className="mt-2 text-sm text-[#6b6b66]">{step === 0 ? t('lead') : t('choosePlanHint')}</p>
+        <div className="relative z-10 max-w-[34rem]">
+          <h1 className="font-display text-[3.35rem] leading-[1.02] tracking-[-0.04em] xl:text-[4.2rem]">{t('headline')}</h1>
+          <p className="mt-3 max-w-md text-lg leading-relaxed">{t('subhead')}</p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <FeaturePill icon={Zap}>{t('easySetup')}</FeaturePill>
+            <FeaturePill icon={Truck}>{t('ownDelivery')}</FeaturePill>
+            <FeaturePill icon={BarChart3}>{t('growOrders')}</FeaturePill>
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-12">
+        <img src="/merchant-hero.png" alt="" className="relative z-10 mx-auto mt-auto h-auto max-h-[45%] w-auto max-w-[90%] object-contain" />
+      </aside>
+      <main className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
+        <header className="shrink-0 border-b border-[#ecece8] bg-white px-5 py-3.5 sm:px-10 lg:px-12 xl:px-16">
+          <div className="mx-auto flex w-full max-w-[640px] items-center gap-3 sm:gap-5">
+            <img src="/logo-on-light.png" alt="Alliva" className="h-8 w-auto shrink-0 sm:h-9" />
+            <RegistrationSteps step={step} labels={[t('stepAccount'), t('stepChoosePlan'), t('stepPayment')]} />
+          </div>
+        </header>
+        <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-10 lg:px-12 xl:px-16">
+        <div className="mx-auto w-full max-w-[640px]">
+          <div>
+            <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em]">{step === 0 ? t('title') : step === 1 ? t('choosePlan') : t('paymentTitle')}</h2>
+            <p className="mt-1.5 text-sm text-[#6b6b66]">{step === 0 ? t('lead') : step === 1 ? t('choosePlanHint') : t('paymentLead')}</p>
+          </div>
+          <div className="mt-6">
           {step === 0 ? (
-            <div className="mx-auto grid w-full max-w-[560px] gap-4 sm:grid-cols-2">
-              <IconField icon={Mail} label={t('email')} value={form.email} error={fieldErrors.email} onChange={(email) => { setForm({ ...form, email }); setFieldErrors((current) => ({ ...current, email: '' })); }} type="email" />
-              <IconField icon={Lock} label={t('password')} value={form.password} error={fieldErrors.password} onChange={(password) => { setForm({ ...form, password }); setFieldErrors((current) => ({ ...current, password: '' })); }} type="password" />
-              <IconField icon={Store} label={t('businessName')} value={form.businessName} error={fieldErrors.businessName} onChange={(businessName) => { setForm({ ...form, businessName }); setFieldErrors((current) => ({ ...current, businessName: '' })); }} />
-              <IconField icon={Phone} label={t('mobile')} value={form.phone} error={fieldErrors.phone} onChange={(phone) => { setForm({ ...form, phone }); setFieldErrors((current) => ({ ...current, phone: '' })); }} />
-              <IconField icon={Hash} label={t('crNumber')} value={form.crNumber} onChange={(crNumber) => setForm({ ...form, crNumber })} />
-              <div className="sm:col-span-2">
-                <IconField icon={Link2} label={t('referral')} value={form.referralCode} onChange={(referralCode) => setForm({ ...form, referralCode: referralCode.toUpperCase() })} placeholder={t('referralPlaceholder')} />
-                {referralWaiting ? <p className="mt-1 ps-2 text-xs text-[#6b6b66]">{t('referralChecking')}</p> : null}
-                {!referralWaiting && referralCheck.data?.valid && referralCode ? <p className="mt-1 ps-2 text-xs font-medium text-[#147D54]">{t('referralValid', { name: referralCheck.data.staffName })}</p> : null}
-                {!referralWaiting && referralBad ? <p className="mt-1 ps-2 text-xs font-medium text-[#D9342B]">{t('referralInvalid')}</p> : null}
+            <div className="rounded-xl border border-[#e3e3df] bg-white p-4 shadow-[0_8px_30px_rgba(20,20,20,0.035)] sm:p-5">
+              <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
+                <IconField icon={Mail} label={t('email')} value={form.email} error={fieldErrors.email} onChange={(email) => { setForm({ ...form, email }); setFieldErrors((current) => ({ ...current, email: '' })); }} type="email" placeholder={t('emailPlaceholder')} autoComplete="email" />
+                <IconField icon={Lock} label={t('password')} value={form.password} error={fieldErrors.password} onChange={(password) => { setForm({ ...form, password }); setFieldErrors((current) => ({ ...current, password: '' })); }} type={showPassword ? 'text' : 'password'} placeholder={t('passwordPlaceholder')} autoComplete="new-password" trailing={<button type="button" onClick={() => setShowPassword((value) => !value)} className="flex size-8 items-center justify-center text-[#777773]" aria-label={showPassword ? t('hidePassword') : t('showPassword')}>{showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>} />
+                <IconField icon={Store} label={t('businessName')} value={form.businessName} error={fieldErrors.businessName} onChange={(businessName) => { setForm({ ...form, businessName }); setFieldErrors((current) => ({ ...current, businessName: '' })); }} placeholder={t('businessNamePlaceholder')} autoComplete="organization" />
+                <IconField icon={Phone} label={t('mobile')} value={form.phone} error={fieldErrors.phone} onChange={(phone) => { setForm({ ...form, phone }); setFieldErrors((current) => ({ ...current, phone: '' })); }} placeholder={t('mobilePlaceholder')} type="tel" autoComplete="tel" />
+                <IconField icon={Hash} label={t('crNumber')} value={form.crNumber} onChange={(crNumber) => setForm({ ...form, crNumber })} placeholder={t('crPlaceholder')} />
+                <label className="block text-xs font-semibold">
+                  {t('businessType')}
+                  <span className={`mt-1.5 flex h-10 items-center gap-2 rounded-md border bg-white px-3 transition-colors focus-within:border-[#111111] ${fieldErrors.categoryId ? 'border-[#D9342B]' : 'border-[#d8d8d4]'}`}>
+                    <Building2 className="size-4 shrink-0 text-[#777773]" />
+                    <select value={form.categoryId} onChange={(event) => { setForm({ ...form, categoryId: event.target.value }); setFieldErrors((current) => ({ ...current, categoryId: '', otherType: '' })); }} className="h-full w-full bg-transparent text-sm outline-none">
+                      <option value="">{t('businessType')}</option>
+                      {(categories.data ?? []).map((category) => (
+                        <option key={category.id} value={category.id}>{pickLocalized(category.name, locale) || category.slug}</option>
+                      ))}
+                      <option value="other">{t('other')}</option>
+                    </select>
+                  </span>
+                  {fieldErrors.categoryId ? <span className="mt-1 block text-xs font-medium text-[#D9342B]">{fieldErrors.categoryId}</span> : null}
+                </label>
+                {form.categoryId === 'other' ? <IconField icon={Building2} label={t('otherType')} value={form.otherType} error={fieldErrors.otherType} onChange={(otherType) => { setForm({ ...form, otherType }); setFieldErrors((current) => ({ ...current, otherType: '' })); }} /> : null}
+                <div className="sm:col-span-2">
+                  <IconField icon={Link2} label={t('referral')} value={form.referralCode} onChange={(referralCode) => setForm({ ...form, referralCode: referralCode.toUpperCase() })} placeholder={t('referralPlaceholder')} />
+                  {referralWaiting ? <p className="mt-1 ps-1 text-xs text-[#6b6b66]">{t('referralChecking')}</p> : null}
+                  {!referralWaiting && referralCheck.data?.valid && referralCode ? <p className="mt-1 ps-1 text-xs font-medium text-[#147D54]">{t('referralValid', { name: referralCheck.data.staffName })}</p> : null}
+                  {!referralWaiting && referralBad ? <p className="mt-1 ps-1 text-xs font-medium text-[#D9342B]">{t('referralInvalid')}</p> : null}
+                </div>
               </div>
-              <label className="block text-sm font-medium">
-                {t('businessType')}
-                <span className={`mt-2 flex h-12 items-center gap-2 rounded-full border px-4 ${fieldErrors.categoryId ? 'border-[#D9342B]' : ''}`}>
-                  <Building2 className="h-4 w-4 shrink-0 text-[#8a8a86]" />
-                  <select value={form.categoryId} onChange={(event) => { setForm({ ...form, categoryId: event.target.value }); setFieldErrors((current) => ({ ...current, categoryId: '', otherType: '' })); }} className="w-full bg-transparent text-sm outline-none">
-                    <option value="">{t('businessType')}</option>
-                    {(categories.data ?? []).map((category) => (
-                      <option key={category.id} value={category.id}>{pickLocalized(category.name, locale) || category.slug}</option>
-                    ))}
-                    <option value="other">{t('other')}</option>
-                  </select>
-                </span>
-                {fieldErrors.categoryId ? <span className="mt-1 block text-xs font-medium text-[#D9342B]">{fieldErrors.categoryId}</span> : null}
+              <label className="mt-3 flex cursor-pointer items-start gap-2 text-xs text-[#3f3f3c]">
+                <input type="checkbox" checked={acceptedTerms} onChange={(event) => { setAcceptedTerms(event.target.checked); setFieldErrors((current) => ({ ...current, terms: '' })); }} className="mt-0.5 size-4 shrink-0 accent-[#FFC400]" />
+                <span>{t('agree')} <a href="/legal/terms" className="font-medium text-[#111111] underline">{t('terms')}</a> {t('and')} <a href="/legal/privacy" className="font-medium text-[#111111] underline">{t('privacy')}</a>.</span>
               </label>
-              {form.categoryId === 'other' ? <IconField icon={Building2} label={t('otherType')} value={form.otherType} error={fieldErrors.otherType} onChange={(otherType) => { setForm({ ...form, otherType }); setFieldErrors((current) => ({ ...current, otherType: '' })); }} /> : null}
+              {fieldErrors.terms ? <p className="mt-1 text-xs font-medium text-[#D9342B]">{fieldErrors.terms}</p> : null}
             </div>
-          ) : (
-            <div className="mx-auto w-full max-w-[560px]">
-              <div className="flex rounded-full bg-[#F1F1EE] p-1">
-                <button type="button" className={`h-9 flex-1 rounded-full text-sm font-semibold ${interval === 'MONTHLY' ? 'bg-white' : 'text-[#8a8a86]'}`} onClick={() => setInterval('MONTHLY')}>{t('monthly')}</button>
-                <button type="button" className={`h-9 flex-1 rounded-full text-sm font-semibold ${interval === 'ANNUAL' ? 'bg-white' : 'text-[#8a8a86]'}`} onClick={() => setInterval('ANNUAL')}>{t('yearly')}</button>
+          ) : step === 1 ? (
+            <div>
+              <div className="ms-auto flex w-full max-w-52 rounded-full bg-[#F1F1EE] p-1">
+                <button type="button" className={`h-8 flex-1 rounded-full text-xs font-semibold transition-colors ${interval === 'MONTHLY' ? 'bg-primary text-[#111111] shadow-sm' : 'text-[#6b6b66]'}`} onClick={() => setInterval('MONTHLY')}>{t('monthly')}</button>
+                <button type="button" className={`h-8 flex-1 rounded-full text-xs font-semibold transition-colors ${interval === 'ANNUAL' ? 'bg-primary text-[#111111] shadow-sm' : 'text-[#6b6b66]'}`} onClick={() => setInterval('ANNUAL')}>{t('yearly')}</button>
               </div>
               {fieldErrors.planId ? <p className="mt-3 text-sm font-medium text-[#D9342B]">{fieldErrors.planId}</p> : null}
-              <div className="mt-4 grid gap-3">
+              <div className="mt-4 grid snap-x grid-flow-col auto-cols-[85%] items-stretch gap-2.5 overflow-x-auto pb-2 sm:auto-cols-[calc((100%-1.25rem)/3)]">
                 {list.map((plan) => (
-                  <PlanChoice key={plan.id} plan={plan} locale={locale} selected={planId === plan.id} yearly={interval === 'ANNUAL'} onSelect={() => setPlanId(plan.id)} monthlyLabel={t('perMonth')} yearlyLabel={t('perYear')} more={t('viewFeatures')} less={t('hideDetails')} selectedLabel={t('selectedPlan')} />
+                  <PlanChoice key={plan.id} plan={plan} locale={locale} selected={planId === plan.id} yearly={interval === 'ANNUAL'} onSelect={() => { setPlanId(plan.id); setFieldErrors((current) => ({ ...current, planId: '' })); }} monthlyLabel={t('perMonth')} yearlyLabel={t('perYear')} selectedLabel={t('selectedPlan')} selectLabel={t('selectNamedPlan', { name: pickLocalized(plan.name, locale) })} popularLabel={t('mostPopular')} />
                 ))}
               </div>
-              <div className="mt-5">
-                <IconField icon={Ticket} label={t('promo')} value={form.promoCode} onChange={(code) => setForm({ ...form, promoCode: code.toUpperCase() })} placeholder={t('promoPlaceholder')} />
-                {promoWaiting ? <p className="mt-1 ps-2 text-xs text-[#6b6b66]">{t('promoChecking')}</p> : null}
-                {!promoWaiting && promoCode && quote.data?.promo?.valid ? <p className="mt-1 ps-2 text-xs font-medium text-[#147D54]">{t('promoApplied', { code: quote.data.promo.code })}</p> : null}
-                {!promoWaiting && promoBad ? <p className="mt-1 ps-2 text-xs font-medium text-[#D9342B]">{quote.data?.promo && !quote.data.promo.valid ? quote.data.promo.reason : t('promoInvalid')}</p> : null}
+              <div className="mt-3 grid grid-cols-3 divide-x divide-[#deded9] border-y border-[#e5e5e0] py-3 text-center text-[10px] font-medium text-[#4f4f4b] rtl:divide-x-reverse">
+                <span className="flex items-center justify-center gap-1.5"><RefreshCw className="size-3.5" /> {t('cancelAnytime')}</span>
+                <span className="flex items-center justify-center gap-1.5"><ShieldCheck className="size-3.5" /> {t('securePayment')}</span>
+                <span className="flex items-center justify-center gap-1.5"><TrendingUp className="size-3.5" /> {t('upgradeAnytime')}</span>
               </div>
-              {planId && quote.data ? (
-                <dl className="mt-4 space-y-1 rounded-2xl border px-4 py-3 text-sm" aria-label={t('summaryTitle')}>
-                  <div className="flex justify-between"><dt className="text-[#6b6b66]">{t('summaryGross')}</dt><dd>{formatMoney(quote.data.gross, locale)}</dd></div>
-                  {Number(quote.data.discount) > 0 ? <div className="flex justify-between text-[#147D54]"><dt>{t('summaryDiscount')}</dt><dd>-{formatMoney(quote.data.discount, locale)}</dd></div> : null}
-                  <div className="flex justify-between border-t pt-1 font-semibold"><dt>{t('summaryPayable')}</dt><dd>{formatMoney(quote.data.payable, locale)}</dd></div>
-                </dl>
-              ) : null}
-              {planId ? (
-                <div className="mt-5">
-                  <p className="text-sm font-medium">{t('paymentMethods')}</p>
-                  <p className="mt-1 text-xs text-[#6b6b66]">{t('paymentMethodsHint')}</p>
-                  {methods.isLoading ? <p className="mt-2 text-xs text-[#6b6b66]">{t('paymentLoading')}</p> : null}
-                  {!methods.isLoading && !offered.length ? <p className="mt-2 text-xs font-medium text-[#D9342B]">{t('paymentEmpty')}</p> : null}
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    {offered.map((method) => {
-                      const on = chosenMethods.includes(method.code);
-                      const Icon = paymentIcon(method.code);
-                      return (
-                        <button
-                          key={method.code}
-                          type="button"
-                          aria-pressed={on}
-                          onClick={() => {
-                            const base = selectedMethods ?? offered.map((item) => item.code);
-                            setSelectedMethods(base.includes(method.code) ? base.filter((item) => item !== method.code) : [...base, method.code]);
-                            setFieldErrors((current) => ({ ...current, paymentMethods: '' }));
-                            setError('');
-                          }}
-                          className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-start text-sm font-semibold ${on ? 'border-[#111111] bg-[#FFF6CC]' : 'border-[#e6e6e1] bg-white'}`}
-                        >
-                          <Icon className="h-4 w-4 shrink-0" />
-                          <span className="flex-1">{pickLocalized(method.name, locale)}</span>
-                          {on ? <Check className="h-4 w-4" /> : <span className="h-4 w-4 rounded-full border border-[#d7d7d2]" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {fieldErrors.paymentMethods ? <p className="mt-1 text-xs font-medium text-[#D9342B]">{fieldErrors.paymentMethods}</p> : null}
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-[1.25fr_.9fr]">
+              <section className="rounded-xl border border-[#deded9] bg-white p-3">
+                <h3 className="font-display text-base">{t('choosePaymentMethod')}</h3>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <PaymentMethodChoice icon={CreditCard} label={t('cardMethod')} selected={paymentChoice === 'card'} onClick={() => setPaymentChoice('card')} />
+                  <PaymentMethodChoice icon={Smartphone} label={t('benefitMethod')} selected={paymentChoice === 'benefit'} onClick={() => setPaymentChoice('benefit')} />
+                  <PaymentMethodChoice icon={Landmark} label={t('bankMethod')} selected={paymentChoice === 'bank'} onClick={() => setPaymentChoice('bank')} />
                 </div>
-              ) : null}
-              <p className="mt-4 flex items-center gap-2 rounded-2xl bg-[#f3f3f0] px-4 py-3 text-sm text-[#6b6b66]">
-                <Info className="h-4 w-4 shrink-0" /> {t('planNote')}
-              </p>
+                {paymentChoice === 'card' ? (
+                  <div className="mt-3 grid gap-2.5 border-t border-[#e8e8e4] pt-3 sm:grid-cols-2">
+                    <div className="sm:col-span-2"><PaymentInput label={t('cardName')} value={card.name} onChange={(name) => setCard({ ...card, name })} placeholder={t('cardNamePlaceholder')} error={fieldErrors.cardName} /></div>
+                    <div className="sm:col-span-2"><PaymentInput icon={CreditCard} label={t('cardNumber')} value={card.number} onChange={(number) => setCard({ ...card, number })} placeholder="•••• •••• •••• ••••" inputMode="numeric" error={fieldErrors.cardNumber} /></div>
+                    <PaymentInput label={t('expiry')} value={card.expiry} onChange={(expiry) => setCard({ ...card, expiry })} placeholder="MM / YY" error={fieldErrors.expiry} />
+                    <PaymentInput label={t('cvv')} value={card.cvv} onChange={(cvv) => setCard({ ...card, cvv })} placeholder="•••" inputMode="numeric" error={fieldErrors.cvv} />
+                  </div>
+                ) : <p className="mt-3 rounded-lg bg-[#f5f5f2] p-3 text-xs leading-relaxed text-[#5f5f5b]">{paymentChoice === 'benefit' ? t('benefitHint') : t('bankHint')}</p>}
+                <label className="mt-3 flex items-center gap-2 text-[10px] text-[#3f3f3c]">
+                  <input type="checkbox" checked={saveCard} disabled={paymentChoice !== 'card'} onChange={(event) => setSaveCard(event.target.checked)} className="size-4 accent-[#FFC400]" />
+                  {t('saveCard')}
+                </label>
+                <p className="mt-2 flex items-center gap-2 text-[9px] text-[#777773]"><Lock className="size-3.5" /> {t('encryptedPayment')}</p>
+              </section>
+              <aside className="rounded-xl border border-[#deded9] bg-white p-3">
+                <h3 className="font-display text-base">{t('subscriptionSummary')}</h3>
+                <div className="mt-2 rounded-lg bg-[#fff8dc] p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <strong className="text-sm">{selectedPlan ? pickLocalized(selectedPlan.name, locale) : ''}</strong>
+                    <span className="rounded-full bg-primary px-2 py-1 text-[8px] font-bold">{interval === 'ANNUAL' ? t('yearly') : t('monthly')}</span>
+                  </div>
+                  <p className="mt-1 text-lg font-extrabold">{formatMoney(quote.data?.payable ?? (interval === 'ANNUAL' ? selectedPlan?.priceAnnual ?? '0' : selectedPlan?.priceMonthly ?? '0'), locale)}</p>
+                </div>
+                <div className="mt-3 space-y-2 border-b border-[#e8e8e4] pb-3 text-[10px]">
+                  <p className="flex items-center gap-2"><Store className="size-3.5" /> {form.businessName}</p>
+                  <p className="flex items-center gap-2"><MapPin className="size-3.5" /> {t('mainBranch')}</p>
+                  {promoCode && quote.data?.promo?.valid ? <p className="flex items-center gap-2"><Tag className="size-3.5" /> {promoCode}<span className="ms-auto font-semibold text-[#159447]">{t('applied')}</span></p> : null}
+                </div>
+                <div className="mt-3">
+                  <IconField icon={Ticket} label={t('promo')} value={form.promoCode} onChange={(code) => setForm({ ...form, promoCode: code.toUpperCase() })} placeholder={t('promoPlaceholder')} />
+                  {promoWaiting ? <p className="mt-1 text-[9px] text-[#6b6b66]">{t('promoChecking')}</p> : null}
+                  {!promoWaiting && promoBad ? <p className="mt-1 text-[9px] font-medium text-[#D9342B]">{quote.data?.promo && !quote.data.promo.valid ? quote.data.promo.reason : t('promoInvalid')}</p> : null}
+                </div>
+                {quote.data ? (
+                  <dl className="mt-3 space-y-2 text-[10px]" aria-label={t('summaryTitle')}>
+                    <div className="flex justify-between"><dt>{t('summaryGross')}</dt><dd className="font-semibold">{formatMoney(quote.data.gross, locale)}</dd></div>
+                    <div className="flex justify-between"><dt>{t('summaryDiscount')}</dt><dd className="font-semibold text-[#159447]">-{formatMoney(quote.data.discount, locale)}</dd></div>
+                    <div className="flex justify-between border-t border-[#e8e8e4] pt-3 text-sm font-extrabold"><dt>{t('totalDue')}</dt><dd>{formatMoney(quote.data.payable, locale)}</dd></div>
+                  </dl>
+                ) : null}
+                <p className="mt-3 text-[9px] leading-relaxed text-[#777773]">{interval === 'ANNUAL' ? t('annualRenewalNote') : t('monthlyRenewalNote')}</p>
+              </aside>
+              <label className="flex items-start gap-2 rounded-lg border border-[#e5e5e0] p-2 text-[10px] sm:col-span-2">
+                <input type="checkbox" checked={paymentConfirmed} onChange={(event) => { setPaymentConfirmed(event.target.checked); setFieldErrors((current) => ({ ...current, paymentConfirmation: '' })); }} className="mt-0.5 size-4 accent-[#FFC400]" />
+                <span>{t('confirmBusiness')} <a href="/legal/terms" className="font-medium underline">{t('subscriptionTerms')}</a>.</span>
+              </label>
+              {fieldErrors.paymentConfirmation ? <p className="text-xs font-medium text-[#D9342B] sm:col-span-2">{fieldErrors.paymentConfirmation}</p> : null}
             </div>
           )}
         </div>
-        <div className="shrink-0 border-t bg-white px-6 py-4 sm:px-12">
-          <div className="mx-auto w-full max-w-[560px]">
+        </div>
+        </div>
+        <footer className="shrink-0 border-t border-[#ecece8] bg-white px-5 py-3.5 shadow-[0_-8px_24px_rgba(20,20,20,0.04)] sm:px-10 lg:px-12 xl:px-16">
+          <div className="mx-auto w-full max-w-[640px]">
             {error ? <p className="mb-3 text-sm text-[#D9342B]">{error}</p> : null}
             <div className="flex gap-3">
-              <button type="button" className="h-12 rounded-full border px-5 text-sm font-semibold" onClick={() => (step === 0 ? router.back() : setStep(0))}>{t('back')}</button>
+              <button type="button" className="h-11 min-w-28 rounded-xl border border-[#d8d8d4] px-5 text-sm font-semibold transition-colors hover:bg-[#f7f7f4]" onClick={() => (step === 0 ? router.back() : setStep((current) => current - 1))}>{t('back')}</button>
               {step === 0 ? (
-                <button type="button" className="h-12 flex-1 rounded-full bg-[#111111] text-sm font-semibold text-white" onClick={() => { const next: Record<string, string> = {}; if (!form.email.includes('@')) next.email = t('emailInvalid'); if (form.password.length < 8) next.password = t('passwordShort'); if (form.businessName.trim().length < 2) next.businessName = t('required'); if (form.phone.trim().length < 8) next.phone = t('required'); if (!form.categoryId) next.categoryId = t('required'); if (form.categoryId === 'other' && form.otherType.trim().length < 2) next.otherType = t('required'); setFieldErrors(next); if (Object.keys(next).length) return; setError(''); setStep(1); }}>{t('continue')}</button>
+                <button type="button" className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-[#111111] transition-colors hover:bg-[#f2ba00]" onClick={continueAccount}>{t('continue')} <ArrowRight className="size-4 rtl:rotate-180" /></button>
+              ) : step === 1 ? (
+                <button type="button" className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-[#111111] transition-colors hover:bg-[#f2ba00]" onClick={continuePlan}>{t('continuePayment')} <ArrowRight className="size-4 rtl:rotate-180" /></button>
               ) : (
-                <button type="button" className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#111111] text-sm font-semibold text-white" disabled={register.isPending || referralWaiting || promoWaiting} onClick={() => { if (!planId) { setFieldErrors({ planId: t('selectPlan') }); return; } if (methods.isLoading) { setError(t('paymentLoading')); return; } if (!offered.length) { setError(t('paymentEmpty')); return; } if (!chosenMethods.length) { setFieldErrors({ paymentMethods: t('paymentRequired') }); return; } if (referralBad || promoBad) { setError(t('fixCodes')); return; } setFieldErrors({}); setError(''); register.mutate(); }}>{t('submit')} <ArrowRight className="h-4 w-4 rtl:rotate-180" /></button>
+                <Button type="button" className="h-auto min-h-11 min-w-0 flex-1 whitespace-normal rounded-xl px-3 py-2 text-xs leading-tight sm:h-11 sm:px-4 sm:text-sm [&>span]:w-full [&>span]:min-w-0 [&>span]:flex-wrap [&>span]:justify-center [&>span]:whitespace-normal" loading={register.isPending || referralWaiting || promoWaiting} onClick={submitRegistration}><Lock className="size-4 shrink-0" /> <span className="min-w-0 whitespace-normal text-center">{t('payComplete', { amount: formatMoney(quote.data?.payable ?? '0', locale) })}</span></Button>
               )}
             </div>
-            <p className="mt-3 text-center text-sm text-[#6b6b66]">
+            {step === 1 ? <p className="mt-2 text-center text-[10px] text-[#8a8a86]">{t('taxNote')}</p> : null}
+            {step === 2 ? <p className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-[#eaf7ec] py-2 text-[10px] text-[#245d32]"><CheckCircle2 className="size-4 text-[#159447]" /> {t('portalReady')}</p> : null}
+            <p className="mt-2.5 text-center text-xs text-[#6b6b66]">
               {t('haveAccount')} <Link href="/login" className="font-semibold text-[#111111] underline">{t('signIn')}</Link>
             </p>
           </div>
-        </div>
+        </footer>
       </main>
     </div>
   );
 }
 
-function PlanChoice({ plan, locale, selected, yearly, onSelect, monthlyLabel, yearlyLabel, more, less, selectedLabel }: { plan: SubscriptionPlanView; locale: 'en' | 'ar'; selected: boolean; yearly: boolean; onSelect: () => void; monthlyLabel: string; yearlyLabel: string; more: string; less: string; selectedLabel: string }) {
-  const plansT = useTranslations('plans');
-  const [open, setOpen] = useState(false);
-  const stats = planStats(plan, plansT);
-  const details = planDetails(plan, plansT);
+function FeaturePill({ icon: Icon, children }: { icon: typeof Zap; children: React.ReactNode }) {
   return (
-    <div className={`rounded-2xl border p-4 text-start ${selected ? 'border-[#111111] bg-[#FFF6CC]' : 'border-[#e6e6e1] bg-white'}`}>
-      <button type="button" onClick={onSelect} className="w-full text-start">
-        <span className="flex items-start justify-between gap-3">
-          <span>
-            {selected ? <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold"><Star className="h-3 w-3 fill-current" /> {selectedLabel}</span> : null}
-            <span className="block font-semibold">{pickLocalized(plan.name, locale)}</span>
-            <span className="mt-1 block text-2xl font-bold tracking-tight">{formatMoney(yearly ? plan.priceAnnual : plan.priceMonthly, locale)} <span className="text-sm font-medium text-[#6b6b66]">{yearly ? yearlyLabel : monthlyLabel}</span></span>
-          </span>
-          {selected ? <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary"><Check className="h-4 w-4" /></span> : <span className="mt-1 h-6 w-6 shrink-0 rounded-full border-2 border-[#d7d7d2]" />}
-        </span>
-        <span className="mt-2 block text-sm text-[#6b6b66]">{pickLocalized(plan.description, locale)}</span>
-      </button>
-      {stats.length ? (
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 border-t pt-3 text-xs text-[#3f3f3f]">
-          {stats.map((item) => (
-            <span key={item.label} className="inline-flex items-center gap-1.5"><item.icon className="h-3.5 w-3.5" /> {item.label}</span>
-          ))}
-        </div>
-      ) : null}
-      <button type="button" className="mt-3 text-sm font-semibold underline" onClick={() => setOpen((value) => !value)}>{open ? less : more} {!open ? <span aria-hidden>›</span> : null}</button>
-      {open ? (
-        <ul className="mt-2 space-y-1 text-sm text-[#3f3f3f]">
-          {details.map((line) => <li key={line}>{line}</li>)}
-        </ul>
-      ) : null}
-    </div>
+    <span className="inline-flex h-10 items-center gap-2 rounded-lg bg-white/90 px-3 text-xs font-semibold shadow-sm">
+      <span className="flex size-6 items-center justify-center rounded-full bg-primary">
+        <Icon className="size-3.5" />
+      </span>
+      {children}
+    </span>
   );
 }
 
-function planStats(plan: SubscriptionPlanView, t: ReturnType<typeof useTranslations<'plans'>>) {
-  const value = (key: string) => plan.entitlements.find((row) => row.key === key)?.value;
-  const text = (key: string) => value(key) == null || value(key) === '' ? t('unlimited') : String(value(key));
-  const rows: { icon: typeof Package; label: string }[] = [];
-  if (plan.entitlements.some((row) => row.key === 'productLimit')) rows.push({ icon: Package, label: `${text('productLimit')} ${t('products').toLowerCase()}` });
-  if (plan.entitlements.some((row) => row.key === 'monthlyOrderLimit')) rows.push({ icon: ShoppingCart, label: `${text('monthlyOrderLimit')} ${t('orders').toLowerCase()}` });
-  if (plan.entitlements.some((row) => row.key === 'staffLimit')) rows.push({ icon: Users, label: `${text('staffLimit')} ${t('staff').toLowerCase()}` });
-  if (plan.entitlements.some((row) => row.key === 'branchLimit')) rows.push({ icon: Store, label: `${text('branchLimit')} ${t('branches').toLowerCase()}` });
-  return rows;
+function RegistrationSteps({ step, labels }: { step: number; labels: string[] }) {
+  return (
+    <ol className="grid min-w-0 flex-1 grid-cols-3" aria-label="Registration progress">
+      {labels.map((label, index) => {
+        const done = index < step;
+        const current = index === step;
+        return (
+          <li key={label} aria-current={current ? 'step' : undefined} className="relative min-w-0 text-center">
+            <span className="relative flex justify-center">
+              {index > 0 ? <span className={`absolute top-1/2 start-0 h-0.5 w-[calc(50%-1.15rem)] -translate-y-1/2 rounded-full ${index <= step ? 'bg-primary' : 'bg-[#e4e4e0]'}`} aria-hidden="true" /> : null}
+              {index < labels.length - 1 ? <span className={`absolute top-1/2 end-0 h-0.5 w-[calc(50%-1.15rem)] -translate-y-1/2 rounded-full ${done ? 'bg-primary' : 'bg-[#e4e4e0]'}`} aria-hidden="true" /> : null}
+              <span className={`relative z-10 flex size-7 items-center justify-center rounded-full text-xs font-bold ${current ? 'bg-primary text-[#111111] ring-4 ring-[#fff4c2]' : done ? 'bg-primary text-[#111111]' : 'bg-[#ecece8] text-[#6f6f6b]'}`}>
+                {done ? <Check className="size-3.5" strokeWidth={3} /> : index + 1}
+              </span>
+            </span>
+            <span className={`mt-1.5 block px-0.5 text-[10px] leading-tight sm:text-[11px] ${current ? 'font-semibold text-[#111111]' : done ? 'font-medium text-[#2f2f2c]' : 'text-[#8a8a86]'}`}>{label}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function PlanChoice({ plan, locale, selected, yearly, onSelect, monthlyLabel, yearlyLabel, selectedLabel, selectLabel, popularLabel }: { plan: SubscriptionPlanView; locale: 'en' | 'ar'; selected: boolean; yearly: boolean; onSelect: () => void; monthlyLabel: string; yearlyLabel: string; selectedLabel: string; selectLabel: string; popularLabel: string }) {
+  const plansT = useTranslations('plans');
+  const details = planDetails(plan, plansT).slice(0, 6);
+  const visibility = String(plan.entitlements.find((row) => row.key === 'visibility')?.value ?? '');
+  const exclusive = visibility === 'CURRENT_STORE_ONLY' || visibility === 'EXCLUSIVE_STOREFRONT';
+  return (
+    <article className={`relative flex min-h-[290px] snap-start flex-col rounded-xl border p-3 text-start transition-colors ${selected ? 'border-primary bg-[#fffdf3] shadow-[0_0_0_1px_#FFC400]' : 'border-[#deded9] bg-white'}`}>
+      {plan.recommended ? <span className="absolute -top-2.5 start-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-3 py-1 text-[9px] font-bold">{popularLabel}</span> : null}
+      <h3 className="font-display text-lg leading-tight">{pickLocalized(plan.name, locale)}</h3>
+      <p className="mt-1 whitespace-nowrap text-[1.35rem] font-extrabold leading-none tracking-tight">{formatMoney(yearly ? plan.priceAnnual : plan.priceMonthly, locale)} <span className="text-[9px] font-normal text-[#777773]">{yearly ? yearlyLabel : monthlyLabel}</span></p>
+      <p className="mt-2 min-h-8 text-[9px] leading-relaxed text-[#666662]">{pickLocalized(plan.description, locale)}</p>
+      <ul className="mt-2 space-y-1.5">
+        {details.map((line) => (
+          <li key={line} className="flex gap-1.5 text-[9px] leading-snug text-[#3f3f3c]"><Check className="mt-px size-3 shrink-0 text-[#159447]" /> <span>{line}</span></li>
+        ))}
+      </ul>
+      <div className="mt-auto pt-3">
+        <div className="mb-2 flex min-h-11 items-center gap-2 rounded-lg bg-[#f5f5f2] p-2 text-[8px] leading-snug text-[#4f4f4b]">
+          {exclusive ? <Crown className="size-4 shrink-0" /> : <Store className="size-4 shrink-0" />}
+          <span>{exclusive ? plansT('currentStore') : plansT('allStores')}</span>
+        </div>
+        <button type="button" onClick={onSelect} aria-pressed={selected} className={`flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border text-[10px] font-bold transition-colors ${selected ? 'border-primary bg-primary' : 'border-[#cfcfca] bg-white hover:border-primary'}`}>
+          {selected ? <Check className="size-3.5 rounded-full bg-[#111111] p-0.5 text-white" /> : null}
+          {selected ? selectedLabel : selectLabel}
+        </button>
+      </div>
+    </article>
+  );
 }
 
 function planDetails(plan: SubscriptionPlanView, t: ReturnType<typeof useTranslations<'plans'>>) {
@@ -287,20 +406,37 @@ function planDetails(plan: SubscriptionPlanView, t: ReturnType<typeof useTransla
   return lines;
 }
 
-function paymentIcon(code: PaymentMethod) {
-  if (code === 'CARD') return CreditCard;
-  if (code === 'BENEFIT') return Wallet;
-  if (code === 'BENEFIT_PAY') return Smartphone;
-  return Banknote;
+function PaymentMethodChoice({ icon: Icon, label, selected, onClick }: { icon: typeof CreditCard; label: string; selected: boolean; onClick: () => void }) {
+  return (
+    <button type="button" aria-pressed={selected} onClick={onClick} className={`relative flex min-h-14 flex-col items-start justify-center rounded-lg border p-2 text-start text-[9px] font-semibold ${selected ? 'border-primary bg-[#fffdf3] shadow-[0_0_0_1px_#FFC400]' : 'border-[#deded9]'}`}>
+      <Icon className="mb-1 size-4" />
+      {label}
+      <span className={`absolute end-2 top-2 size-3 rounded-full border ${selected ? 'border-[#111111] bg-[#111111]' : 'border-[#bdbdb7]'}`}>{selected ? <Check className="size-full p-0.5 text-white" /> : null}</span>
+    </button>
+  );
 }
 
-function IconField({ icon: Icon, label, value, onChange, placeholder, type = 'text', error }: { icon: typeof Mail; label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string; error?: string }) {
+function PaymentInput({ label, value, onChange, placeholder, icon: Icon, inputMode, error }: { label: string; value: string; onChange: (value: string) => void; placeholder: string; icon?: typeof CreditCard; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']; error?: string }) {
   return (
-    <label className="block text-sm font-medium">
+    <label className="block text-[9px] font-semibold">
       {label}
-      <span className={`mt-2 flex h-12 items-center gap-2 rounded-full border px-4 ${error ? 'border-[#D9342B]' : ''}`}>
-        <Icon className="h-4 w-4 shrink-0 text-[#8a8a86]" />
-        <input type={type} className="w-full bg-transparent text-sm outline-none" value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
+      <span className={`mt-1 flex h-9 items-center gap-2 rounded-md border px-2.5 focus-within:border-[#111111] ${error ? 'border-[#D9342B]' : 'border-[#d8d8d4]'}`}>
+        {Icon ? <Icon className="size-4 text-[#777773]" /> : null}
+        <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} inputMode={inputMode} className="h-full min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-[#a1a19c]" />
+      </span>
+      {error ? <span className="mt-1 block text-[9px] text-[#D9342B]">{error}</span> : null}
+    </label>
+  );
+}
+
+function IconField({ icon: Icon, label, value, onChange, placeholder, type = 'text', error, trailing, autoComplete }: { icon: typeof Mail; label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string; error?: string; trailing?: React.ReactNode; autoComplete?: string }) {
+  return (
+    <label className="block text-xs font-semibold">
+      {label}
+      <span className={`mt-1.5 flex h-10 items-center gap-2 rounded-md border bg-white px-3 transition-colors focus-within:border-[#111111] ${error ? 'border-[#D9342B]' : 'border-[#d8d8d4]'}`}>
+        <Icon className="size-4 shrink-0 text-[#777773]" />
+        <input type={type} autoComplete={autoComplete} className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#a1a19c]" value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
+        {trailing}
       </span>
       {error ? <span className="mt-1 block text-xs font-medium text-[#D9342B]">{error}</span> : null}
     </label>

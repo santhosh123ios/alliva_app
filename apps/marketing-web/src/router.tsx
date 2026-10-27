@@ -27,7 +27,7 @@ export const router = createBrowserRouter([
     element: <LocaleLayout />,
     children: [
       {
-        element: <Suspense fallback={null}><Outlet /></Suspense>,
+        element: <Suspense fallback={<Loading />}><Outlet /></Suspense>,
         children: [
           { path: 'login', element: <Login /> },
           { path: 'forgot', element: <Forgot /> },

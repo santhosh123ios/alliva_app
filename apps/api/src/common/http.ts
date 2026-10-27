@@ -88,6 +88,7 @@ export function requirePermissions(required: string[]) {
 
 const csrfExempt = [
   '/auth/login',
+  '/auth/customer',
   '/auth/2fa',
   '/auth/forgot-password',
   '/auth/reset-password',

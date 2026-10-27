@@ -50,6 +50,10 @@ export function marketingInviteUrl(token: string) {
   return `${origin(3003)}/en/reset?token=${encodeURIComponent(token)}`;
 }
 
+export function customerResetUrl(token: string, locale: 'en' | 'ar' = 'en') {
+  return `${origin(3000)}/${locale}/reset?token=${encodeURIComponent(token)}`;
+}
+
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character);
 }

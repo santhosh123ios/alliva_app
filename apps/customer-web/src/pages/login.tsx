@@ -3,7 +3,7 @@ import { clearFirebaseRecaptcha, confirmFirebaseCode, sendFirebaseCode } from '@
 import HomePage from './home';
 import { Link, useRouter } from '@/i18n/navigation';
 import { cn, toast } from '@alliva/ui';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ConfirmationResult } from 'firebase/auth';
 import { ChevronDown, Eye, EyeOff, X } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -14,17 +14,22 @@ export default function LoginPage() {
   const c = useTranslations('auth.customerLogin');
   const locale = useLocale();
   const router = useRouter();
+  const client = useQueryClient();
   const [mode, setMode] = useState<'sign-in' | 'create'>('sign-in');
-  const [step, setStep] = useState<'details' | 'code'>('details');
+  const [method, setMethod] = useState<'phone' | 'email'>('phone');
+  const [step, setStep] = useState<'details' | 'code' | 'forgot'>('details');
   const [channel, setChannel] = useState<'whatsapp' | 'dev' | 'firebase'>('dev');
   const confirmation = useRef<ConfirmationResult | null>(null);
   const firebase = useQuery({ queryKey: ['firebase-auth'], queryFn: () => api.firebaseAuth(), staleTime: Infinity });
   const [localPhone, setLocalPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] = useState(true);
+  const [devResetToken, setDevResetToken] = useState<string | null>(null);
   const [countryOpen, setCountryOpen] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const phone = `+973${localPhone}`;
@@ -47,6 +52,17 @@ export default function LoginPage() {
   }, []);
 
   const names = mode === 'create' ? { firstName: firstName.trim(), lastName: lastName.trim() } : {};
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const accept = async (result: Awaited<ReturnType<typeof api.login>>) => {
+    if (!('user' in result) || result.user.kind !== 'CUSTOMER') {
+      if ('user' in result) await api.logout().catch(() => undefined);
+      toast.error(c('customerOnly'));
+      return;
+    }
+    void client.invalidateQueries({ queryKey: ['cart'] });
+    await client.invalidateQueries({ queryKey: ['me'] });
+    router.push('/');
+  };
   const send = useMutation({
     mutationFn: async () => {
       if (firebase.data?.enabled) {
@@ -73,12 +89,39 @@ export default function LoginPage() {
       }
       return api.verifyOtp({ phone, code, ...names });
     },
-    onSuccess: () => router.push('/'),
+    onSuccess: (result) => void accept(result),
     onError: (error: unknown) => toast.error(firebaseError(error, c)),
   });
+  const signIn = useMutation({
+    mutationFn: () => api.login({ email: email.trim(), password, rememberDevice: remember }),
+    onSuccess: (result) => void accept(result),
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const register = useMutation({
+    mutationFn: () =>
+      api.registerCustomer({
+        email: email.trim(),
+        password,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        rememberDevice: remember,
+      }),
+    onSuccess: (result) => void accept(result),
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const reset = useMutation({
+    mutationFn: () => api.forgot(email.trim()),
+    onSuccess: (result) => {
+      setDevResetToken(result.devResetToken ?? null);
+      toast.success(c('resetSent'));
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const pending = send.isPending || confirm.isPending || firebase.isPending || signIn.isPending || register.isPending || reset.isPending;
 
   const requestCode = () => {
-    if (firebase.isPending || send.isPending || confirm.isPending) return;
+    if (pending) return;
     if (!/^\d{8}$/.test(localPhone)) {
       toast.error(c('invalidPhone'));
       return;
@@ -90,8 +133,38 @@ export default function LoginPage() {
     send.mutate();
   };
 
+  const submitEmail = () => {
+    if (!emailOk) {
+      toast.error(c('invalidEmail'));
+      return;
+    }
+    if (password.length < 8) {
+      toast.error(c('shortPassword'));
+      return;
+    }
+    if (mode === 'create' && (!firstName.trim() || !lastName.trim())) {
+      toast.error(c('needName'));
+      return;
+    }
+    if (mode === 'create') register.mutate();
+    else signIn.mutate();
+  };
+
   const onSubmit = (event: React.FormEvent) => {
     event.preventDefault();
+    if (pending) return;
+    if (step === 'forgot') {
+      if (!emailOk) {
+        toast.error(c('invalidEmail'));
+        return;
+      }
+      reset.mutate();
+      return;
+    }
+    if (method === 'email') {
+      submitEmail();
+      return;
+    }
     if (step === 'details') {
       requestCode();
       return;
@@ -130,11 +203,12 @@ export default function LoginPage() {
             </button>
             <img src="/logo-on-light.png" alt="Alliva" className="h-7 w-auto brightness-0 invert" />
             <h1 className="font-display mt-3 text-[1.65rem] leading-none">
-              {mode === 'create' ? c('createTitle') : t('welcomeBack')}
+              {step === 'forgot' ? c('forgotTitle') : mode === 'create' ? c('createTitle') : t('welcomeBack')}
             </h1>
             <p className="mt-1.5 text-sm text-white/70">
-              {mode === 'create' ? c('createSubtitle') : c('continue')}
+              {step === 'forgot' ? c('forgotBody') : mode === 'create' ? c('createSubtitle') : method === 'email' ? c('emailNote') : c('continue')}
             </p>
+            {step === 'forgot' ? null : (
             <div
               role="tablist"
               className="relative mt-4 grid grid-cols-2 overflow-hidden rounded-[18px] bg-black/30 p-1 shadow-[inset_0_2px_6px_rgba(0,0,0,0.45),inset_0_-1px_0_rgba(255,255,255,0.08)] ring-1 ring-white/10 [corner-shape:round]"
@@ -165,6 +239,30 @@ export default function LoginPage() {
                 {c('create')}
               </button>
             </div>
+            )}
+
+            {step === 'details' ? (
+              <div role="tablist" aria-label={c('method')} className="mt-3 grid grid-cols-2 gap-1 rounded-full bg-black/25 p-1">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={method === 'phone'}
+                  onClick={() => setMethod('phone')}
+                  className={cn('h-8 rounded-full text-xs font-semibold', method === 'phone' ? 'bg-white/15 text-white' : 'text-white/45')}
+                >
+                  {c('usePhone')}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={method === 'email'}
+                  onClick={() => setMethod('email')}
+                  className={cn('h-8 rounded-full text-xs font-semibold', method === 'email' ? 'bg-white/15 text-white' : 'text-white/45')}
+                >
+                  {c('useEmail')}
+                </button>
+              </div>
+            ) : null}
 
             {mode === 'create' && step === 'details' ? (
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -191,6 +289,28 @@ export default function LoginPage() {
               </div>
             ) : null}
 
+            {step === 'forgot' ? (
+              <div className="mt-4">
+                <div className={glassField}>
+                  <label htmlFor="email" className="block px-3 pt-2 text-[11px] leading-none text-white/60">{t('email')}</label>
+                  <input
+                    id="email"
+                    type="email"
+                    autoFocus
+                    autoComplete="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder={t('emailPlaceholder')}
+                    className="h-9 w-full bg-transparent px-3 text-sm outline-none placeholder:text-white/45"
+                  />
+                </div>
+                {devResetToken ? (
+                  <Link href={`/reset?token=${encodeURIComponent(devResetToken)}`} className="mt-2 block text-xs font-semibold text-white underline">
+                    {c('devReset')}
+                  </Link>
+                ) : null}
+              </div>
+            ) : method === 'phone' ? (
             <div className={cn('mt-4', mode === 'create' && step === 'details' && 'mt-3')}>
               <div className={cn(glassField, 'px-0 py-0')}>
                 <div className="px-3 pt-2 text-[11px] leading-none text-white/60">{t('phone')}</div>
@@ -209,7 +329,7 @@ export default function LoginPage() {
                   <span className="h-5 w-px bg-white/25" />
                   <input
                     id="phone"
-                    autoFocus
+                    autoFocus={step === 'details'}
                     inputMode="numeric"
                     autoComplete="tel-national"
                     aria-label={t('phone')}
@@ -240,17 +360,31 @@ export default function LoginPage() {
                 <p className="mt-2 text-xs text-white/60">{firebase.data?.enabled ? c('firebaseNote') : c('whatsappNote')}</p>
               ) : null}
             </div>
-
-            {step === 'details' ? (
-              <div className="mt-3">
-                <div className={cn(glassField, 'flex items-center px-3 py-2')}>
+            ) : (
+              <div className="mt-4">
+                <div className={glassField}>
+                  <label htmlFor="email" className="block px-3 pt-2 text-[11px] leading-none text-white/60">{t('email')}</label>
+                  <input
+                    id="email"
+                    type="email"
+                    autoFocus
+                    autoComplete="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder={t('emailPlaceholder')}
+                    className="h-9 w-full bg-transparent px-3 text-sm outline-none placeholder:text-white/45"
+                  />
+                </div>
+                <div className={cn(glassField, 'mt-3 flex items-center px-3 py-2')}>
                   <span className="min-w-0 flex-1">
                     <label htmlFor="password" className="block text-[11px] leading-none text-white/60">{t('password')}</label>
                     <input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
-                      autoComplete="current-password"
+                      autoComplete={mode === 'create' ? 'new-password' : 'current-password'}
                       placeholder={t('passwordPlaceholder')}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
                       className="mt-1 h-6 w-full bg-transparent text-sm outline-none placeholder:text-white/45"
                     />
                   </span>
@@ -273,17 +407,22 @@ export default function LoginPage() {
                     />
                     {t('rememberMe')}
                   </label>
-                  <button type="button" className="text-white/80" onClick={requestCode}>
-                    {t('forgotQuestion')}
-                  </button>
+                  {mode === 'sign-in' ? (
+                    <button type="button" className="text-white/80" onClick={() => { setDevResetToken(null); setStep('forgot'); }}>
+                      {t('forgotQuestion')}
+                    </button>
+                  ) : null}
                 </div>
               </div>
-            ) : (
+            )}
+
+            {method === 'phone' && step === 'code' ? (
               <div className="mt-3">
                 <div className={glassField}>
                   <label htmlFor="code" className="block text-[11px] leading-none text-white/60">{c('codeLabel')}</label>
                   <input
                     id="code"
+                    autoFocus
                     inputMode="numeric"
                     autoComplete="one-time-code"
                     placeholder={c('codePlaceholder')}
@@ -303,16 +442,22 @@ export default function LoginPage() {
                   {c('changeNumber')}
                 </button>
               </div>
-            )}
+            ) : null}
 
             <button
               type="submit"
-              disabled={send.isPending || confirm.isPending || firebase.isPending}
+              disabled={pending}
               className="mt-4 flex h-11 w-full items-center justify-center rounded-2xl bg-[linear-gradient(180deg,#ffe566,#ffc400)] text-sm font-semibold text-[#111] shadow-[0_8px_24px_rgba(255,196,0,0.28)] transition hover:brightness-105 disabled:opacity-60"
             >
-              {send.isPending || confirm.isPending ? <span className="size-4 animate-spin rounded-full border-2 border-[#111]/30 border-t-[#111]" /> : step === 'details' ? t('signIn') : c('verifyContinue')}
+              {pending ? <span className="size-4 animate-spin rounded-full border-2 border-[#111]/30 border-t-[#111]" /> : step === 'forgot' ? c('sendReset') : step === 'code' ? c('verifyContinue') : method === 'email' && mode === 'create' ? c('create') : t('signIn')}
             </button>
 
+            {step === 'forgot' ? (
+              <button type="button" className="mt-3 w-full text-center text-xs font-semibold text-white" onClick={() => setStep('details')}>
+                {t('back')}
+              </button>
+            ) : (
+            <>
             <div className="my-3 flex items-center gap-3 text-xs text-white/60">
               <span className="h-px flex-1 bg-white/20" />
               {c('orContinue')}
@@ -328,6 +473,8 @@ export default function LoginPage() {
               {` ${c('legalJoin')} `}
               <Link href="/legal/privacy" className="underline">{c('privacy')}</Link>.
             </p>
+            </>
+            )}
             </div>
           </form>
         </div>

@@ -1,6 +1,7 @@
 import * as argon2 from 'argon2';
 import type { Request, Response } from 'express';
 import {
+  customerRegisterSchema,
   firebasePhoneSchema,
   forgotPasswordSchema,
   loginSchema,
@@ -10,7 +11,7 @@ import {
   twoFactorSchema,
   updateProfileSchema,
 } from '@alliva/validation';
-import { serviceUnavailable, unauthorized } from '../common/errors';
+import { badRequest, serviceUnavailable, unauthorized } from '../common/errors';
 import {
   clearAuthCookies,
   forgetAuthSession,
@@ -24,7 +25,7 @@ import { createRoutes } from '../common/routes';
 import type { Container } from '../container';
 import { firebaseWebConfig, verifyFirebasePhoneToken } from '../providers/firebase-auth';
 import { numericOtp } from '../providers/whatsapp.otp';
-import { marketingInviteUrl } from '../providers/welcome-email';
+import { customerResetUrl, marketingInviteUrl } from '../providers/welcome-email';
 
 export function authRoutes({ prisma, jwt, crypto, audit, sms, email }: Container) {
   const routes = createRoutes({ jwt, prisma }, 'Authentication', '/auth');
@@ -104,7 +105,9 @@ export function authRoutes({ prisma, jwt, crypto, audit, sms, email }: Container
         expiresAt: new Date(Date.now() + 30 * 60 * 1000),
       },
     });
-    const resetUrl = marketingInviteUrl(token);
+    const resetUrl = user.kind === 'CUSTOMER'
+      ? customerResetUrl(token, user.locale === 'ar' ? 'ar' : 'en')
+      : marketingInviteUrl(token);
     await email.send(
       user.email!,
       'Reset your Alliva password',
@@ -204,6 +207,41 @@ export function authRoutes({ prisma, jwt, crypto, audit, sms, email }: Container
   });
 
   routes.get('/firebase', { public: true }, () => firebaseWebConfig());
+
+  routes.post('/customer/register', { public: true, throttle: 5 }, async (request, response) => {
+    const body = validate<{
+      email: string;
+      password: string;
+      firstName: string;
+      lastName: string;
+      rememberDevice?: boolean;
+    }>(customerRegisterSchema, request.body);
+    const email = body.email.toLowerCase();
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) throw badRequest('An account with this email already exists');
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash: await argon2.hash(body.password),
+        kind: 'CUSTOMER',
+        status: 'ACTIVE',
+        firstName: body.firstName.trim(),
+        lastName: body.lastName.trim(),
+        customer: { create: {} },
+      },
+    });
+    const guestToken = request.cookies?.alliva_guest as string | undefined;
+    if (guestToken) await mergeGuest(guestToken, user.id);
+    const issued = await issueSession(user.id, Boolean(body.rememberDevice), request, response);
+    await audit.log({
+      actorId: user.id,
+      action: 'auth.customer_register',
+      entityType: 'User',
+      entityId: user.id,
+      ipAddress: request.ip,
+    });
+    return { user: present(issued.actor), csrfToken: issued.csrf };
+  });
 
   routes.post('/firebase', { public: true, throttle: 10 }, async (request, response) => {
     const body = validate<{ idToken: string; firstName?: string; lastName?: string }>(firebasePhoneSchema, request.body);
