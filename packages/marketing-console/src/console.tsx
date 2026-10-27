@@ -1,6 +1,6 @@
 import { EmptyState } from '@alliva/ui';
 import {
-  BarChart3, Bell, Building2, CalendarClock, ClipboardList, Footprints, LayoutGrid, Link2, Megaphone, Settings, Store, Ticket, UserCircle, UserRoundSearch, Users, Wallet, Banknote, Percent, type LucideIcon,
+  BarChart3, Bell, Building2, CalendarClock, ClipboardList, Footprints, LayoutGrid, Link2, Megaphone, Receipt, Settings, Store, Ticket, UserCircle, UserRoundSearch, Users, Wallet, Banknote, Percent, type LucideIcon,
 } from 'lucide-react';
 import { useConsole, type Role } from './context';
 import { useT, type MessageKey } from './i18n';
@@ -8,7 +8,7 @@ import { AppointmentsScreen } from './screens/appointments';
 import { DashboardScreen } from './screens/dashboard';
 import { ActivityScreen, NotificationsScreen, ProfileScreen } from './screens/inbox';
 import { LeadsScreen, VisitsScreen } from './screens/leads';
-import { CommissionsScreen, WalletScreen, WalletsAdminScreen } from './screens/money';
+import { CommissionTransactionsScreen, CommissionsScreen, WalletScreen, WalletsAdminScreen } from './screens/money';
 import { PromosScreen } from './screens/promos';
 import { ReportsScreen } from './screens/reports';
 import { SettingsScreen } from './screens/settings';
@@ -16,7 +16,7 @@ import { ReferralScreen, StoresScreen } from './screens/stores';
 import { MembersScreen } from './screens/team';
 
 export type ScreenId =
-  | 'dashboard' | 'heads' | 'staff' | 'leads' | 'visits' | 'appointments' | 'stores' | 'referral' | 'commissions'
+  | 'dashboard' | 'heads' | 'staff' | 'leads' | 'visits' | 'appointments' | 'stores' | 'referral' | 'commissions' | 'transactions'
   | 'wallet' | 'wallets' | 'reports' | 'settings' | 'notifications' | 'activity' | 'profile' | 'promos';
 
 export type NavItem = { id: ScreenId; label: MessageKey; icon: LucideIcon };
@@ -46,6 +46,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { id: 'appointments', label: 'navAppointments', icon: CalendarClock },
     { id: 'activity', label: 'navTeamActivity', icon: Megaphone },
     { id: 'commissions', label: 'navMyCommission', icon: Percent },
+    { id: 'transactions', label: 'navCommissionTransactions', icon: Receipt },
     { id: 'wallet', label: 'navMyWallet', icon: Wallet },
     { id: 'reports', label: 'navReports', icon: BarChart3 },
     { id: 'notifications', label: 'navNotifications', icon: Bell },
@@ -57,6 +58,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { id: 'appointments', label: 'navAppointmentsFollowUps', icon: CalendarClock },
     { id: 'referral', label: 'navReferralCode', icon: Link2 },
     { id: 'commissions', label: 'navCommission', icon: Banknote },
+    { id: 'transactions', label: 'navCommissionTransactions', icon: Receipt },
     { id: 'wallet', label: 'navWallet', icon: Wallet },
     { id: 'notifications', label: 'navNotifications', icon: Bell },
     { id: 'profile', label: 'navProfile', icon: UserCircle },
@@ -86,6 +88,7 @@ export function MarketingScreen({ id, params = {} }: { id: string; params?: Reco
     case 'stores': return <StoresScreen params={params} />;
     case 'referral': return <ReferralScreen />;
     case 'commissions': return <CommissionsScreen />;
+    case 'transactions': return <CommissionTransactionsScreen />;
     case 'wallet': return <WalletScreen />;
     case 'wallets': return <WalletsAdminScreen params={params} />;
     case 'reports': return <ReportsScreen />;

@@ -25,6 +25,11 @@ export type VisibilityMode = 'ALL_STORES' | 'EXCLUDE_SAME_BUSINESS_TYPE' | 'CURR
 
 export type PaymentMethod = 'CARD' | 'BENEFIT' | 'BENEFIT_PAY' | 'CASH';
 
+export type StorePaymentMethod = {
+  code: PaymentMethod;
+  name: LocalizedText;
+};
+
 export const ORDER_STATUSES: OrderStatus[] = [
   'PENDING',
   'ACCEPTED',
@@ -276,6 +281,7 @@ export type CartView = {
   scheduledFor: string | null;
   addressId: string | null;
   tableId: string | null;
+  paymentMethods: StorePaymentMethod[];
 };
 
 export type OrderView = {

@@ -4,7 +4,7 @@ export interface SmsProvider {
 }
 
 export interface EmailProvider {
-  send(to: string, subject: string, text: string): Promise<void>;
+  send(to: string, subject: string, text: string, html?: string): Promise<void>;
 }
 
 export interface PushProvider {

@@ -54,7 +54,7 @@ test.describe('marketing portal', () => {
     await page.goto('/en/dashboard');
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     const nav = page.getByRole('navigation');
-    for (const label of ['My leads', 'My stores', 'Referral code', 'Commission', 'Wallet']) {
+    for (const label of ['My leads', 'My stores', 'Referral code', 'Commission', 'Commission transactions', 'Wallet']) {
       await expect(nav.getByRole('link', { name: label })).toBeVisible();
     }
     await expect(nav.getByRole('link', { name: 'My team' })).toHaveCount(0);
@@ -93,6 +93,7 @@ test.describe('marketing portal', () => {
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     const nav = page.getByRole('navigation');
     await expect(nav.getByRole('link', { name: 'My team' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Commission transactions' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Referral code' })).toHaveCount(0);
     await page.goto('/en/staff');
     await expect(page.getByText('Omar Sharif').first()).toBeVisible();

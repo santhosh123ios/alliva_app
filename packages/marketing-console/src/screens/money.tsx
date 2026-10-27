@@ -1,11 +1,11 @@
 import { Button } from '@alliva/ui';
 import { Banknote, Check, SlidersHorizontal } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { useConsole } from '../context';
+import { useConsole, type Me } from '../context';
 import { formatDate, formatDateTime, formatMoney } from '../format';
 import { pick, useLang, useT, type MessageKey } from '../i18n';
 import {
-  AreaField, CheckField, ConfirmDialog, DateRange, FilterSelect, FormActions, Kpi, ListView, Modal, Page, QueryBoundary, SearchBox, Section, SelectField, StatusPill, Tabs, TextField, Toolbar, useAction, useData, useFilters, useList, useStaffOptions, type Column,
+  AreaField, CheckField, CommissionRate, ConfirmDialog, DateRange, FilterSelect, FormActions, Kpi, ListView, Modal, Page, QueryBoundary, SearchBox, Section, SelectField, StatusPill, Tabs, TextField, Toolbar, useAction, useData, useFilters, useList, useStaffOptions, type Column,
 } from '../kit';
 import type { CommissionRow, Wallet, WalletOverviewRow, WalletTx, WithdrawalRow } from '../types';
 
@@ -18,6 +18,7 @@ export function CommissionsScreen() {
   const act = useAction();
   const filters = useFilters({ status: '', tier: '', staffId: '', from: '', to: '' });
   const query = useList<CommissionRow>('commissions', '/commissions', filters.params);
+  const profile = useData<Me>('me', '/me', undefined, role !== 'ADMIN');
   const staff = useStaffOptions(role !== 'STAFF');
   const [confirmAll, setConfirmAll] = useState(false);
 
@@ -48,9 +49,20 @@ export function CommissionsScreen() {
         {role !== 'STAFF' ? <FilterSelect label={t('colStaffMember')} value={filters.values.staffId} onChange={(staffId) => filters.set({ staffId })} options={(staff.data?.items ?? []).map((row) => ({ value: row.id, label: row.fullName }))} /> : null}
         <DateRange from={filters.values.from} to={filters.values.to} onChange={filters.set} />
       </Toolbar>
+      {role !== 'ADMIN' && profile.data ? <p className="text-sm">{t('currentCommissionRate')} <strong><CommissionRate percent={profile.data.effectiveCommissionPercent} isDefault={profile.data.commissionIsDefault} /></strong></p> : null}
       <p className="text-xs text-muted-foreground">{t('commissionRule')}</p>
       <ListView query={query} columns={columns} rowKey={(row) => row.id} onPage={filters.setPage} emptyTitle={t('noCommissions')} emptyBody={t('noCommissionsBody')} />
       <ConfirmDialog open={confirmAll} onClose={() => setConfirmAll(false)} title={t('approveAllPending')} body={t('approveAllBody')} confirmLabel={t('approve')} onConfirm={async () => (await act(() => api.mk.post('/commissions/approve', {}), 'saved')).ok} />
+    </Page>
+  );
+}
+
+/** Every wallet movement for the signed-in head or staff member: credits, reversals, approvals and withdrawals. */
+export function CommissionTransactionsScreen() {
+  const t = useT();
+  return (
+    <Page title={t('transactionsTitle')} subtitle={t('transactionsSubtitle')}>
+      <TransactionsTable />
     </Page>
   );
 }

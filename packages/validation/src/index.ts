@@ -1,5 +1,17 @@
 import { z } from 'zod';
 
+export {
+  PAYMENT_METHOD_CODES,
+  acceptedPaymentMethods,
+  defaultPaymentMethods,
+  parsePaymentMethods,
+  paymentMethodCodeSchema,
+  paymentMethodsSettingSchema,
+  resolveRegistrationMethods,
+  type PaymentMethodCode,
+  type PaymentMethodConfig,
+} from './payment-methods';
+
 export const localeSchema = z.enum(['en', 'ar']);
 
 export const localizedSchema = z.object({
@@ -115,6 +127,7 @@ export const merchantRegistrationSchema = z.object({
   referralCode: z.string().trim().max(40).optional(),
   delivery: z.boolean(),
   takeaway: z.boolean(),
+  paymentMethods: z.array(z.enum(['CARD', 'BENEFIT', 'BENEFIT_PAY', 'CASH'])).min(1).max(4).optional(),
 });
 
 export const branchSchema = z.object({

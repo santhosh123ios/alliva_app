@@ -87,13 +87,14 @@ export function AppointmentsScreen({ params }: { params: Record<string, string> 
 }
 
 function PickLead({ onClose }: { onClose: () => void }) {
+  const { me, role } = useConsole();
   const t = useT();
   const leads = useData<Paged<LeadRow>>('lead-options', '/leads', { pageSize: 100 });
   const [leadId, setLeadId] = useState('');
   if (leadId) return <ScheduleDialog leadId={leadId} onClose={onClose} />;
   return (
     <Modal open onClose={onClose} title={t('schedule')} description={t('pickLeadHint')}>
-      <SelectField label={t('colBusiness')} value={leadId} onChange={setLeadId} placeholder={t('chooseLead')} options={(leads.data?.items ?? []).map((lead) => ({ value: lead.id, label: lead.businessName }))} />
+      <SelectField label={t('colBusiness')} value={leadId} onChange={setLeadId} placeholder={t('chooseLead')} options={(leads.data?.items ?? []).filter((lead) => role !== 'STAFF' || lead.staffId === me?.id).map((lead) => ({ value: lead.id, label: lead.businessName }))} />
       <div className="mt-4 flex justify-end"><Button variant="ghost" onClick={onClose}>{t('cancel')}</Button></div>
     </Modal>
   );

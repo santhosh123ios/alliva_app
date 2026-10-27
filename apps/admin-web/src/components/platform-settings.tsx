@@ -1,12 +1,13 @@
 import { api } from '@/components/providers';
+import { parsePaymentMethods, type PaymentMethodConfig } from '@alliva/validation';
 import { Button } from '@alliva/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { Bell, Link2, Settings, Shield } from 'lucide-react';
+import { Bell, CreditCard, Link2, Settings, Shield } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslations } from 'use-intl';
 
 type SettingRow = { key: string; value: unknown };
-type Tab = 'general' | 'notifications' | 'security' | 'integrations';
+type Tab = 'general' | 'payments' | 'notifications' | 'security' | 'integrations';
 
 export type SettingsData = {
   values?: SettingRow[];
@@ -24,16 +25,19 @@ type Draft = {
   termsAr: string;
   privacyEn: string;
   privacyAr: string;
+  paymentMethods: PaymentMethodConfig[];
 };
 
 const tabs: { id: Tab; icon: typeof Settings }[] = [
   { id: 'general', icon: Settings },
+  { id: 'payments', icon: CreditCard },
   { id: 'notifications', icon: Bell },
   { id: 'security', icon: Shield },
   { id: 'integrations', icon: Link2 },
 ];
 
 const generalKeys = ['currency', 'timezone', 'taxPercent', 'supportPhone', 'termsEn', 'termsAr', 'privacyEn', 'privacyAr'] as const;
+const paymentKeys = ['paymentMethods'] as const;
 const securityKeys = ['maintenance'] as const;
 
 export function PlatformSettings({ data }: { data: SettingsData }) {
@@ -105,7 +109,39 @@ export function PlatformSettings({ data }: { data: SettingsData }) {
     return save({ maintenanceMode: draft.maintenance }, securityKeys);
   }
 
-  const activeKeys = tab === 'general' ? generalKeys : tab === 'security' ? securityKeys : null;
+  function savePayments() {
+    const methods = draft.paymentMethods.map((row) => ({
+      code: row.code,
+      enabled: row.enabled,
+      name: { en: row.name.en.trim(), ar: row.name.ar.trim() },
+    }));
+    if (methods.some((row) => !row.name.en || !row.name.ar)) {
+      setError(t('invalidPayments'));
+      return;
+    }
+    if (!methods.some((row) => row.enabled)) {
+      setError(t('enableOne'));
+      return;
+    }
+    const snapshot = { ...draft, paymentMethods: methods };
+    setDraft(snapshot);
+    return save({ paymentMethods: methods }, paymentKeys, snapshot);
+  }
+
+  function updateMethod(code: PaymentMethodConfig['code'], patch: { enabled?: boolean; en?: string; ar?: string }) {
+    setDraft((current) => ({
+      ...current,
+      paymentMethods: current.paymentMethods.map((row) =>
+        row.code === code
+          ? { ...row, enabled: patch.enabled ?? row.enabled, name: { en: patch.en ?? row.name.en, ar: patch.ar ?? row.name.ar } }
+          : row,
+      ),
+    }));
+    setMessage('');
+    setError('');
+  }
+
+  const activeKeys = tab === 'general' ? generalKeys : tab === 'payments' ? paymentKeys : tab === 'security' ? securityKeys : null;
   const dirty = activeKeys ? changed(activeKeys) : false;
 
   return (
@@ -136,6 +172,7 @@ export function PlatformSettings({ data }: { data: SettingsData }) {
           <h2 className="text-xl font-bold tracking-tight">{t(tab)}</h2>
           <div className="mt-4 space-y-4">
             {tab === 'general' ? <GeneralForm draft={draft} update={update} /> : null}
+            {tab === 'payments' ? <PaymentsForm methods={draft.paymentMethods} onChange={updateMethod} /> : null}
             {tab === 'notifications' ? <Notifications templates={data.templates ?? []} /> : null}
             {tab === 'security' ? <SecurityForm draft={draft} update={update} /> : null}
             {tab === 'integrations' ? <Integrations gateways={data.gateways ?? []} /> : null}
@@ -153,6 +190,7 @@ export function PlatformSettings({ data }: { data: SettingsData }) {
                 disabled={!dirty}
                 onClick={() => {
                   if (tab === 'general') void saveGeneral();
+                  if (tab === 'payments') void savePayments();
                   if (tab === 'security') void saveSecurity();
                 }}
               >
@@ -186,6 +224,27 @@ function GeneralForm({ draft, update }: { draft: Draft; update: <K extends keyof
           <Area label={t('privacyAr')} value={draft.privacyAr} onChange={(value) => update('privacyAr', value)} />
         </div>
       </Panel>
+    </>
+  );
+}
+
+function PaymentsForm({ methods, onChange }: { methods: PaymentMethodConfig[]; onChange: (code: PaymentMethodConfig['code'], patch: { enabled?: boolean; en?: string; ar?: string }) => void }) {
+  const t = useTranslations('settingsPage');
+  return (
+    <>
+      <p className="text-sm text-muted-foreground">{t('paymentsHint')}</p>
+      <ul className="space-y-3">
+        {methods.map((method) => (
+          <li key={method.code} className="rounded-xl border border-[#ECECE8] p-4">
+            <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground">{method.code}</p>
+            <Toggle checked={method.enabled} onChange={(enabled) => onChange(method.code, { enabled })} label={method.enabled ? t('enabled') : t('disabled')} />
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <Field label={t('methodEn')} value={method.name.en} onChange={(en) => onChange(method.code, { en })} />
+              <Field label={t('methodAr')} value={method.name.ar} dir="rtl" onChange={(ar) => onChange(method.code, { ar })} />
+            </div>
+          </li>
+        ))}
+      </ul>
     </>
   );
 }
@@ -253,11 +312,11 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Field({ label, value, onChange }: { label?: string; value: string; onChange: (value: string) => void }) {
+function Field({ label, value, onChange, dir }: { label?: string; value: string; onChange: (value: string) => void; dir?: 'ltr' | 'rtl' }) {
   return (
     <label className="block">
       {label ? <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{label}</span> : null}
-      <input value={value} onChange={(event) => onChange(event.target.value)} className="h-10 w-full rounded-lg border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-primary" />
+      <input dir={dir} value={value} onChange={(event) => onChange(event.target.value)} className="h-10 w-full rounded-lg border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-primary" />
     </label>
   );
 }
@@ -315,6 +374,7 @@ function draftFrom(values: SettingRow[]): Draft {
     termsAr: terms.ar,
     privacyEn: privacy.en,
     privacyAr: privacy.ar,
+    paymentMethods: parsePaymentMethods(read('paymentMethods')),
   };
 }
 

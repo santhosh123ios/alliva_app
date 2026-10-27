@@ -13,7 +13,8 @@ import { MarketingScheduler } from './jobs/marketing-scheduler';
 import { OrdersGateway } from './modules/orders.gateway';
 import { PlatformService } from './modules/platform.service';
 import { PrismaService } from './prisma/prisma.service';
-import { BenefitGateway, MockEmailProvider, MockPushProvider, TapGateway } from './providers/mock.providers';
+import { BenefitGateway, MockPushProvider, TapGateway } from './providers/mock.providers';
+import { createEmailProvider } from './providers/resend';
 import { createOtpProvider } from './providers/whatsapp.provider';
 
 export function createContainer() {
@@ -27,13 +28,14 @@ export function createContainer() {
   const finance = new MarketingFinanceService(prisma, audit, marketingSettings);
   const platform = new PlatformService(prisma, audit, crypto, { promo: promos, finance });
   const commerce = new CommerceService(prisma, new TapGateway(), new BenefitGateway(), new MockPushProvider(), gateway, platform);
+  const email = createEmailProvider();
   const referrals = new MarketingReferralService(prisma, audit, marketingSettings);
   const marketing = {
     settings: marketingSettings,
     promos,
     finance,
     referrals,
-    team: new MarketingTeamService(prisma, audit, crypto, marketingSettings),
+    team: new MarketingTeamService(prisma, audit, crypto, marketingSettings, email),
     pipeline: new MarketingPipelineService(prisma, audit, marketingSettings, referrals, promos, platform),
     reports: new MarketingReportService(prisma, marketingSettings),
     scheduler: new MarketingScheduler(prisma, marketingSettings, finance),
@@ -48,7 +50,7 @@ export function createContainer() {
     commerce,
     marketing,
     sms: createOtpProvider(),
-    email: new MockEmailProvider(),
+    email,
   };
 }
 

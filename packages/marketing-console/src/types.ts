@@ -13,7 +13,11 @@ export type MemberRow = {
   notes: string | null;
   avatarUrl: string | null;
   referralCode: string | null;
+  /** Personal override. Null means the platform default is in force. */
   commissionPercent: string | null;
+  /** Rate that applies to the next payment. Present on profile detail. */
+  effectiveCommissionPercent?: string;
+  commissionIsDefault?: boolean;
   headName?: string;
   headUserId?: string | null;
   stats: { leads: number; referredStores: number; staffCount: number; earned: string | null; walletBalance: string | null } | null;

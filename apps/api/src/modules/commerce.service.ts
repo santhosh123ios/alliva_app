@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PlatformService } from './platform.service';
 import { BenefitGateway, MockPushProvider, TapGateway } from '../providers/mock.providers';
 import { OrdersGateway } from './orders.gateway';
+import { storePaymentChoices } from './payment-methods';
 
 type CartRecord = NonNullable<Awaited<ReturnType<CommerceService['loadCartRecord']>>>;
 
@@ -232,6 +233,7 @@ export class CommerceService {
         scheduledFor: null,
         addressId: null,
         tableId: null,
+        paymentMethods: [],
       };
     }
     return this.presentCart(cart);
@@ -330,6 +332,8 @@ export class CommerceService {
     if (input.fulfillmentType === 'TAKEAWAY') assertFeatureAllowed(readEntitlement(rows, 'takeawayOrdering'), 'Takeaway ordering');
     if (input.fulfillmentType === 'DINE_IN') assertFeatureAllowed(readEntitlement(rows, 'tableOrdering'), 'Table ordering');
     if (input.paymentMethod !== 'CASH') assertFeatureAllowed(readEntitlement(rows, 'paymentIntegration'), 'Online payment');
+    const paymentChoices = await storePaymentChoices(this.prisma, merchant.id);
+    if (!paymentChoices.some((method) => method.code === input.paymentMethod)) throw badRequest('This store does not accept that payment method');
     const orderUsage = rows.find((row) => row.key === 'monthlyOrderLimit');
     assertWithinLimit(orderUsage?.value, orderUsage?.usage ?? 0, 1, 'monthly order limit');
     const percent = commissionPercent(readEntitlement(rows, 'merchantCommissionPercent'));
@@ -652,6 +656,7 @@ export class CommerceService {
       scheduledFor: cart.scheduledFor?.toISOString() ?? null,
       addressId: cart.addressId,
       tableId: cart.tableId,
+      paymentMethods: cart.merchantId ? await storePaymentChoices(this.prisma, cart.merchantId) : [],
     };
   }
 

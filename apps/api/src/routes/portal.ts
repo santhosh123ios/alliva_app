@@ -25,6 +25,7 @@ import {
   refundDecisionSchema,
   reportQuerySchema,
   rolePermissionsSchema,
+  paymentMethodsSettingSchema,
   settingsSchema,
   subscriptionQuoteSchema,
   settlementDecisionSchema,
@@ -40,6 +41,8 @@ import { createRoutes } from '../common/routes';
 import type { Container } from '../container';
 import type { PlatformService } from '../modules/platform.service';
 import { ALLOWED_UPLOAD_TYPES, MAX_UPLOAD_BYTES } from '../providers/interfaces';
+import { paymentMethodsForRegistration, publicPaymentMethods } from '../modules/payment-methods';
+import { adminSignInUrl, merchantSignInUrl, roleLabel, sendWelcomeEmail } from '../providers/welcome-email';
 import { extensionFor, LocalStorageProvider, S3StorageProvider } from '../providers/mock.providers';
 
 type OrderStatusChange = { status: 'ACCEPTED' | 'PREPARING' | 'READY_FOR_PICKUP' | 'ASSIGNED_TO_DRIVER' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED' | 'REFUNDED'; note?: string; preparationMinutes?: number; driverId?: string; cancellationReason?: string };
@@ -53,7 +56,7 @@ function singleFile(request: Request, response: Response, next: NextFunction) {
   });
 }
 
-export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, marketing }: Container) {
+export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, marketing, email }: Container) {
   const routes = createRoutes({ jwt, prisma }, 'Platform');
   const param = (request: Request, name: string) => request.params[name] as string;
 
@@ -71,6 +74,8 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     const plans = await platform.listPlans();
     return plans.filter((plan) => plan.status === 'ACTIVE');
   });
+
+  routes.get('/public/payment-methods', { public: true }, () => publicPaymentMethods(prisma));
 
   routes.post('/public/merchant-registration', { public: true, throttle: 5 }, async (request) => {
     const body = validate<{
@@ -91,6 +96,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
       referralCode?: string;
       delivery: boolean;
       takeaway: boolean;
+      paymentMethods?: ('CARD' | 'BENEFIT' | 'BENEFIT_PAY' | 'CASH')[];
     }>(merchantRegistrationSchema, request.body);
     const email = body.email.toLowerCase();
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -109,6 +115,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     const taken = await prisma.merchant.findUnique({ where: { slug } });
     if (taken) slug = `${slugBase}-${Date.now().toString(36)}`;
     const passwordHash = await argon2.hash(body.password);
+    const paymentMethods = await paymentMethodsForRegistration(prisma, body.paymentMethods);
     const created = await prisma
       .$transaction(async (tx) => {
         const owner = await tx.user.create({
@@ -124,6 +131,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
             email,
             websiteUrl: body.website.trim(),
             registrationPromo: promo?.valid ? promo.code : null,
+            acceptedPaymentMethods: paymentMethods,
             status: 'PENDING_APPROVAL',
             createdById: owner.id,
             categories: body.categoryId ? { create: { categoryId: body.categoryId } } : undefined,
@@ -141,7 +149,14 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
         throw error;
       });
     await platform.assignSubscription(created.merchant.id, body.planId, body.billingInterval, created.owner.id, false);
-    await audit.log({ actorId: created.owner.id, action: 'merchant.register', entityType: 'Merchant', entityId: created.merchant.id, metadata: { referralCode: referral?.code ?? null, promoCode: promo?.valid ? promo.code : null } });
+    await audit.log({ actorId: created.owner.id, action: 'merchant.register', entityType: 'Merchant', entityId: created.merchant.id, metadata: { referralCode: referral?.code ?? null, promoCode: promo?.valid ? promo.code : null, paymentMethods } });
+    await sendWelcomeEmail(email, {
+      to: email,
+      firstName: body.firstName,
+      role: 'Merchant Owner',
+      signInUrl: merchantSignInUrl(),
+      note: 'Your store is waiting for approval.',
+    });
     return { id: created.merchant.id, slug };
   });
 
@@ -434,6 +449,14 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
       },
     });
     await audit.log({ actorId: user.id, action: 'staff.create', entityType: 'User', entityId: created.id, metadata: { role: body.roleKey } });
+    if (created.email) {
+      await sendWelcomeEmail(email, {
+        to: created.email,
+        firstName: created.firstName,
+        role: roleLabel(body.roleKey),
+        signInUrl: merchantId ? merchantSignInUrl() : adminSignInUrl(),
+      });
+    }
     return { id: created.id };
   });
 
@@ -768,6 +791,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
   routes.patch('/settings', { permissions: ['settings.manage'] }, async (request) => {
     const user = request.user!;
     const body = validate<{ values: Record<string, unknown> }>(settingsSchema, request.body);
+    if ('paymentMethods' in body.values) body.values.paymentMethods = validate(paymentMethodsSettingSchema, body.values.paymentMethods);
     for (const [key, value] of Object.entries(body.values)) {
       await prisma.platformSetting.upsert({ where: { key }, update: { value: value as object, updatedById: user.id }, create: { key, value: value as object, updatedById: user.id } });
     }

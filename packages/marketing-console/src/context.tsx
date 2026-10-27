@@ -18,7 +18,11 @@ export type Me = {
   referralCode: string | null;
   headName: string;
   headUserId: string | null;
+  /** Personal override. Null means the platform default is in force. */
   commissionPercent: string | null;
+  /** Rate that applies to the next payment, including the current platform default. */
+  effectiveCommissionPercent: string;
+  commissionIsDefault: boolean;
   capabilities: { headsCanReassignLeads: boolean; headsSeeReports: boolean; referralPrefix: string };
 };
 

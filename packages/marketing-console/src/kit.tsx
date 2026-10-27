@@ -519,6 +519,17 @@ export function CopyButton({ text, label }: { text: string; label?: string }) {
   );
 }
 
+/** Rate that applies to the next payment. A default rate follows the current platform setting. */
+export function CommissionRate({ percent, isDefault }: { percent?: string | null; isDefault?: boolean }) {
+  const t = useT();
+  if (!percent) return t('fPercentDefault');
+  return (
+    <>
+      {Number(percent)}%{isDefault ? <span className="font-normal text-muted-foreground"> ({t('fPercentDefault')})</span> : null}
+    </>
+  );
+}
+
 export function DetailRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="grid grid-cols-[9rem_1fr] gap-3 py-1.5 text-sm">

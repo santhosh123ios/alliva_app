@@ -12,6 +12,7 @@ import type { MarketingPromoService } from './promo.service';
 import type { MarketingReferralService } from './referral.service';
 import type { MarketingScope } from './scope';
 import type { MarketingSettingsService } from './settings';
+import { paymentMethodsForRegistration } from '../payment-methods';
 import { fullName, isUniqueViolation, notify, recordActivity, type Db } from './shared';
 
 export type LeadInput = {
@@ -71,7 +72,8 @@ export class MarketingPipelineService {
     const page = pageQuery(query);
     const raw = readQuery(query);
     const range = dateRange(raw);
-    const and: Prisma.MarketingLeadWhereInput[] = [scope.leads()];
+    // Heads and staff see every open lead. A lead leaves this list once it is connected to a store.
+    const and: Prisma.MarketingLeadWhereInput[] = [scope.isAdmin ? scope.leads() : { merchantId: null }];
     if (raw.status) and.push({ status: { in: raw.status.split(',').filter((s) => (LEAD_STATUSES as readonly string[]).includes(s)) as never[] } });
     if (raw.staffId) {
       scope.assertStaff(raw.staffId);
@@ -109,7 +111,7 @@ export class MarketingPipelineService {
 
   async getLead(scope: MarketingScope, id: string) {
     const lead = await this.prisma.marketingLead.findFirst({
-      where: { AND: [{ id }, scope.leads()] },
+      where: { AND: [{ id }, scope.isAdmin ? scope.leads() : { merchantId: null }] },
       include: {
         marketingUser: { select: { firstName: true, lastName: true } },
         head: { select: { firstName: true, lastName: true } },
@@ -492,7 +494,24 @@ export class MarketingPipelineService {
     if (raw.merchantStatus) and.push({ merchant: { status: raw.merchantStatus as never } });
     if (raw.planId) and.push({ merchant: { subscription: { planId: raw.planId } } });
     if (range) and.push({ createdAt: range });
-    if (page.q) and.push({ OR: [{ codeUsed: { contains: page.q, mode: 'insensitive' } }, { merchant: { OR: [{ phone: { contains: page.q } }, { email: { contains: page.q, mode: 'insensitive' } }, { slug: { contains: page.q, mode: 'insensitive' } }] } }] });
+    if (page.q) {
+      and.push({
+        OR: [
+          { codeUsed: { contains: page.q, mode: 'insensitive' } },
+          {
+            merchant: {
+              OR: [
+                { phone: { contains: page.q } },
+                { email: { contains: page.q, mode: 'insensitive' } },
+                { slug: { contains: page.q, mode: 'insensitive' } },
+                { name: { path: ['en'], string_contains: page.q, mode: 'insensitive' } },
+                { name: { path: ['ar'], string_contains: page.q, mode: 'insensitive' } },
+              ],
+            },
+          },
+        ],
+      });
+    }
     const where: Prisma.MerchantReferralWhereInput = { AND: and };
     const [rows, total] = await Promise.all([
       this.prisma.merchantReferral.findMany({
@@ -555,7 +574,7 @@ export class MarketingPipelineService {
   async createStore(
     actor: RequestUser,
     scope: MarketingScope,
-    input: { businessName: string; businessNameAr?: string; phone: string; email: string; city: string; businessType: string; categoryId: string; planId?: string; billingInterval?: 'MONTHLY' | 'ANNUAL'; promoCode?: string | null; leadId?: string | null },
+    input: { businessName: string; businessNameAr?: string; phone: string; email: string; city: string; businessType: string; categoryId: string; planId?: string; billingInterval?: 'MONTHLY' | 'ANNUAL'; promoCode?: string | null; leadId?: string | null; paymentMethods?: ('CARD' | 'BENEFIT' | 'BENEFIT_PAY' | 'CASH')[] },
   ) {
     const profile = await this.staffContext(scope);
     if (!profile.referralCode) throw badRequest('Your referral code is not set up yet');
@@ -569,6 +588,7 @@ export class MarketingPipelineService {
     const promo = input.promoCode?.trim() && input.planId ? await this.promos.quote({ code: input.promoCode, planId: input.planId, interval }) : null;
     if (promo && !promo.valid) throw badRequest(promo.reason);
     if (input.promoCode?.trim() && !input.planId) throw badRequest('Choose a plan to use a promo code');
+    const paymentMethods = await paymentMethodsForRegistration(this.prisma, input.paymentMethods);
     const slugBase = input.businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'store';
     const slug = (await this.prisma.merchant.findUnique({ where: { slug: slugBase } })) ? `${slugBase}-${Date.now().toString(36)}` : slugBase;
     const merchant = await this.prisma.$transaction(async (tx) => {
@@ -581,6 +601,7 @@ export class MarketingPipelineService {
           phone: input.phone.trim(),
           email,
           registrationPromo: promo?.valid ? promo.code : null,
+          acceptedPaymentMethods: paymentMethods,
           status: 'PENDING_APPROVAL',
           createdById: actor.id,
           categories: { create: { categoryId: input.categoryId } },

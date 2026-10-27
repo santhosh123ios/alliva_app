@@ -24,6 +24,7 @@ import { createRoutes } from '../common/routes';
 import type { Container } from '../container';
 import { firebaseWebConfig, verifyFirebasePhoneToken } from '../providers/firebase-auth';
 import { numericOtp } from '../providers/whatsapp.otp';
+import { marketingInviteUrl } from '../providers/welcome-email';
 
 export function authRoutes({ prisma, jwt, crypto, audit, sms, email }: Container) {
   const routes = createRoutes({ jwt, prisma }, 'Authentication', '/auth');
@@ -103,7 +104,13 @@ export function authRoutes({ prisma, jwt, crypto, audit, sms, email }: Container
         expiresAt: new Date(Date.now() + 30 * 60 * 1000),
       },
     });
-    await email.send(user.email!, 'Reset your Alliva password', `Reset token: ${token}`);
+    const resetUrl = marketingInviteUrl(token);
+    await email.send(
+      user.email!,
+      'Reset your Alliva password',
+      `Set a new password with this link. It expires in 30 minutes:\n${resetUrl}`,
+      `<p>Set a new password with the link below. It expires in 30 minutes.</p><p><a href="${resetUrl}">Reset your password</a></p>`,
+    );
     return process.env.NODE_ENV === 'production' ? { ok: true } : { ok: true, devResetToken: token };
   });
 

@@ -7,7 +7,7 @@ import { useConsole } from '../context';
 import { formatDate, formatMoney } from '../format';
 import { pick, useLang, useT } from '../i18n';
 import {
-  AreaField, CopyButton, DateRange, FilterSelect, FormActions, Kpi, ListView, Modal, Page, QueryBoundary, SearchBox, Section, SelectField, StatusPill, TextField, Toolbar, useAction, useData, useFilters, useList, usePlans, useStaffOptions, type Column,
+  AreaField, CommissionRate, CopyButton, DateRange, FilterSelect, FormActions, Kpi, ListView, Modal, Page, QueryBoundary, SearchBox, Section, SelectField, StatusPill, TextField, Toolbar, useAction, useData, useFilters, useList, usePlans, useStaffOptions, type Column,
 } from '../kit';
 import type { LeadRow, MemberDetail, StoreRow } from '../types';
 
@@ -37,7 +37,7 @@ export function StoresScreen({ params }: { params: Record<string, string> }) {
 
   return (
     <Page
-      title={t(role === 'STAFF' ? 'storesTitleStaff' : 'storesTitle')}
+      title={t(role === 'STAFF' ? 'storesTitleStaff' : role === 'HEAD' ? 'navTeamStores' : 'storesTitle')}
       subtitle={t('storesSubtitle')}
       actions={role === 'STAFF' ? <Button variant="yellow" onClick={() => setCreating(true)}><Plus className="size-4" />{t('registerStore')}</Button> : undefined}
     >
@@ -82,6 +82,10 @@ function StoreForm({ leadId, onClose }: { leadId?: string; onClose: () => void }
   const plans = usePlans();
   const lead = useData<LeadRow>('lead', `/leads/${leadId}`, undefined, Boolean(leadId));
   const categories = useQuery({ queryKey: ['mk', 'categories'], queryFn: () => api.businessCategories(), staleTime: 60_000 });
+  const methods = useQuery({ queryKey: ['public-payment-methods'], queryFn: () => api.publicPaymentMethods(), staleTime: 60_000 });
+  const [selectedMethods, setSelectedMethods] = useState<string[] | null>(null);
+  const offered = methods.data ?? [];
+  const chosenMethods = selectedMethods ?? offered.map((method) => method.code);
   const [pending, setPending] = useState(false);
   const [form, setForm] = useState({ businessName: '', businessNameAr: '', phone: '', email: '', city: '', businessType: 'RESTAURANT', categoryId: '', planId: '', billingInterval: 'MONTHLY', promoCode: '' });
   const [prefilled, setPrefilled] = useState(false);
@@ -100,7 +104,7 @@ function StoreForm({ leadId, onClose }: { leadId?: string; onClose: () => void }
     event.preventDefault();
     setPending(true);
     const result = await act(
-      () => api.mk.post('/stores', { businessName: form.businessName.trim(), businessNameAr: form.businessNameAr.trim() || undefined, phone: form.phone.trim(), email: form.email.trim(), city: form.city.trim(), businessType: form.businessType, categoryId: form.categoryId, planId: form.planId || undefined, billingInterval: form.planId ? form.billingInterval : undefined, promoCode: form.promoCode.trim() || null, leadId: leadId ?? null }),
+      () => api.mk.post('/stores', { businessName: form.businessName.trim(), businessNameAr: form.businessNameAr.trim() || undefined, phone: form.phone.trim(), email: form.email.trim(), city: form.city.trim(), businessType: form.businessType, categoryId: form.categoryId, planId: form.planId || undefined, billingInterval: form.planId ? form.billingInterval : undefined, promoCode: form.promoCode.trim() || null, leadId: leadId ?? null, paymentMethods: chosenMethods }),
       'created',
     );
     setPending(false);
@@ -122,6 +126,30 @@ function StoreForm({ leadId, onClose }: { leadId?: string; onClose: () => void }
           <SelectField label={t('colPlan')} value={form.planId} onChange={set('planId')} placeholder={t('none')} options={(plans.data ?? []).map((plan) => ({ value: plan.id, label: pick(plan.name, lang) }))} />
           {form.planId ? <SelectField label={t('fBilling')} value={form.billingInterval} onChange={set('billingInterval')} options={[{ value: 'MONTHLY', label: t('monthly') }, { value: 'ANNUAL', label: t('annual') }]} /> : null}
           {form.planId ? <TextField label={t('fPromoCode')} value={form.promoCode} onChange={(value) => set('promoCode')(value.toUpperCase())} hint={t('promoNotReferral')} dir="ltr" /> : null}
+          {form.planId ? <div className="sm:col-span-2">
+            <p className="text-sm font-medium">{t('fPaymentMethods')}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t('fPaymentMethodsHint')}</p>
+            {methods.isLoading ? null : offered.length ? (
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {offered.map((method) => {
+                  const on = chosenMethods.includes(method.code);
+                  return (
+                    <label key={method.code} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm ${on ? 'border-primary bg-[#FFF6D4]' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() => {
+                          const base = selectedMethods ?? offered.map((item) => item.code);
+                          setSelectedMethods(base.includes(method.code) ? base.filter((item) => item !== method.code) : [...base, method.code]);
+                        }}
+                      />
+                      {pick(method.name, lang)}
+                    </label>
+                  );
+                })}
+              </div>
+            ) : <p className="mt-2 text-xs text-[#d9342b]">{t('fPaymentMethodsEmpty')}</p>}
+          </div> : null}
         </div>
         {q ? (
           <div className="mt-4 rounded-xl bg-muted p-3 text-sm">
@@ -130,7 +158,7 @@ function StoreForm({ leadId, onClose }: { leadId?: string; onClose: () => void }
             <p>{t('quotePayable')}: <strong>{formatMoney(q.payable, lang)}</strong></p>
           </div>
         ) : null}
-        <FormActions onCancel={onClose} submitLabel={t('registerStore')} pending={pending} disabled={!form.categoryId || Boolean(q?.promo && !q.promo.valid)} />
+        <FormActions onCancel={onClose} submitLabel={t('registerStore')} pending={pending} disabled={!form.categoryId || (Boolean(form.planId) && !chosenMethods.length) || Boolean(q?.promo && !q.promo.valid)} />
       </form>
     </Modal>
   );
@@ -162,7 +190,8 @@ export function ReferralScreen() {
               <QrCode value={link} label={t('qrLabel')} />
               <p className="min-w-0 flex-1 break-all rounded-xl bg-muted p-3 text-xs" dir="ltr">{link}</p>
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">{t('referralRules')}</p>
+            <p className="mt-3 text-sm">{t('currentCommissionRate')} <strong><CommissionRate percent={detail.data?.effectiveCommissionPercent} isDefault={detail.data?.commissionIsDefault} /></strong></p>
+            <p className="mt-1 text-xs text-muted-foreground">{t('referralRules')}</p>
           </Section>
           <Section title={t('referralStats')}>
             <QueryBoundary query={detail}>

@@ -2,6 +2,7 @@ import '../src/load-env';
 import { money, moneyString } from '../src/domain/money';
 import { priceOrder } from '../src/domain/pricing';
 import { buildCaptureLedger } from '../src/domain/ledger';
+import { defaultPaymentMethods } from '@alliva/validation';
 import { PrismaClient, Prisma } from '@prisma/client';
 import argon2 from 'argon2';
 
@@ -716,6 +717,7 @@ async function main() {
   for (const [key, value] of marketingDefaults) {
     await prisma.platformSetting.upsert({ where: { key }, update: {}, create: { key, value } });
   }
+  await prisma.platformSetting.upsert({ where: { key: 'paymentMethods' }, update: {}, create: { key: 'paymentMethods', value: defaultPaymentMethods() } });
   await prisma.serviceArea.upsert({
     where: { id: id(1900) },
     update: {},

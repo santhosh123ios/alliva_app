@@ -5,7 +5,7 @@ import { useConsole } from '../context';
 import { formatDate, formatMoney, formatNumber, toDateInput } from '../format';
 import { useLang, useT } from '../i18n';
 import {
-  AreaField, CopyButton, DataTable, DetailRow, Drawer, FilterSelect, FormActions, ListView, Modal, Page, QueryBoundary, SearchBox, Section, SelectField, StatusPill, TextField, Toolbar, useAction, useData, useFilters, useList, type Column, type Paged,
+  AreaField, CommissionRate, CopyButton, DataTable, DetailRow, Drawer, FilterSelect, FormActions, ListView, Modal, Page, QueryBoundary, SearchBox, Section, SelectField, StatusPill, TextField, Toolbar, useAction, useData, useFilters, useList, type Column, type Paged,
 } from '../kit';
 import type { MemberDetail, MemberRow } from '../types';
 
@@ -170,7 +170,7 @@ function MemberDrawer({ id, onClose, onEdit, onInvite, heads }: { id: string; on
               <DetailRow label={t('fRegion')}>{member.region}</DetailRow>
               <DetailRow label={t('fJoinedAt')}>{formatDate(member.joinedAt, lang)}</DetailRow>
               {member.kind === 'STAFF' ? <DetailRow label={t('colHead')}>{member.headName}</DetailRow> : null}
-              <DetailRow label={t('colCommissionRate')}>{member.commissionPercent ? `${member.commissionPercent}%` : t('fPercentDefault')}</DetailRow>
+              <DetailRow label={t('colCommissionRate')}><CommissionRate percent={member.effectiveCommissionPercent ?? member.commissionPercent} isDefault={member.commissionIsDefault} /></DetailRow>
               {member.notes ? <DetailRow label={t('fNotes')}>{member.notes}</DetailRow> : null}
             </dl>
             {member.stats ? (

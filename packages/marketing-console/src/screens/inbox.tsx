@@ -5,8 +5,8 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useConsole } from '../context';
 import { formatDate, formatDateTime } from '../format';
 import { useLang, useT, type MessageKey } from '../i18n';
-import { DateRange, DetailRow, FilterSelect, ListView, Page, Section, TextField, Toolbar, useAction, useData, useFilters, useList, useStaffOptions, type Column, type Paged } from '../kit';
-import type { ActivityRow, NotificationRow } from '../types';
+import { CommissionRate, DateRange, DetailRow, FilterSelect, ListView, Page, Section, TextField, Toolbar, useAction, useData, useFilters, useList, useStaffOptions, type Column, type Paged } from '../kit';
+import type { ActivityRow, MemberDetail, NotificationRow } from '../types';
 
 /** Maps a server notification link (`/leads?lead=ID`, `/commission`) to a console screen + params. */
 export function linkToScreen(link: string | null): { screen: string; params: Record<string, string> } | null {
@@ -142,7 +142,7 @@ export function ProfileScreen() {
   const act = useAction();
   const [phone, setPhone] = useState(me?.phone ?? '');
   const [pending, setPending] = useState(false);
-  const stats = useData<{ stats: { leads: number; referredStores: number } | null }>('me-stats', `/staff/${me?.id ?? ''}`, undefined, Boolean(me));
+  const detail = useData<MemberDetail>('me-stats', `/staff/${me?.id ?? ''}`, undefined, Boolean(me));
   if (!me) return null;
   return (
     <Page title={t('profileTitle')} subtitle={t('profileSubtitle')}>
@@ -154,9 +154,9 @@ export function ProfileScreen() {
             <DetailRow label={t('fRegion')}>{me.region}</DetailRow>
             {me.kind === 'STAFF' ? <DetailRow label={t('colHead')}>{me.headName}</DetailRow> : null}
             {me.referralCode ? <DetailRow label={t('colReferralCode')}><code>{me.referralCode}</code></DetailRow> : null}
-            <DetailRow label={t('colCommissionRate')}>{me.commissionPercent ? `${me.commissionPercent}%` : t('fPercentDefault')}</DetailRow>
-            <DetailRow label={t('colLeads')}>{stats.data?.stats?.leads}</DetailRow>
-            <DetailRow label={t('colStores')}>{stats.data?.stats?.referredStores}</DetailRow>
+            <DetailRow label={t('colCommissionRate')}><CommissionRate percent={detail.data?.effectiveCommissionPercent ?? me.effectiveCommissionPercent} isDefault={detail.data?.commissionIsDefault ?? me.commissionIsDefault} /></DetailRow>
+            <DetailRow label={t('colLeads')}>{detail.data?.stats?.leads}</DetailRow>
+            <DetailRow label={t('colStores')}>{detail.data?.stats?.referredStores}</DetailRow>
             <DetailRow label={t('fJoinedAt')}>{formatDate(me.joinedAt, lang)}</DetailRow>
           </dl>
         </Section>

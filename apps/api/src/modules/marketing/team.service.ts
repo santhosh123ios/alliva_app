@@ -6,8 +6,10 @@ import { forgetAuthUser, type RequestUser } from '../../common/http';
 import type { CryptoService } from '../../common/crypto';
 import { dec } from '../../common/crypto';
 import { dateRange, paged, pageQuery, readQuery, type Page } from '../../common/paging';
-import { buildReferralCode, isValidReferralCode, normalizeReferralCode, referralNameStem, referralPrefix } from '../../domain/marketing';
+import { buildReferralCode, isValidReferralCode, normalizeReferralCode, referralNameStem, referralPrefix, resolveRates } from '../../domain/marketing';
 import type { PrismaService } from '../../prisma/prisma.service';
+import type { EmailProvider } from '../../providers/interfaces';
+import { marketingInviteUrl, marketingSignInUrl, sendWelcomeEmail } from '../../providers/welcome-email';
 import type { MarketingSettingsService } from './settings';
 import type { MarketingScope } from './scope';
 import { fullName, isUniqueViolation, recordActivity, splitName, type Db } from './shared';
@@ -36,6 +38,7 @@ export class MarketingTeamService {
     private readonly audit: AuditService,
     private readonly crypto: CryptoService,
     private readonly settings: MarketingSettingsService,
+    private readonly email: EmailProvider,
   ) {}
 
   // ------------------------------------------------------------------ create
@@ -116,6 +119,13 @@ export class MarketingTeamService {
           const invite = passwordHash ? null : await this.issueInvite(tx, user.id);
           return { id: user.id, referralCode: code, inviteToken: invite };
         });
+        await sendWelcomeEmail(this.email, {
+          to: email,
+          firstName: name.firstName,
+          role: kind === 'HEAD' ? 'Marketing Head' : 'Marketing Staff',
+          signInUrl: marketingSignInUrl(),
+          inviteUrl: created.inviteToken ? marketingInviteUrl(created.inviteToken) : null,
+        });
         return created;
       } catch (error) {
         if (isUniqueViolation(error, 'referralCode') || isUniqueViolation(error, 'code')) {
@@ -141,8 +151,19 @@ export class MarketingTeamService {
   /** A fresh secure invitation for a member who has no password yet (or who lost the first link). */
   async reissueInvite(actor: RequestUser, userId: string) {
     const profile = await this.requireProfile(userId);
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, firstName: true } });
     const token = await this.issueInvite(this.prisma, userId);
     await this.audit.log({ actorId: actor.id, action: 'marketing.invite', entityType: 'User', entityId: profile.userId });
+    if (user?.email) {
+      await sendWelcomeEmail(this.email, {
+        to: user.email,
+        firstName: user.firstName,
+        role: profile.kind === 'HEAD' ? 'Marketing Head' : 'Marketing Staff',
+        signInUrl: marketingSignInUrl(),
+        inviteUrl: marketingInviteUrl(token),
+        subject: 'Your Alliva invitation',
+      });
+    }
     return { inviteToken: token };
   }
 
@@ -342,6 +363,7 @@ export class MarketingTeamService {
     } else {
       scope.assertStaff(userId);
     }
+    const settings = await this.settings.get();
     const stats = await this.memberStats([userId], profile.kind, scope.isAdmin || scope.userId === userId);
     const team =
       profile.kind === 'HEAD'
@@ -350,6 +372,7 @@ export class MarketingTeamService {
     const teamStats = await this.memberStats(team.map((row) => row.userId), 'STAFF', scope.isAdmin || scope.userId === userId);
     return {
       ...this.present(profile, stats.get(userId)),
+      ...this.commissionRate(profile, settings),
       headName: fullName(profile.parent),
       headUserId: profile.parentUserId,
       referralCodes: profile.referralCodes.map((code) => ({ code: code.code, active: code.active, createdAt: code.createdAt.toISOString(), retiredAt: code.retiredAt?.toISOString() ?? null })),
@@ -364,6 +387,7 @@ export class MarketingTeamService {
     const settings = await this.settings.get();
     return {
       ...this.present(profile, undefined),
+      ...this.commissionRate(profile, settings),
       headName: fullName(profile.parent),
       headUserId: profile.parentUserId,
       referralCode: profile.referralCode,
@@ -473,6 +497,25 @@ export class MarketingTeamService {
       referralCode: profile.referralCode,
       commissionPercent: override ? dec(override) : null,
       stats: stats ?? null,
+    };
+  }
+
+  /**
+   * The rate that will apply to the next payment. A blank personal rate follows the current platform default,
+   * so a settings change shows up here without rewriting commission already earned.
+   */
+  private commissionRate(
+    profile: { kind: string; staffCommissionPercent: { toString(): string } | null; headOverridePercent: { toString(): string } | null },
+    settings: { staffPercent: string; headPercent: string },
+  ) {
+    const rates = resolveRates(
+      { staffPercent: settings.staffPercent, headPercent: settings.headPercent },
+      { staff: profile.staffCommissionPercent, head: profile.headOverridePercent },
+    );
+    const isHead = profile.kind === 'HEAD';
+    return {
+      effectiveCommissionPercent: isHead ? rates.headPercent : rates.staffPercent,
+      commissionIsDefault: (isHead ? profile.headOverridePercent : profile.staffCommissionPercent) == null,
     };
   }
 

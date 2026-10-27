@@ -26,6 +26,7 @@ model Merchant {
   email               String
   websiteUrl          String?
   registrationPromo   String?
+  acceptedPaymentMethods Json?
   logoUrl             String?
   coverUrl            String?
   minimumOrder        Decimal        @default(0) @db.Decimal(19, 3)

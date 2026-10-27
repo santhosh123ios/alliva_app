@@ -11,6 +11,7 @@ import type {
   ReportOverview,
   StorefrontHome,
   SubscriptionBoard,
+  StorePaymentMethod,
   SubscriptionPlanView,
 } from '@alliva/types';
 
@@ -141,6 +142,7 @@ export function createApiClient(baseUrl = '') {
     merchantDashboard: () => request<MerchantDashboard>('/api/merchant/dashboard'),
     merchants: () => request<Json[]>('/api/admin/merchants'),
     publicPlans: () => request<SubscriptionPlanView[]>('/api/public/plans'),
+    publicPaymentMethods: () => request<StorePaymentMethod[]>('/api/public/payment-methods'),
     registerMerchant: (body: Json) => send('/api/public/merchant-registration', 'POST', body),
     createMerchant: (body: Json) => send('/api/admin/merchants', 'POST', body),
     approveMerchant: (id: string) => send(`/api/admin/merchants/${id}/approve`, 'POST'),

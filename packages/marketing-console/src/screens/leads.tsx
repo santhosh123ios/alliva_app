@@ -11,7 +11,7 @@ import {
 import type { LeadDetail, LeadRow, VisitRow } from '../types';
 
 export function LeadsScreen({ params }: { params: Record<string, string> }) {
-  const { role } = useConsole();
+  const { role, me } = useConsole();
   const t = useT();
   const lang = useLang();
   const filters = useFilters({ q: '', status: params.status ?? '', staffId: '', from: '', to: '', attention: params.attention ?? '', area: '' });
@@ -24,22 +24,22 @@ export function LeadsScreen({ params }: { params: Record<string, string> }) {
     { key: 'business', header: t('colBusiness'), cell: (row) => <div><p className="font-semibold">{row.businessName}</p><p className="text-xs text-muted-foreground">{row.contactName}</p></div> },
     { key: 'phone', header: t('fPhone'), cell: (row) => <span dir="ltr">{row.phone}</span> },
     { key: 'area', header: t('fArea'), cell: (row) => [row.area, row.city].filter(Boolean).join(', ') || '—' },
-    { key: 'status', header: t('colStatus'), cell: (row) => (role === 'STAFF' ? <LeadStatusSelect row={row} /> : <StatusPill value={row.status} />) },
+    { key: 'status', header: t('colStatus'), cell: (row) => (role === 'STAFF' && row.staffId === me?.id ? <LeadStatusSelect row={row} /> : <StatusPill value={row.status} />) },
     { key: 'follow', header: t('colNextFollowUp'), cell: (row) => formatDateTime(row.nextFollowUpAt, lang) },
     { key: 'appt', header: t('colNextAppointment'), cell: (row) => formatDateTime(row.nextAppointmentAt, lang) },
-    ...(role !== 'STAFF' ? [{ key: 'staff', header: t('colStaffMember'), cell: (row: LeadRow) => row.staffName }] : []),
+    { key: 'staff', header: t('colStaffMember'), cell: (row: LeadRow) => row.staffName },
     { key: 'updated', header: t('colUpdated'), cell: (row) => formatDateTime(row.updatedAt, lang) },
   ];
 
   return (
     <Page
-      title={t(role === 'STAFF' ? 'navMyLeads' : 'leadsTitle')}
-      subtitle={t(role === 'STAFF' ? 'leadsSubtitleStaff' : 'leadsSubtitle')}
+      title={t(role === 'STAFF' ? 'navMyLeads' : role === 'HEAD' ? 'navTeamLeads' : 'leadsTitle')}
+      subtitle={t(role === 'STAFF' ? 'leadsSubtitleStaff' : role === 'HEAD' ? 'leadsSubtitle' : 'leadsSubtitleAdmin')}
       actions={role === 'STAFF' ? <Button variant="yellow" onClick={() => setCreating(true)}><Plus className="size-4" />{t('addLead')}</Button> : undefined}
     >
       <Toolbar>
         <SearchBox value={filters.values.q} onChange={(q) => filters.set({ q })} />
-        <FilterSelect label={t('colStatus')} value={filters.values.status} onChange={(status) => filters.set({ status })} options={leadStatusChoices(t, role)} />
+        <FilterSelect label={t('colStatus')} value={filters.values.status} onChange={(status) => filters.set({ status })} options={leadStatusChoices(t, role).filter((option) => role === 'ADMIN' || option.value !== 'REGISTERED')} />
         {role !== 'STAFF' ? <FilterSelect label={t('colStaffMember')} value={filters.values.staffId} onChange={(staffId) => filters.set({ staffId })} options={(staff.data?.items ?? []).map((row) => ({ value: row.id, label: row.fullName }))} /> : null}
         <DateRange from={filters.values.from} to={filters.values.to} onChange={filters.set} />
         <CheckField label={t('needsAttention')} checked={filters.values.attention === 'true'} onChange={(checked) => filters.set({ attention: checked ? 'true' : '' })} />
@@ -168,13 +168,13 @@ function LeadDrawer({ id, onClose }: { id: string; onClose: () => void }) {
       <QueryBoundary query={query}>
         {(lead) => (
           <>
-            {role === 'STAFF' ? (
+            {role === 'STAFF' && lead.staffId === me?.id ? (
               <div className="flex flex-wrap gap-2">
                 {lead.status !== 'REGISTERED' ? <Button size="sm" variant="outline" onClick={() => setDialog('status')}>{t('changeStatus')}</Button> : null}
                 <Button size="sm" variant="outline" onClick={() => setDialog('edit')}>{t('edit')}</Button>
                 {!lead.merchantId && !closed(lead.status) ? <Button size="sm" variant="yellow" onClick={() => navigate('stores', { leadId: lead.id })}><Store className="size-4" />{t('convertToStore')}</Button> : null}
               </div>
-            ) : canReassign ? (
+            ) : canReassign && (role === 'ADMIN' || lead.headId === me?.id) ? (
               <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => setDialog('reassign')}><Repeat className="size-4" />{t('reassign')}</Button></div>
             ) : null}
             <dl className="divide-y">

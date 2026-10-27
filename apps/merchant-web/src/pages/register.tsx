@@ -3,7 +3,8 @@ import { Link, useRouter } from '@/i18n/navigation';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import type { SubscriptionPlanView } from '@alliva/types';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ArrowRight, Building2, Check, Hash, Info, Link2, Lock, Mail, Package, Phone, ShoppingCart, Star, Store, Ticket, Users } from 'lucide-react';
+import type { PaymentMethod } from '@alliva/types';
+import { ArrowRight, Banknote, Building2, Check, CreditCard, Hash, Info, Link2, Lock, Mail, Package, Phone, ShoppingCart, Smartphone, Star, Store, Ticket, Users, Wallet } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -15,6 +16,10 @@ export default function RegisterPage() {
   const [params] = useSearchParams();
   const plans = useQuery({ queryKey: ['public-plans'], queryFn: () => api.publicPlans() });
   const categories = useQuery({ queryKey: ['business-categories'], queryFn: () => api.businessCategories() });
+  const methods = useQuery({ queryKey: ['public-payment-methods'], queryFn: () => api.publicPaymentMethods() });
+  const [selectedMethods, setSelectedMethods] = useState<PaymentMethod[] | null>(null);
+  const offered = methods.data ?? [];
+  const chosenMethods = selectedMethods ?? offered.map((method) => method.code);
   const [step, setStep] = useState(0);
   const [interval, setInterval] = useState<'MONTHLY' | 'ANNUAL'>(params.get('interval') === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY');
   const [planId, setPlanId] = useState(params.get('plan') ?? '');
@@ -77,6 +82,7 @@ export default function RegisterPage() {
         referralCode: form.referralCode.trim() || undefined,
         delivery: true,
         takeaway: true,
+        paymentMethods: chosenMethods,
       });
       await api.login({ email: form.email, password: form.password });
     },
@@ -157,6 +163,39 @@ export default function RegisterPage() {
                   <div className="flex justify-between border-t pt-1 font-semibold"><dt>{t('summaryPayable')}</dt><dd>{formatMoney(quote.data.payable, locale)}</dd></div>
                 </dl>
               ) : null}
+              {planId ? (
+                <div className="mt-5">
+                  <p className="text-sm font-medium">{t('paymentMethods')}</p>
+                  <p className="mt-1 text-xs text-[#6b6b66]">{t('paymentMethodsHint')}</p>
+                  {methods.isLoading ? <p className="mt-2 text-xs text-[#6b6b66]">{t('paymentLoading')}</p> : null}
+                  {!methods.isLoading && !offered.length ? <p className="mt-2 text-xs font-medium text-[#D9342B]">{t('paymentEmpty')}</p> : null}
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {offered.map((method) => {
+                      const on = chosenMethods.includes(method.code);
+                      const Icon = paymentIcon(method.code);
+                      return (
+                        <button
+                          key={method.code}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => {
+                            const base = selectedMethods ?? offered.map((item) => item.code);
+                            setSelectedMethods(base.includes(method.code) ? base.filter((item) => item !== method.code) : [...base, method.code]);
+                            setFieldErrors((current) => ({ ...current, paymentMethods: '' }));
+                            setError('');
+                          }}
+                          className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-start text-sm font-semibold ${on ? 'border-[#111111] bg-[#FFF6CC]' : 'border-[#e6e6e1] bg-white'}`}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="flex-1">{pickLocalized(method.name, locale)}</span>
+                          {on ? <Check className="h-4 w-4" /> : <span className="h-4 w-4 rounded-full border border-[#d7d7d2]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {fieldErrors.paymentMethods ? <p className="mt-1 text-xs font-medium text-[#D9342B]">{fieldErrors.paymentMethods}</p> : null}
+                </div>
+              ) : null}
               <p className="mt-4 flex items-center gap-2 rounded-2xl bg-[#f3f3f0] px-4 py-3 text-sm text-[#6b6b66]">
                 <Info className="h-4 w-4 shrink-0" /> {t('planNote')}
               </p>
@@ -171,7 +210,7 @@ export default function RegisterPage() {
               {step === 0 ? (
                 <button type="button" className="h-12 flex-1 rounded-full bg-[#111111] text-sm font-semibold text-white" onClick={() => { const next: Record<string, string> = {}; if (!form.email.includes('@')) next.email = t('emailInvalid'); if (form.password.length < 8) next.password = t('passwordShort'); if (form.businessName.trim().length < 2) next.businessName = t('required'); if (form.phone.trim().length < 8) next.phone = t('required'); if (!form.categoryId) next.categoryId = t('required'); if (form.categoryId === 'other' && form.otherType.trim().length < 2) next.otherType = t('required'); setFieldErrors(next); if (Object.keys(next).length) return; setError(''); setStep(1); }}>{t('continue')}</button>
               ) : (
-                <button type="button" className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#111111] text-sm font-semibold text-white" disabled={register.isPending || referralWaiting || promoWaiting} onClick={() => { if (!planId) { setFieldErrors({ planId: t('selectPlan') }); return; } if (referralBad || promoBad) { setError(t('fixCodes')); return; } setFieldErrors({}); setError(''); register.mutate(); }}>{t('submit')} <ArrowRight className="h-4 w-4 rtl:rotate-180" /></button>
+                <button type="button" className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#111111] text-sm font-semibold text-white" disabled={register.isPending || referralWaiting || promoWaiting} onClick={() => { if (!planId) { setFieldErrors({ planId: t('selectPlan') }); return; } if (methods.isLoading) { setError(t('paymentLoading')); return; } if (!offered.length) { setError(t('paymentEmpty')); return; } if (!chosenMethods.length) { setFieldErrors({ paymentMethods: t('paymentRequired') }); return; } if (referralBad || promoBad) { setError(t('fixCodes')); return; } setFieldErrors({}); setError(''); register.mutate(); }}>{t('submit')} <ArrowRight className="h-4 w-4 rtl:rotate-180" /></button>
               )}
             </div>
             <p className="mt-3 text-center text-sm text-[#6b6b66]">
@@ -246,6 +285,13 @@ function planDetails(plan: SubscriptionPlanView, t: ReturnType<typeof useTransla
   const support = String(value('supportLevel') ?? '');
   if (support) lines.push(`${t('support')}: ${support === 'PRIORITY' ? t('priority') : t('standard')}`);
   return lines;
+}
+
+function paymentIcon(code: PaymentMethod) {
+  if (code === 'CARD') return CreditCard;
+  if (code === 'BENEFIT') return Wallet;
+  if (code === 'BENEFIT_PAY') return Smartphone;
+  return Banknote;
 }
 
 function IconField({ icon: Icon, label, value, onChange, placeholder, type = 'text', error }: { icon: typeof Mail; label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string; error?: string }) {

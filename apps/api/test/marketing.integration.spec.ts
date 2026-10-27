@@ -153,19 +153,19 @@ describe('marketing management system', { skip: !enabled }, () => {
     const lead = await s.staffA!.post('/marketing/leads', { businessName: `Iso Cafe ${run}`, contactName: 'Iso Owner', phone: `+973${p8()}` });
     assert.equal(lead.status, 201, lead.text);
     const leadId = lead.body.id as string;
-    assert.equal((await s.staffA2!.get(`/marketing/leads/${leadId}`)).status, 404, 'another staff member');
-    assert.equal((await s.staffB!.get(`/marketing/leads/${leadId}`)).status, 404, 'staff of another team');
-    assert.equal((await s.headB!.get(`/marketing/leads/${leadId}`)).status, 404, 'head of another team');
+    assert.equal((await s.staffA2!.get(`/marketing/leads/${leadId}`)).status, 200, 'another staff member can read an open lead');
+    assert.equal((await s.staffB!.get(`/marketing/leads/${leadId}`)).status, 200, 'staff of another team can read an open lead');
+    assert.equal((await s.headB!.get(`/marketing/leads/${leadId}`)).status, 200, 'another head can read an open lead');
     assert.equal((await s.headA!.get(`/marketing/leads/${leadId}`)).status, 200, 'own head');
     assert.equal((await s.admin!.get(`/marketing/leads/${leadId}`)).status, 200);
     assert.equal((await s.staffA2!.post(`/marketing/leads/${leadId}/status`, { status: 'CONTACTED' })).status, 404);
     assert.equal((await s.staffA2!.post(`/marketing/leads/${leadId}/notes`, { body: 'sneaky note' })).status, 404);
     assert.equal((await s.headA!.post(`/marketing/leads/${leadId}/status`, { status: 'CONTACTED' })).status, 403, 'heads read but do not edit');
-    // lists only contain own records
+    // every marketing user sees open leads; editing stays with the owner
     const listA2 = await s.staffA2!.get('/marketing/leads');
-    assert.equal(listA2.body.items.some((row: { id: string }) => row.id === leadId), false);
+    assert.equal(listA2.body.items.some((row: { id: string }) => row.id === leadId), true);
     const listHeadB = await s.headB!.get('/marketing/leads');
-    assert.equal(listHeadB.body.items.some((row: { id: string }) => row.id === leadId), false);
+    assert.equal(listHeadB.body.items.some((row: { id: string }) => row.id === leadId), true);
     // staff detail / wallets
     assert.equal((await s.headB!.get(`/marketing/staff/${ids.staffA}`)).status, 404);
     assert.equal((await s.staffA2!.get(`/marketing/staff/${ids.staffA}`)).status, 404);
@@ -483,6 +483,14 @@ describe('marketing management system', { skip: !enabled }, () => {
     const linked = await prisma().marketingLead.findUniqueOrThrow({ where: { id: mine.body.id } });
     assert.equal(linked.merchantId, merchantId, 'same phone after normalisation links the lead');
     assert.equal(linked.status, 'REGISTERED');
+    const staffLeads = await s.staffA!.get(`/marketing/leads?q=${encodeURIComponent('Match Me')}`);
+    assert.equal(staffLeads.body.items.some((row: { id: string }) => row.id === mine.body.id), false, 'a connected lead leaves the staff leads list');
+    const headLeads = await s.headA!.get(`/marketing/leads?q=${encodeURIComponent('Match Me')}`);
+    assert.equal(headLeads.body.items.some((row: { id: string }) => row.id === mine.body.id), false, 'a connected lead leaves the head leads list');
+    const adminLeads = await s.admin!.get(`/marketing/leads?q=${encodeURIComponent('Match Me')}`);
+    assert.equal(adminLeads.body.items.some((row: { id: string }) => row.id === mine.body.id), true, 'admins still see the connected lead');
+    const stores = await s.staffA!.get(`/marketing/stores?q=${encodeURIComponent(matchPhone)}`);
+    assert.equal(stores.body.items.some((row: { id: string }) => row.id === merchantId), true, 'the connected store is listed for the staff member');
     // a lead belonging to a different staff member is never touched by this staff member's referral
     await mk(`+973${otherPhone}`, `x.${run}@m.test`);
     const untouched = await prisma().marketingLead.findUniqueOrThrow({ where: { id: other.body.id } });
@@ -612,9 +620,24 @@ describe('marketing management system', { skip: !enabled }, () => {
     assert.equal(dec(staffEntry.ratePercent).toFixed(3), '12.500');
     assert.equal(dec(staffEntry.amount).toFixed(3), '5.000');
     assert.equal(dec((await entries(merchantBefore)).find((e) => e.tier === 'STAFF')!.ratePercent).toFixed(3), oldRate, 'history is not rewritten');
+    const me = await s.staffA!.get('/marketing/me');
+    assert.equal(me.body.effectiveCommissionPercent, '12.500', 'staff portal shows the updated platform rate');
+    assert.equal(me.body.commissionIsDefault, true);
+    assert.equal(me.body.commissionPercent, null);
+    const detail = await s.staffA!.get(`/marketing/staff/${ids.staffA}`);
+    assert.equal(detail.body.effectiveCommissionPercent, '12.500');
+    const override = await s.admin!.patch(`/marketing/members/${ids.staffA}`, { commissionPercent: '8' });
+    assert.equal(override.status, 200, override.text);
+    const personal = await s.staffA!.get('/marketing/me');
+    assert.equal(personal.body.effectiveCommissionPercent, '8.000');
+    assert.equal(personal.body.commissionPercent, '8.000');
+    assert.equal(personal.body.commissionIsDefault, false);
+    await s.admin!.patch(`/marketing/members/${ids.staffA}`, { commissionPercent: null });
+    assert.equal((await s.staffA!.get('/marketing/me')).body.effectiveCommissionPercent, '12.500', 'clearing the override follows the platform rate again');
     const audit = await prisma().auditLog.findMany({ where: { action: 'marketing.settings.financial' }, orderBy: { createdAt: 'desc' }, take: 3 });
     assert.ok(audit.length >= 1);
     await s.admin!.patch('/marketing/settings', { staffPercent: '10.000' });
+    assert.equal((await s.staffA!.get('/marketing/me')).body.effectiveCommissionPercent, '10.000');
   });
 
   // ---------------------------------------------------------------- reports
