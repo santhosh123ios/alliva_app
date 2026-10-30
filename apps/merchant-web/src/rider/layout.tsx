@@ -9,6 +9,7 @@ import { Bike, House, UserRound, Wallet } from 'lucide-react';
 import { Suspense, useEffect, useRef } from 'react';
 import { Navigate, Outlet } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
+import { Dock } from './dock';
 import { RiderLocationProvider, useRiderLocale, useRiderOrders, useRiderProfile } from './shared';
 
 const tabs = [
@@ -75,29 +76,16 @@ function RiderChrome() {
           </Link>
         </div>
       </header>
-      <main className="mx-auto max-w-3xl px-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] pt-4 md:pb-10">
+      <main className="mx-auto max-w-3xl px-4 pb-[calc(max(0.7rem,env(safe-area-inset-bottom))+6.5rem)] pt-4 md:pb-10">
         <Suspense fallback={<PageLoader />}>
           <Outlet />
         </Suspense>
       </main>
-      <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E6E6E1] bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
-        aria-label={t('tabs.label')}
-      >
-        <div className="mx-auto grid max-w-md grid-cols-3">
-          {tabs.map((tab) => {
-            const active = current === tab.key;
-            return (
-              <Link key={tab.key} href={tab.href} className="flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold" aria-current={active ? 'page' : undefined}>
-                <span className={cn('grid h-7 w-12 place-items-center rounded-full transition-colors', active ? 'bg-[#FFC400] text-[#111111]' : 'text-[#8A8A86]')}>
-                  <tab.icon className="size-5" />
-                </span>
-                <span className={active ? 'text-[#111111]' : 'text-[#8A8A86]'}>{t(`tabs.${tab.key}`)}</span>
-              </Link>
-            );
-          })}
+      <footer className="pointer-events-none fixed inset-x-0 bottom-0 z-40 md:hidden">
+        <div className="pointer-events-auto px-3 pb-[max(0.7rem,env(safe-area-inset-bottom))]">
+          <Dock tabs={tabs.map((tab) => ({ ...tab, label: t(`tabs.${tab.key}`) }))} active={current} label={t('tabs.label')} />
         </div>
-      </nav>
+      </footer>
     </div>
   );
 }

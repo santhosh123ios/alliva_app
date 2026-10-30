@@ -201,7 +201,7 @@ function OrderDetail({ order }: { order: RiderOrder }) {
       </section>
 
       {!done ? (
-        <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4rem)] z-30 border-t border-[#E6E6E1] bg-white/95 px-4 py-3 backdrop-blur md:bottom-0">
+        <div className="fixed inset-x-0 bottom-[calc(max(0.7rem,env(safe-area-inset-bottom))+5.4rem)] z-30 border-t border-[#E6E6E1] bg-white/95 px-4 py-3 backdrop-blur md:bottom-0">
           <div className="mx-auto max-w-3xl">
             {stage === 'assigned' ? (
               <ActionButton onClick={() => setVerifying(true)} icon={<QrCode className="size-5" />}>{t('order.verifyPickup')}</ActionButton>
