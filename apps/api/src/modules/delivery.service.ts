@@ -80,14 +80,15 @@ export class DeliveryService {
 
   /** Platform fallback fee and the service-area zones that contain the point. Cached for a minute. */
   async context(point: Point | null): Promise<DeliveryContext> {
-    if (!this.zoneCache || Date.now() - this.zoneCache.at > 60_000) {
-      const rows = await this.prisma.serviceArea.findMany({ where: { active: true }, select: { id: true, geoJson: true } });
-      this.zoneCache = { at: Date.now(), rows };
-    }
-    const rule = await this.prisma.deliveryPricingRule.findFirst({ where: { active: true, merchantId: null } });
+    const stale = !this.zoneCache || Date.now() - this.zoneCache.at > 60_000;
+    const [rows, rule] = await Promise.all([
+      stale ? this.prisma.serviceArea.findMany({ where: { active: true }, select: { id: true, geoJson: true } }) : null,
+      this.prisma.deliveryPricingRule.findFirst({ where: { active: true, merchantId: null } }),
+    ]);
+    const zoneCache = rows ? (this.zoneCache = { at: Date.now(), rows }) : this.zoneCache!;
     return {
       platformFee: rule ? dec(rule.baseFee) : '0.500',
-      zones: point ? this.zoneCache.rows.filter((zone) => pointInGeoJson(point, zone.geoJson)) : [],
+      zones: point ? zoneCache.rows.filter((zone) => pointInGeoJson(point, zone.geoJson)) : [],
     };
   }
 

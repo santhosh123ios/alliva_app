@@ -46,39 +46,53 @@ export class CommerceService {
   }
 
   async home(input: { lat?: string; lng?: string; q?: string; exclusiveSlug?: string | null; customerId?: string | null; guestId?: string | null }) {
-    const entry = input.exclusiveSlug
-      ? await this.prisma.merchant.findFirst({
-          where: { slug: input.exclusiveSlug, deletedAt: null, status: 'ACTIVE' },
-          include: { subscription: { include: { plan: { include: { entitlements: true } } } } },
-        })
-      : null;
-    const categories = await this.prisma.businessCategory.findMany({ where: { active: true }, orderBy: { sortOrder: 'asc' } });
+    const point = parsePoint(input.lat, input.lng);
+    // Each query is a network round trip to the database, so independent ones run together.
+    const [entry, categories, catalog, context, recentIds] = await Promise.all([
+      input.exclusiveSlug
+        ? this.prisma.merchant.findFirst({
+            where: { slug: input.exclusiveSlug, deletedAt: null, status: 'ACTIVE' },
+            include: { subscription: { include: { plan: { include: { entitlements: true } } } } },
+          })
+        : null,
+      this.prisma.businessCategory.findMany({ where: { active: true }, orderBy: { sortOrder: 'asc' } }),
+      input.exclusiveSlug
+        ? this.prisma.merchant.findMany({ where: { status: 'ACTIVE', deletedAt: null }, select: { id: true, businessType: true } })
+        : [],
+      point ? this.delivery.context(point) : null,
+      input.customerId || input.guestId
+        ? this.prisma.recentlyViewed.findMany({
+            where: input.customerId ? { customerId: input.customerId } : { guestId: input.guestId! },
+            orderBy: { viewedAt: 'desc' },
+            take: 8,
+          })
+        : [],
+    ]);
     const mode = entry ? (entry.subscription ? safeSuggestion(paidEntitlements(entry.subscription)) : 'ALL_STORES') : null;
-    const catalog = await this.prisma.merchant.findMany({ where: { status: 'ACTIVE', deletedAt: null }, select: { id: true, businessType: true } });
     const visible = entry && mode
       ? suggestedMerchants({ mode, current: { id: entry.id, businessType: entry.businessType }, candidates: catalog }).map((merchant) => merchant.id)
       : null;
-    const point = parsePoint(input.lat, input.lng);
-    const context = point ? await this.delivery.context(point) : null;
-    const merchants = await this.merchantCards(visible ? { id: { in: visible } } : { status: 'ACTIVE', deletedAt: null }, point && context ? { point, context } : undefined);
+    const scoped = visible ? { merchantId: { in: visible } } : {};
+    const [merchants, offers, banners, products] = await Promise.all([
+      this.merchantCards(visible ? { id: { in: visible } } : { status: 'ACTIVE', deletedAt: null }, point && context ? { point, context } : undefined),
+      this.prisma.offer.findMany({
+        where: { active: true, endsAt: { gt: new Date() }, ...scoped },
+        include: { merchant: true },
+        take: 8,
+      }),
+      this.prisma.banner.findMany({
+        where: { status: 'ACTIVE', ...scoped },
+        include: { merchant: true },
+        take: 6,
+      }),
+      this.productCards(visible ? { merchantId: { in: visible }, deletedAt: null, available: true, approvalStatus: 'APPROVED' } : { deletedAt: null, available: true, approvalStatus: 'APPROVED' }),
+    ]);
     const listed = visible ? [...merchants].sort((a, b) => visible.indexOf(a.id) - visible.indexOf(b.id)) : merchants;
     // With a location, stores that cannot deliver there drop out. A store opened from its own QR or link always stays.
     const reachable = point ? listed.filter((merchant) => merchant.id === entry?.id || deliverableFrom(merchant)) : listed;
     const nearby = point ? sortNearby(reachable) : reachable;
     const entryCard = entry ? nearby.find((merchant) => merchant.id === entry.id) : undefined;
     const ordered = entryCard ? [entryCard, ...nearby.filter((merchant) => merchant.id !== entryCard.id)] : nearby;
-    const scoped = visible ? { merchantId: { in: visible } } : {};
-    const offers = await this.prisma.offer.findMany({
-      where: { active: true, endsAt: { gt: new Date() }, ...scoped },
-      include: { merchant: true },
-      take: 8,
-    });
-    const banners = await this.prisma.banner.findMany({
-      where: { status: 'ACTIVE', ...scoped },
-      include: { merchant: true },
-      take: 6,
-    });
-    const products = await this.productCards(visible ? { merchantId: { in: visible }, deletedAt: null, available: true, approvalStatus: 'APPROVED' } : { deletedAt: null, available: true, approvalStatus: 'APPROVED' });
     const needle = input.q?.trim().toLowerCase() ?? '';
     const matchesText = (value: { en?: string; ar?: string } | null | undefined) =>
       `${value?.en ?? ''} ${value?.ar ?? ''}`.toLowerCase().includes(needle);
@@ -108,14 +122,6 @@ export class CommerceService {
             sorted.some((merchant) => merchant.id === product.merchantId && directMerchant(merchant)),
         )
       : products;
-    const recentIds =
-      input.customerId || input.guestId
-        ? await this.prisma.recentlyViewed.findMany({
-            where: input.customerId ? { customerId: input.customerId } : { guestId: input.guestId! },
-            orderBy: { viewedAt: 'desc' },
-            take: 8,
-          })
-        : [];
     const unavailableIds = new Set(sorted.filter((merchant) => merchant.temporarilyUnavailable).map((merchant) => merchant.id));
     const unavailableSlugs = new Set(sorted.filter((merchant) => merchant.temporarilyUnavailable).map((merchant) => merchant.slug));
     const orderableProducts = visibleProducts.filter((product) => !unavailableIds.has(product.merchantId));
@@ -152,30 +158,31 @@ export class CommerceService {
   }
 
   async merchantBySlug(slug: string) {
-    const merchant = await this.prisma.merchant.findFirst({
-      where: { slug, deletedAt: null },
-      include: {
-        hours: true,
-        branches: true,
-        categories: { include: { category: true } },
-        reviews: { include: { author: true }, orderBy: { createdAt: 'desc' }, take: 12 },
-        productCategories: {
-          where: { deletedAt: null },
-          orderBy: { sortOrder: 'asc' },
-          include: { products: { where: { deletedAt: null, approvalStatus: 'APPROVED' }, include: { inventory: true, addonGroups: { select: { productId: true } } } } },
-        },
-      },
-    });
-    if (!merchant || merchant.status !== 'ACTIVE') throw notFound('Merchant not found');
     const now = new Date();
-    const [card, offers] = await Promise.all([
-      this.merchantCards({ id: merchant.id }).then((cards) => cards[0]),
+    // Slug is unique, so the card and offers can load alongside the merchant instead of after it.
+    const [merchant, card, offers] = await Promise.all([
+      this.prisma.merchant.findFirst({
+        where: { slug, deletedAt: null },
+        include: {
+          hours: true,
+          branches: true,
+          categories: { include: { category: true } },
+          reviews: { include: { author: true }, orderBy: { createdAt: 'desc' }, take: 12 },
+          productCategories: {
+            where: { deletedAt: null },
+            orderBy: { sortOrder: 'asc' },
+            include: { products: { where: { deletedAt: null, approvalStatus: 'APPROVED' }, include: { inventory: true, addonGroups: { select: { productId: true } } } } },
+          },
+        },
+      }),
+      this.merchantCards({ slug, deletedAt: null, status: 'ACTIVE' }).then((cards) => cards[0]),
       this.prisma.offer.findMany({
-        where: { merchantId: merchant.id, active: true, startsAt: { lte: now }, endsAt: { gt: now } },
+        where: { merchant: { slug }, active: true, startsAt: { lte: now }, endsAt: { gt: now } },
         orderBy: { endsAt: 'asc' },
         take: 3,
       }),
     ]);
+    if (!merchant || merchant.status !== 'ACTIVE') throw notFound('Merchant not found');
     const branch = merchant.branches[0];
     return {
       ...card,
