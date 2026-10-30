@@ -1,7 +1,11 @@
 import { api } from '@/components/providers';
-import { categoryIcon, formatDistanceKm, HeroBanner, MerchantTile, ProductTile } from '@/components/storefront';
+import { useCartAdd } from '@/components/store-switch';
+import { categoryIcon, HeroBanner, MerchantTile, ProductTile } from '@/components/storefront';
+import { LocationPicker } from '@/components/location-picker';
+import { pointKey, useLocationStore, useSearchPoint } from '@/lib/location';
+import { formatMoney } from '@alliva/design-tokens';
 import { useRouter } from '@/i18n/navigation';
-import { areas, usePlace } from '@/lib/place';
+import { usePlace } from '@/lib/place';
 import { cn, EmptyState, ErrorState, Skeleton } from '@alliva/ui';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight } from 'lucide-react';
@@ -14,9 +18,10 @@ export default function HomePage() {
   const locale = useLocale() as 'en' | 'ar';
   const router = useRouter();
   const client = useQueryClient();
-  const areaId = usePlace((state) => state.area);
   const query = usePlace((state) => state.query);
-  const area = areas.find((item) => item.id === areaId) ?? areas[0]!;
+  const { point, chosen } = useSearchPoint();
+  const locating = useLocationStore((state) => state.status === 'locating');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [debounced, setDebounced] = useState(query);
   const [category, setCategory] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -30,9 +35,12 @@ export default function HomePage() {
     retry: false,
   });
   const home = useQuery({
-    queryKey: ['home', area.id, debounced],
-    queryFn: () => api.home(`?lat=${encodeURIComponent(area.lat)}&lng=${encodeURIComponent(area.lng)}${debounced ? `&q=${encodeURIComponent(debounced)}` : ''}`),
-    placeholderData: keepPreviousData,
+    queryKey: ['home', pointKey(point), debounced],
+    queryFn: () => api.home(`?lat=${point.lat.toFixed(6)}&lng=${point.lng.toFixed(6)}${debounced ? `&q=${encodeURIComponent(debounced)}` : ''}`),
+    // Keep the old list while typing a search, but show skeletons when the location itself changes.
+    placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[1] === pointKey(point) ? keepPreviousData(previous) : undefined),
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
   useEffect(() => {
@@ -43,17 +51,7 @@ export default function HomePage() {
   const favouriteIds = new Set(
     ((customer.data as { favourites?: { merchantId: string }[] } | undefined)?.favourites ?? []).map((row) => row.merchantId),
   );
-  const add = useMutation({
-    mutationFn: async (productId: string) => {
-      await api.guest().catch(() => undefined);
-      return api.addItem({ productId, quantity: 1 });
-    },
-    onSuccess: async () => {
-      toast.success(t('customer.added'));
-      await client.invalidateQueries({ queryKey: ['cart'] });
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
+  const cartAdd = useCartAdd();
   const save = useMutation({
     mutationFn: async (merchantId: string) => {
       const saved = favouriteIds.has(merchantId);
@@ -67,11 +65,12 @@ export default function HomePage() {
   const categories = home.data?.categories ?? [];
   const visibleCategories = categories.slice(0, 5);
   const overflowCategories = categories.slice(5);
-  const merchants = (home.data?.merchants ?? []).filter((merchant) => {
-    if (category && !merchant.categorySlugs.includes(category)) return false;
-    return true;
-  });
-  const merchantIds = new Set(merchants.map((merchant) => merchant.id));
+  const inCategory = (merchant: { categorySlugs: string[] }) => !category || merchant.categorySlugs.includes(category);
+  const allMerchants = (home.data?.merchants ?? []).filter(inCategory);
+  const merchants = (home.data?.openMerchants ?? home.data?.merchants ?? []).filter(inCategory);
+  const closedMerchants = (home.data?.closedMerchants ?? []).filter(inCategory);
+  const merchantIds = new Set(allMerchants.map((merchant) => merchant.id));
+  const nothingNearby = Boolean(home.data?.located) && !debounced && !home.data?.merchants.length;
   const products = (home.data?.topProducts ?? []).filter((product) => product.available && merchantIds.has(product.merchantId));
 
   const toggleSave = (merchantId: string) => {
@@ -139,10 +138,31 @@ export default function HomePage() {
       <HeroBanner title={t('customer.heroTitle')} subtitle={t('customer.heroSubtitle')} action={t('customer.exploreNearby')} />
 
       {home.data?.exclusiveMerchant ? <p className="rounded-2xl bg-[#111] px-4 py-3 text-sm font-medium text-white">{t('customer.exclusive')}</p> : null}
-      {home.isLoading ? <HomeSkeleton /> : null}
-      {home.error ? <ErrorState title={t('common.error')} body={(home.error as Error).message} /> : null}
+      {home.isLoading || (locating && !home.data) ? <HomeSkeleton /> : null}
+      {home.error && !home.data ? (
+        <div className="space-y-3">
+          <ErrorState title={t('customer.locationFlow.storesFailedTitle')} body={t('customer.locationFlow.storesFailedBody')} />
+          <div className="text-center">
+            <button type="button" onClick={() => void home.refetch()} className="inline-flex h-11 items-center rounded-full bg-primary px-5 text-sm font-bold text-[#111]">
+              {t('customer.locationFlow.retry')}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
-      {home.data ? (
+      {nothingNearby ? (
+        <EmptyState
+          title={t('customer.locationFlow.noStoresTitle')}
+          body={chosen ? t('customer.locationFlow.noStoresBody') : t('customer.locationFlow.noStoresChoose')}
+          action={
+            <button type="button" onClick={() => setPickerOpen(true)} className="inline-flex h-11 items-center rounded-full bg-primary px-5 text-sm font-bold text-[#111]">
+              {t('customer.locationFlow.change')}
+            </button>
+          }
+        />
+      ) : null}
+
+      {home.data && !nothingNearby ? (
         <>
           <section id="popular">
             <SectionHeader
@@ -161,23 +181,50 @@ export default function HomePage() {
                     saved={favouriteIds.has(merchant.id)}
                     saveLabel={favouriteIds.has(merchant.id) ? t('customer.saved') : t('customer.saveStore')}
                     closedLabel={t('customer.closed')}
+                    unavailableLabel={t('customer.temporarilyUnavailable')}
                     minuteLabel={t('customer.minuteRange', {
                       from: Math.max(10, merchant.deliveryMinutes - 5),
                       to: merchant.deliveryMinutes + 5,
                     })}
-                    distanceLabel={(() => {
-                      const km = formatDistanceKm(merchant.latitude, merchant.longitude, area);
-                      return km ? t('customer.distanceKm', { km }) : null;
-                    })()}
+                    distanceLabel={merchant.distanceKm ? t('customer.distanceKm', { km: Number(merchant.distanceKm).toFixed(1) }) : null}
+                    deliveryLabel={deliveryLabel(merchant)}
                     onToggleSave={() => toggleSave(merchant.id)}
                   />
                   </div>
                 ))}
               </div>
             ) : (
-              <EmptyState title={t('common.empty')} body={t('customer.noMatches')} />
+              <EmptyState
+                title={closedMerchants.length ? t('customer.locationFlow.allClosedTitle') : t('common.empty')}
+                body={closedMerchants.length ? t('customer.locationFlow.allClosedBody') : t('customer.noMatches')}
+              />
             )}
           </section>
+
+          {closedMerchants.length ? (
+            <section aria-labelledby="closed-stores">
+              <h2 id="closed-stores" className="mb-1 text-xl font-bold tracking-tight">{t('customer.locationFlow.closedTitle')}</h2>
+              <p className="mb-4 text-sm text-[#6f6f6a]">{t('customer.locationFlow.closedBody')}</p>
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-3 opacity-80 md:grid-cols-2 xl:grid-cols-4">
+                {closedMerchants.map((merchant) => (
+                  <div key={merchant.slug} className="min-w-0">
+                    <MerchantTile
+                      merchant={merchant}
+                      locale={locale}
+                      saved={favouriteIds.has(merchant.id)}
+                      saveLabel={favouriteIds.has(merchant.id) ? t('customer.saved') : t('customer.saveStore')}
+                      closedLabel={t('customer.closed')}
+                      unavailableLabel={t('customer.temporarilyUnavailable')}
+                      minuteLabel={t('customer.minuteRange', { from: Math.max(10, merchant.deliveryMinutes - 5), to: merchant.deliveryMinutes + 5 })}
+                      distanceLabel={merchant.distanceKm ? t('customer.distanceKm', { km: Number(merchant.distanceKm).toFixed(1) }) : null}
+                      deliveryLabel={deliveryLabel(merchant)}
+                      onToggleSave={() => toggleSave(merchant.id)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <section>
             <SectionHeader
@@ -189,7 +236,7 @@ export default function HomePage() {
             {products.length ? (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
                 {(showProducts ? products : products.slice(0, 4)).map((product) => {
-                  const merchant = (home.data?.merchants ?? []).find((item) => item.id === product.merchantId);
+                  const merchant = allMerchants.find((item) => item.id === product.merchantId);
                   return (
                   <ProductTile
                     key={product.id}
@@ -204,8 +251,8 @@ export default function HomePage() {
                           })
                         : null
                     }
-                    pending={add.isPending && add.variables === product.id}
-                    onAdd={() => add.mutate(product.id)}
+                    pending={cartAdd.pendingId === product.id}
+                    onAdd={() => cartAdd.requestAdd(product.merchantId, product.merchantName, { productId: product.id, quantity: 1, preview: { name: product.name, description: product.description, imageUrl: product.imageUrl, unitPrice: product.price } })}
                   />
                   );
                 })}
@@ -216,8 +263,16 @@ export default function HomePage() {
           </section>
         </>
       ) : null}
+      {cartAdd.dialog}
+      <LocationPicker open={pickerOpen} onOpenChange={setPickerOpen} />
     </div>
   );
+
+  function deliveryLabel(merchant: { deliveryAvailable?: boolean; freeDelivery: boolean; deliveryFee: string; fulfillment: string[] }) {
+    if (!merchant.fulfillment.includes('DELIVERY') || merchant.deliveryAvailable === false) return null;
+    if (merchant.freeDelivery || Number(merchant.deliveryFee) === 0) return { text: t('customer.freeDeliveryBadge'), free: true };
+    return { text: t('customer.locationFlow.deliveryFeeShort', { fee: formatMoney(merchant.deliveryFee, locale) }), free: false };
+  }
 }
 
 function SectionHeader({

@@ -1,10 +1,11 @@
-import { LocationMap } from '@/components/location-map';
+import { LocationMap, LocationSearch } from '@/components/location-map';
+import { DeliveryPricingCard } from '@/components/delivery-pricing';
 import { api } from '@/components/providers';
 import { useSaveStatus } from '@/components/shell';
 import { pickLocalized } from '@alliva/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, Placeholder } from '@alliva/ui';
-import { Building, Check, ChevronDown, Clock, Copy, ExternalLink, Eye, Image as ImageIcon, Info, Leaf, Link2, LocateFixed, Mail, MapPin, Pencil, Phone, Plus, Share2, ShoppingBag, Store, Truck, UserRound, Utensils, UtensilsCrossed } from 'lucide-react';
+import { Building, Check, ChevronDown, Clock, Copy, ExternalLink, Eye, Image as ImageIcon, Info, Leaf, Link2, LocateFixed, Mail, MapPin, Pencil, Phone, Plus, Share2, ShoppingBag, Store, Timer, Truck, UserRound, Utensils, UtensilsCrossed } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useRef, useState } from 'react';
 
@@ -38,7 +39,10 @@ type Profile = {
   minimumOrder: string;
   freeDeliveryEnabled?: boolean;
   freeDeliveryKm?: string;
+  baseDeliveryKm?: string;
+  baseDeliveryFee?: string;
   beyondFreeDeliveryFee?: string;
+  beyondDeliveryFeeMode?: 'PER_KM' | 'FIXED';
   maxDeliveryKm?: string;
   preparationMinutes: number;
   branches: Branch[];
@@ -100,9 +104,13 @@ export function BusinessPage({ profile }: { profile: Profile }) {
         minimumOrder: form.minimumOrder,
         freeDeliveryEnabled: form.freeDeliveryEnabled,
         freeDeliveryKm: form.freeDeliveryKm,
+        baseDeliveryKm: form.baseDeliveryKm,
+        baseDeliveryFee: form.baseDeliveryFee,
         beyondFreeDeliveryFee: form.beyondFreeDeliveryFee,
+        beyondDeliveryFeeMode: form.beyondDeliveryFeeMode,
         maxDeliveryKm: form.maxDeliveryKm,
-        preparationMinutes: Number(form.preparationMinutes) || profile.preparationMinutes,
+        // Skip an unfinished or invalid value instead of saving it; the field shows the problem.
+        preparationMinutes: validPreparation(form.preparationMinutes) ? Number(form.preparationMinutes) : undefined,
         branchId: branchIdRef.current || undefined,
       });
       const previous = savedSnapshot.current ? JSON.parse(savedSnapshot.current) as { hours?: Hour[] } : null;
@@ -309,8 +317,14 @@ export function BusinessPage({ profile }: { profile: Profile }) {
               </select>
             </label>
           </div>
-          <div className="mt-3 overflow-hidden rounded-2xl border border-[#ECECEA]">
-            {addingBranch ? <LocationMap point={branchPoint} onMark={setBranchPoint} className="z-0 h-44 w-full" /> : null}
+          <div className="relative mt-3 overflow-hidden rounded-2xl border border-[#ECECEA]">
+            {addingBranch ? <LocationMap point={branchPoint} onMark={setBranchPoint} zoomPosition="bottomright" className="z-0 h-56 w-full" /> : null}
+            <LocationSearch
+              locale={locale}
+              className="absolute inset-x-3 top-3 z-10"
+              onPick={setBranchPoint}
+              labels={{ search: t('setupLocationSearch'), placeholder: t('setupLocationPlaceholder'), noResults: t('setupLocationNoResults'), failed: t('setupLocationSearchFailed') }}
+            />
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-[#5C5C58]">{branchPoint ? `${branchPoint.lat.toFixed(6)}, ${branchPoint.lng.toFixed(6)}` : t('locationRequired')}</p>
@@ -351,7 +365,13 @@ export function BusinessPage({ profile }: { profile: Profile }) {
               free: t('freeDelivery'),
               freeHint: t('freeDeliveryHint'),
               freeKm: t('freeDeliveryKm'),
-              beyond: t('beyondFee'),
+              baseKm: t('baseDeliveryKm'),
+              baseFee: t('baseDeliveryFee'),
+              pricingMode: t('beyondPricingMode'),
+              perKm: t('perKm'),
+              fixed: t('fixedPrice'),
+              beyondPerKm: t('beyondFeePerKm'),
+              beyondFixed: t('beyondFeeFixed'),
               area: t('maxArea'),
               minimum: t('minimumDelivery'),
               note: t('checkoutNote'),
@@ -361,6 +381,7 @@ export function BusinessPage({ profile }: { profile: Profile }) {
               bhdPerKm: t('bhdPerKm'),
             }}
           />
+          <DeliveryPricingCard />
         </div>
         <div className="space-y-4">
             <StoreVisibility
@@ -479,8 +500,14 @@ export function BusinessPage({ profile }: { profile: Profile }) {
                 <p className="text-sm text-[#9A9A96]">{t('locationHint')}</p>
               </div>
             </div>
-            <div className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-2xl border border-[#ECECEA]">
-              <LocationMap className="absolute inset-0 z-0 h-full w-full" point={point} onMark={(next) => { setPoint(next); setPointDirty(true); }} />
+            <div className="relative mt-4 min-h-80 flex-1 overflow-hidden rounded-2xl border border-[#ECECEA]">
+              <LocationMap className="absolute inset-0 z-0 h-full w-full" zoomPosition="bottomright" point={point} onMark={(next) => { setPoint(next); setPointDirty(true); }} />
+              <LocationSearch
+                locale={locale}
+                className="absolute inset-x-3 top-3 z-10"
+                onPick={(next) => { setPoint(next); setPointDirty(true); }}
+                labels={{ search: t('setupLocationSearch'), placeholder: t('setupLocationPlaceholder'), noResults: t('setupLocationNoResults'), failed: t('setupLocationSearchFailed') }}
+              />
             </div>
             <p className="mt-3 text-sm text-[#5C5C58]">{point ? `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}` : '—'}</p>
             <div className="mt-4 flex flex-wrap justify-end gap-2">
@@ -500,6 +527,23 @@ export function BusinessPage({ profile }: { profile: Profile }) {
             const [opensAt, closesAt] = value.split('-');
             setForm({ ...form, hours: form.hours.map((item) => item.dayOfWeek === day ? { ...item, opensAt: (opensAt || item.opensAt).slice(0, 5), closesAt: (closesAt || item.closesAt).slice(0, 5), closed: !value } : item) });
           }} labels={{ title: t('hours'), hint: t('hoursHint'), edit: t('editHours'), allDay: t('allDay'), same: t('sameHours'), custom: t('customHours') }} />
+          <section className="rounded-[20px] border border-[#ECECEA] bg-white p-5 shadow-[0_8px_30px_rgba(17,17,17,0.04)] xl:col-span-2">
+            <div className="flex items-center gap-3">
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF3C4]">
+                <Timer className="size-5" />
+              </span>
+              <div>
+                <h3 className="text-lg font-semibold tracking-tight text-[#161616]">{t('preparationTitle')}</h3>
+                <p className="text-sm text-[#9A9A96]">{t('preparationHint')}</p>
+              </div>
+            </div>
+            <div className="mt-4 max-w-xs">
+              <SuffixField label={t('preparationLabel')} value={form.preparationMinutes} suffix={t('minutes')} onChange={(preparationMinutes) => setForm({ ...form, preparationMinutes: preparationMinutes.replace(/[^\d]/g, '').slice(0, 3) })} />
+              {validPreparation(form.preparationMinutes) ? null : (
+                <p className="mt-1.5 text-sm font-medium text-[#B42318]" role="alert">{t('preparationInvalid', { min: PREPARATION_MIN, max: PREPARATION_MAX })}</p>
+              )}
+            </div>
+          </section>
         </div>
       ) : null}
     </div>
@@ -526,9 +570,12 @@ function draft(profile: Profile, locale: 'en' | 'ar', branchId?: string) {
     minimumOrder: String(profile.minimumOrder ?? '0'),
     freeDeliveryEnabled: Boolean(profile.freeDeliveryEnabled),
     freeDeliveryKm: String(profile.freeDeliveryKm ?? '0'),
+    baseDeliveryKm: String(profile.baseDeliveryKm ?? '0'),
+    baseDeliveryFee: String(profile.baseDeliveryFee ?? '0'),
     beyondFreeDeliveryFee: String(profile.beyondFreeDeliveryFee ?? '0'),
+    beyondDeliveryFeeMode: profile.beyondDeliveryFeeMode === 'FIXED' ? 'FIXED' as const : 'PER_KM' as const,
     maxDeliveryKm: String(profile.maxDeliveryKm ?? '0'),
-    preparationMinutes: profile.preparationMinutes ?? 20,
+    preparationMinutes: String(profile.preparationMinutes ?? 20),
     hours,
   };
 }
@@ -792,14 +839,14 @@ function isAllDay(hour?: Hour) {
   return (opens === '00:00' || opens === '24:00') && (closes === '23:59' || closes === '24:00');
 }
 
-function DeliverySettingsCard<T extends { freeDeliveryEnabled: boolean; freeDeliveryKm: string; beyondFreeDeliveryFee: string; maxDeliveryKm: string; minimumOrder: string }>({
+function DeliverySettingsCard<T extends { freeDeliveryEnabled: boolean; freeDeliveryKm: string; baseDeliveryKm: string; baseDeliveryFee: string; beyondFreeDeliveryFee: string; beyondDeliveryFeeMode: 'PER_KM' | 'FIXED'; maxDeliveryKm: string; minimumOrder: string }>({
   form, setForm, saving, onSave, labels,
 }: {
   form: T;
   setForm: (next: T) => void;
   saving: boolean;
   onSave: () => void;
-  labels: { title: string; hint: string; free: string; freeHint: string; freeKm: string; beyond: string; area: string; minimum: string; note: string; save: string; km: string; bhd: string; bhdPerKm: string };
+  labels: { title: string; hint: string; free: string; freeHint: string; freeKm: string; baseKm: string; baseFee: string; pricingMode: string; perKm: string; fixed: string; beyondPerKm: string; beyondFixed: string; area: string; minimum: string; note: string; save: string; km: string; bhd: string; bhdPerKm: string };
 }) {
   return (
     <section className="rounded-[20px] border border-[#ECECEA] bg-white p-5 shadow-[0_8px_30px_rgba(17,17,17,0.04)]">
@@ -822,8 +869,22 @@ function DeliverySettingsCard<T extends { freeDeliveryEnabled: boolean; freeDeli
         </button>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <SuffixField label={labels.freeKm} value={form.freeDeliveryKm} suffix={labels.km} onChange={(freeDeliveryKm) => setForm({ ...form, freeDeliveryKm })} />
-        <SuffixField label={labels.beyond} value={form.beyondFreeDeliveryFee} suffix={labels.bhdPerKm} onChange={(beyondFreeDeliveryFee) => setForm({ ...form, beyondFreeDeliveryFee })} />
+        {form.freeDeliveryEnabled ? (
+          <SuffixField label={labels.freeKm} value={form.freeDeliveryKm} suffix={labels.km} onChange={(freeDeliveryKm) => setForm({ ...form, freeDeliveryKm })} />
+        ) : (
+          <>
+            <SuffixField label={labels.baseKm} value={form.baseDeliveryKm} suffix={labels.km} onChange={(baseDeliveryKm) => setForm({ ...form, baseDeliveryKm })} />
+            <SuffixField label={labels.baseFee} value={form.baseDeliveryFee} suffix={labels.bhd} onChange={(baseDeliveryFee) => setForm({ ...form, baseDeliveryFee })} />
+          </>
+        )}
+        <label className="block text-sm font-semibold text-[#161616]">
+          {labels.pricingMode}
+          <select value={form.beyondDeliveryFeeMode} onChange={(event) => setForm({ ...form, beyondDeliveryFeeMode: event.target.value === 'FIXED' ? 'FIXED' : 'PER_KM' })} className="mt-1.5 h-12 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm outline-none">
+            <option value="PER_KM">{labels.perKm}</option>
+            <option value="FIXED">{labels.fixed}</option>
+          </select>
+        </label>
+        <SuffixField label={form.beyondDeliveryFeeMode === 'FIXED' ? labels.beyondFixed : labels.beyondPerKm} value={form.beyondFreeDeliveryFee} suffix={form.beyondDeliveryFeeMode === 'FIXED' ? labels.bhd : labels.bhdPerKm} onChange={(beyondFreeDeliveryFee) => setForm({ ...form, beyondFreeDeliveryFee })} />
         <SuffixField label={labels.area} value={form.maxDeliveryKm} suffix={labels.km} onChange={(maxDeliveryKm) => setForm({ ...form, maxDeliveryKm })} />
         <SuffixField label={labels.minimum} value={form.minimumOrder} suffix={labels.bhd} onChange={(minimumOrder) => setForm({ ...form, minimumOrder })} />
       </div>
@@ -845,6 +906,14 @@ function DetailField({ icon: Icon, label, value, onChange }: { icon: typeof Stor
       </span>
     </label>
   );
+}
+
+const PREPARATION_MIN = 1;
+const PREPARATION_MAX = 240;
+
+function validPreparation(value: string) {
+  const minutes = Number(value);
+  return /^\d+$/.test(value) && minutes >= PREPARATION_MIN && minutes <= PREPARATION_MAX;
 }
 
 function SuffixField({ label, value, suffix, onChange }: { label: string; value: string; suffix: string; onChange: (value: string) => void }) {

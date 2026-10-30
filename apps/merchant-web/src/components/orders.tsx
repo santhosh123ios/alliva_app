@@ -1,8 +1,11 @@
 import { api } from '@/components/providers';
+import { PickupTicketButton } from '@/components/pickup-ticket';
+import { orderHandled } from '@/components/order-alerts';
+import { canSetStatus } from '@/lib/roles';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import type { FulfillmentType, OrderPaymentMethod, OrderStatus } from '@alliva/types';
 import { Button, EmptyState } from '@alliva/ui';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Banknote, Bike, Calendar, ChevronDown, ChevronRight, ClipboardList, Download, MapPin, Plus, Search, ShoppingBag, Truck, User, UtensilsCrossed, X, type LucideIcon } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useState } from 'react';
@@ -228,7 +231,10 @@ export function OrdersPage({ orders }: { orders: MerchantOrder[] }) {
             order={selected}
             locale={locale}
             onClose={() => setSelectedId(null)}
-            onChanged={() => void client.invalidateQueries({ queryKey: ['merchant', 'orders'] })}
+            onChanged={() => {
+              void client.invalidateQueries({ queryKey: ['merchant', 'orders'] });
+              void client.invalidateQueries({ queryKey: ['merchant', 'dashboard'] });
+            }}
           />
         ) : null}
       </div>
@@ -241,11 +247,15 @@ function OrderPanel({ order, locale, onClose, onChanged }: { order: MerchantOrde
   const [error, setError] = useState('');
   const save = useMutation({
     mutationFn: (body: { status: OrderStatus; preparationMinutes?: number; cancellationReason?: string }) => api.transition(order.id, body),
-    onSuccess: () => { setError(''); onChanged(); },
+    onSuccess: () => { setError(''); orderHandled(order.id); onChanged(); },
     onError: (reason: Error) => setError(reason.message),
   });
-  const next = nextStep(order);
-  const canReject = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'ASSIGNED_TO_DRIVER', 'OUT_FOR_DELIVERY'].includes(order.status);
+  const me = useQuery({ queryKey: ['me'], queryFn: () => api.me(), retry: false });
+  // Only offer the steps this person's role is allowed to take.
+  const can = (status: OrderStatus) => Boolean(me.data && canSetStatus(me.data, status, order.fulfillmentType));
+  const step = nextStep(order);
+  const next = step && can(step.body.status) ? step : null;
+  const canReject = can('CANCELLED') && ['PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'ASSIGNED_TO_DRIVER', 'OUT_FOR_DELIVERY'].includes(order.status);
   const place = placeRow(order, t);
   const level = rank[order.status];
   const steps = order.fulfillmentType === 'DELIVERY'
@@ -282,6 +292,9 @@ function OrderPanel({ order, locale, onClose, onChanged }: { order: MerchantOrde
             <Meta icon={User} label={t('customerLabel')} value={order.customerName || '—'} />
             <Meta icon={place.icon} label={place.label} value={place.value} />
           </ul>
+          {order.fulfillmentType === 'DELIVERY' && ['PREPARING', 'READY_FOR_PICKUP', 'ASSIGNED_TO_DRIVER'].includes(order.status) ? (
+            <div className="mt-4"><PickupTicketButton orderId={order.id} number={order.number} /></div>
+          ) : null}
           <div className="mt-5 border-t border-[#EEEEEC] pt-4">
             <h3 className="font-semibold text-[#161616]">{t('itemsTitle')}</h3>
             <ul className="mt-3 space-y-2 text-sm">

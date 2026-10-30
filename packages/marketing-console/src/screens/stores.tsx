@@ -155,6 +155,8 @@ export function StoreForm({ leadId, onClose }: { leadId?: string; onClose: () =>
           <div className="mt-4 rounded-xl bg-muted p-3 text-sm">
             <p>{t('quotePrice')}: <strong>{formatMoney(q.gross, lang)}</strong></p>
             {q.promo ? <p className={q.promo.valid ? 'text-[#168a52]' : 'text-[#d9342b]'}>{q.promo.valid ? `${t('quoteDiscount')}: −${formatMoney(q.discount, lang)}` : q.promo.reason}</p> : null}
+            {Number(q.serviceFee) > 0 ? <p>{pick(q.serviceFeeLabel, lang)}: <strong>{formatMoney(q.serviceFee, lang)}</strong></p> : null}
+            {Number(q.tax) > 0 ? <p>{pick(q.taxLabel, lang)}: <strong>{formatMoney(q.tax, lang)}</strong></p> : null}
             <p>{t('quotePayable')}: <strong>{formatMoney(q.payable, lang)}</strong></p>
           </div>
         ) : null}

@@ -10,9 +10,8 @@ export const areas = [
 
 export type FulfillmentMode = 'DELIVERY' | 'TAKEAWAY' | 'DINE_IN';
 
+/** Search text and preferred order type. The customer location lives in `lib/location`; `areas` are only quick picks. */
 type PlaceState = {
-  area: string;
-  setArea: (area: string) => void;
   query: string;
   setQuery: (query: string) => void;
   fulfillment: FulfillmentMode;
@@ -22,13 +21,11 @@ type PlaceState = {
 export const usePlace = create<PlaceState>()(
   persist(
     (set) => ({
-      area: 'manama',
-      setArea: (area) => set({ area }),
       query: '',
       setQuery: (query) => set({ query }),
       fulfillment: 'DELIVERY',
       setFulfillment: (fulfillment) => set({ fulfillment }),
     }),
-    { name: 'alliva-place', partialize: (state) => ({ area: state.area }) },
+    { name: 'alliva-place', partialize: (state) => ({ fulfillment: state.fulfillment }) },
   ),
 );

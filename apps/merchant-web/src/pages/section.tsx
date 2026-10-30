@@ -1,35 +1,59 @@
+import { BillingHome } from '@/components/billing';
 import { BusinessPage } from '@/components/business';
+import { DispatchPage } from '@/components/dispatch';
+import { FrontBoard } from '@/components/front-board';
 import { OrdersPage, type MerchantOrder } from '@/components/orders';
-import { Overview } from '@/components/overview';
+import { Overview, OverviewSkeleton } from '@/components/overview';
+import { useWorkspaceBranch } from '@/components/shell';
 import { ProductsPage } from '@/components/products';
+import { PromosPage } from '@/components/promos';
+import { PaymentsPage, type MerchantPayment } from '@/components/payments';
+import { ReportsPage } from '@/components/reports';
+import { SettingsPage } from '@/components/settings';
 import { ReferralWalletPage } from '@/components/referral';
 import { SubscriptionPage } from '@/components/subscription';
 import { StaffPage, type StaffRow } from '@/components/staff';
 import { TablesPage } from '@/components/tables';
 import { api } from '@/components/providers';
-import { Card, DashboardSkeleton, EmptyState, ErrorState, ListSkeleton, PageHeader, Skeleton } from '@alliva/ui';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
-import { useParams } from 'react-router';
-import { io } from 'socket.io-client';
+import { localizeHref } from '@/i18n/routing';
+import { canOpen, hasPermission, landingFor, portalRole } from '@/lib/roles';
+import { Card, EmptyState, ErrorState, ListSkeleton, PageHeader, Skeleton } from '@alliva/ui';
+import { useQuery } from '@tanstack/react-query';
+import { Navigate, useParams } from 'react-router';
+import { useLocale, useTranslations } from 'use-intl';
+
+/** Sections that render their own data instead of the generic loader below. */
+const SELF_LOADING = new Set(['products', 'promos', 'subscription', 'referral', 'settings', 'dispatch', 'reports']);
 
 export default function SectionPage() {
   const section = useParams()['*']?.split('/').filter(Boolean);
   const key = section?.[0] ?? 'dashboard';
-  const client = useQueryClient();
-  const data = useQuery({ queryKey: ['merchant', key], queryFn: () => load(key), enabled: key !== 'products' && key !== 'subscription' && key !== 'referral' });
-  useEffect(() => {
-    if (key !== 'orders') return;
-    let socket: ReturnType<typeof io> | undefined;
-    void api.socketToken().then(({ token }) => {
-      socket = io(import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:4000', { auth: { token } });
-      socket.on('order.updated', () => void client.invalidateQueries({ queryKey: ['merchant', 'orders'] }));
-    }).catch(() => undefined);
-    return () => {
-      socket?.close();
-    };
-  }, [client, key]);
+  const branch = useWorkspaceBranch();
+  const locale = useLocale();
+  const t = useTranslations('workspace');
+  const me = useQuery({ queryKey: ['me'], queryFn: () => api.me(), retry: false });
+  const role = me.data ? portalRole(me.data) : null;
+  // Owners and managers get the store overview; every other role has its own home.
+  const overview = role === 'MERCHANT_OWNER' || role === 'MERCHANT_MANAGER';
+  const allowed = Boolean(me.data && canOpen(me.data, key));
+  const data = useQuery({
+    queryKey: key === 'dashboard' ? ['merchant', 'dashboard', branch.branchId] : ['merchant', key],
+    queryFn: () => load(key, branch.branchId),
+    enabled: allowed && !SELF_LOADING.has(key) && (key !== 'dashboard' || overview),
+  });
+  if (!me.data) return <SectionSkeleton section={key} />;
+  if (key === 'dashboard' && !overview) {
+    if (role === 'ORDER_TAKING_STAFF') return <FrontBoard user={me.data} />;
+    if (role === 'BILLING_STAFF') return <BillingHome />;
+    if (role === 'REPORT_VIEWER') return <ReportsPage />;
+    return <Navigate replace to={localizeHref(landingFor(me.data), locale)} />;
+  }
+  if (!allowed) return <EmptyState title={t('noAccessTitle')} body={t('noAccessBody')} />;
+  if (key === 'reports') return <ReportsPage />;
   if (key === 'products') return <ProductsPage />;
+  if (key === 'dispatch') return <DispatchPage />;
+  if (key === 'promos') return <PromosPage />;
+  if (key === 'settings') return <SettingsPage />;
   if (key === 'subscription') return <SubscriptionPage />;
   if (key === 'referral') return <ReferralWalletPage />;
   if (data.isLoading) return <SectionSkeleton section={key} />;
@@ -41,13 +65,17 @@ export default function SectionPage() {
     return <BusinessPage profile={data.data as never} />;
   }
   if (key === 'tables' && data.data) {
-    return <TablesPage tables={data.data as never} />;
+    return <TablesPage tables={data.data as never} canManage={hasPermission(me.data, 'table.manage')} />;
   }
   if (key === 'staff' && data.data) {
     return <StaffPage rows={data.data as StaffRow[]} />;
   }
   if (key === 'orders') {
     return <OrdersPage orders={(data.data ?? []) as MerchantOrder[]} />;
+  }
+  if (key === 'payments') {
+    const result = data.data as { payments?: MerchantPayment[] } | undefined;
+    return <PaymentsPage payments={result?.payments ?? []} />;
   }
   return (
     <div>
@@ -58,7 +86,7 @@ export default function SectionPage() {
 }
 
 function SectionSkeleton({ section }: { section: string }) {
-  if (section === 'dashboard') return <DashboardSkeleton chart={false} />;
+  if (section === 'dashboard') return <OverviewSkeleton />;
   if (section === 'business') return <BusinessSkeleton />;
   if (section === 'tables') return <TablesSkeleton />;
   if (section === 'staff') return <StaffSkeleton />;
@@ -162,8 +190,8 @@ function BusinessSkeleton() {
   );
 }
 
-async function load(key: string) {
-  if (key === 'dashboard') return api.merchantDashboard();
+async function load(key: string, branchId?: string) {
+  if (key === 'dashboard') return api.merchantDashboard(branchId || undefined);
   if (key === 'orders') return api.orders();
   if (key === 'products') return api.products();
   if (key === 'staff') return api.staff();

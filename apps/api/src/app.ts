@@ -13,6 +13,9 @@ import { authRoutes } from './routes/auth';
 import { marketingRoutes } from './routes/marketing';
 import { portalRoutes } from './routes/portal';
 import { storefrontRoutes } from './routes/storefront';
+import { locationRoutes } from './routes/location';
+import { riderRoutes } from './routes/rider';
+import { storeRoutes } from './routes/store';
 
 const keepRawBody = (request: Request & { rawBody?: Buffer }, _response: unknown, buffer: Buffer) => {
   request.rawBody = buffer;
@@ -28,7 +31,7 @@ export function createApp() {
   app.use(express.urlencoded({ extended: true, verify: keepRawBody }));
   app.use('/uploads', express.static(join(process.cwd(), process.env.UPLOAD_DIR ?? 'uploads')));
 
-  const groups = [authRoutes(container), storefrontRoutes(container), portalRoutes(container), marketingRoutes(container)];
+  const groups = [authRoutes(container), locationRoutes(container), storefrontRoutes(container), portalRoutes(container), riderRoutes(container), storeRoutes(container), marketingRoutes(container)];
   for (const group of groups) app.use('/api', group.router);
 
   const document = buildOpenApi(groups.flatMap((group) => group.routes));

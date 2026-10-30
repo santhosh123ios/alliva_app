@@ -1,11 +1,30 @@
 import type {
   AdminDashboard,
+  KitchenBoard,
+  StoreReport,
+  StoreTakings,
   AuthUser,
   CartView,
+  CheckoutSummary,
+  CustomerAddress,
+  DeliveryQuoteView,
   LoginResult,
+  MerchantCard,
+  NearestAddressView,
+  ReverseGeocodeView,
   MerchantDashboard,
   MerchantStorefront,
   OrderView,
+  PickupHandoff,
+  RiderCollections,
+  RiderOrder,
+  RiderOrders,
+  RiderProfile,
+  CashDepositView,
+  StoreCashDeposits,
+  DispatchBoard,
+  DispatchPlanResult,
+  DeliveryIssueType,
   Page,
   ProductDetail,
   ReportOverview,
@@ -27,9 +46,29 @@ export class ApiError extends Error {
 
 type Json = Record<string, unknown> | unknown[] | string | number | boolean | null;
 
+export type MerchantPromo = {
+  id: string;
+  code: string;
+  description: { en: string; ar: string };
+  discountType: 'FIXED' | 'PERCENTAGE';
+  discountValue: string;
+  minimumOrder: string | null;
+  usageLimit: number | null;
+  perCustomerLimit: number | null;
+  usedCount: number;
+  startsAt: string;
+  endsAt: string;
+  firstOrderOnly: boolean;
+  active: boolean;
+};
+
 export type SubscriptionQuote = {
   gross: string;
   discount: string;
+  serviceFee: string;
+  serviceFeeLabel: { en: string; ar: string };
+  tax: string;
+  taxLabel: { en: string; ar: string };
   payable: string;
   promo: { valid: true; code: string } | { valid: false; reason: string } | null;
   referral: { valid: true; code: string; staffName: string } | { valid: false; reason: string } | null;
@@ -73,15 +112,31 @@ function queryString(query?: Record<string, unknown>) {
   return text ? `?${text}` : '';
 }
 
-export function createApiClient(baseUrl = '') {
+export type AuthPortal = 'admin' | 'merchant' | 'customer' | 'marketing';
+
+export function createApiClient(baseUrl = '', portal?: AuthPortal) {
+  const csrfCookie = portal ? `alliva_csrf_${portal}` : 'alliva_csrf';
+
+  function authHeaders(init?: HeadersInit) {
+    const headers = new Headers(init);
+    if (portal) headers.set('x-alliva-portal', portal);
+    return headers;
+  }
+
+  function csrfToken() {
+    if (typeof document === 'undefined') return;
+    const match = document.cookie.match(new RegExp(`(?:^|; )${csrfCookie}=([^;]+)`));
+    return match?.[1] ? decodeURIComponent(match[1]) : undefined;
+  }
+
   async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
-    const headers = new Headers(init.headers);
+    const headers = authHeaders(init.headers);
     if (init.body && !(init.body instanceof FormData) && !headers.has('content-type')) {
       headers.set('content-type', 'application/json');
     }
-    if (typeof document !== 'undefined' && init.method && init.method !== 'GET') {
-      const match = document.cookie.match(/(?:^|; )alliva_csrf=([^;]+)/);
-      if (match?.[1]) headers.set('x-csrf-token', decodeURIComponent(match[1]));
+    if (init.method && init.method !== 'GET') {
+      const token = csrfToken();
+      if (token) headers.set('x-csrf-token', token);
     }
     const response = await fetch(`${baseUrl}${path}`, { ...init, headers, credentials: 'include' });
     if (
@@ -91,7 +146,7 @@ export function createApiClient(baseUrl = '') {
       !path.includes('/auth/refresh') &&
       !path.includes('/auth/firebase')
     ) {
-      const refreshed = await fetch(`${baseUrl}/api/auth/refresh`, { method: 'POST', credentials: 'include' });
+      const refreshed = await fetch(`${baseUrl}/api/auth/refresh`, { method: 'POST', credentials: 'include', headers: authHeaders() });
       if (refreshed.ok) return request(path, init, false);
     }
     if (response.status === 204) return undefined as T;
@@ -105,6 +160,26 @@ export function createApiClient(baseUrl = '') {
 
   const send = <T>(path: string, method: string, body?: Json) =>
     request<T>(path, { method, body: body === undefined ? undefined : JSON.stringify(body) });
+
+  /** A file download (CSV, PDF) as a Blob, with the same sign-in refresh as `request`. */
+  async function file(path: string, retry = true): Promise<Blob> {
+    const response = await fetch(`${baseUrl}${path}`, { headers: authHeaders(), credentials: 'include' });
+    if (response.status === 401 && retry) {
+      const refreshed = await fetch(`${baseUrl}/api/auth/refresh`, { method: 'POST', credentials: 'include', headers: authHeaders() });
+      if (refreshed.ok) return file(path, false);
+    }
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      throw new ApiError(response.status, data?.message ?? 'Download failed', data);
+    }
+    return response.blob();
+  }
+
+  const query = (params: Record<string, string | undefined>) => {
+    const search = new URLSearchParams(Object.entries(params).filter((entry): entry is [string, string] => Boolean(entry[1])));
+    const text = search.toString();
+    return text ? `?${text}` : '';
+  };
 
   return {
     request,
@@ -150,12 +225,14 @@ export function createApiClient(baseUrl = '') {
     reorder: (id: string) => send<CartView>(`/api/orders/${id}/reorder`, 'POST'),
     transition: (id: string, body: Json) => send<OrderView>(`/api/orders/${id}/transition`, 'POST', body),
     adminDashboard: () => request<AdminDashboard>('/api/admin/dashboard'),
-    merchantDashboard: () => request<MerchantDashboard>('/api/merchant/dashboard'),
+    merchantDashboard: (branchId?: string) => request<MerchantDashboard>(`/api/merchant/dashboard${branchId ? `?branchId=${encodeURIComponent(branchId)}` : ''}`),
     merchantWallet: () => request<PortalWallet>('/api/merchant/wallet'),
     requestMerchantWithdrawal: (amount: string) => send<{ id: string; amount: string; status: string }>('/api/merchant/wallet/withdrawals', 'POST', { amount }),
     merchants: () => request<Json[]>('/api/admin/merchants'),
     publicPlans: () => request<SubscriptionPlanView[]>('/api/public/plans'),
     publicPaymentMethods: () => request<StorePaymentMethod[]>('/api/public/payment-methods'),
+    merchantEmailAvailability: (email: string) =>
+      send<{ available: boolean }>('/api/public/merchant-email-availability', 'POST', { email }),
     registerMerchant: (body: Json) => send('/api/public/merchant-registration', 'POST', body),
     createMerchant: (body: Json) => send('/api/admin/merchants', 'POST', body),
     approveMerchant: (id: string, options?: { confirmPayment?: boolean }) => send(`/api/admin/merchants/${id}/approve`, 'POST', { confirmPayment: options?.confirmPayment === true }),
@@ -169,6 +246,33 @@ export function createApiClient(baseUrl = '') {
     reorderPlans: (ids: string[]) => send('/api/admin/plans/reorder', 'POST', { ids }),
     assignPlan: (merchantId: string, body: Json) => send(`/api/admin/merchants/${merchantId}/subscription`, 'POST', body),
     subscriptionHistory: (merchantId: string) => request<Json[]>(`/api/admin/merchants/${merchantId}/subscription/history`),
+    rider: {
+      me: () => request<RiderProfile>('/api/rider/me'),
+      setShift: (body: { onShift: boolean; latitude?: number; longitude?: number }) => send<RiderProfile>('/api/rider/shift', 'POST', body),
+      ping: (body: { latitude: number; longitude: number }) => send<{ ok: true }>('/api/rider/location', 'POST', body),
+      orders: (from?: { latitude: number; longitude: number } | null) =>
+        request<RiderOrders>(`/api/rider/orders${queryString(from ? { lat: from.latitude, lng: from.longitude } : undefined)}`),
+      order: (id: string) => request<RiderOrder>(`/api/rider/orders/${id}`),
+      verifyPickup: (body: { qr?: string; code?: string; orderId?: string }) => send<RiderOrder>('/api/rider/pickup', 'POST', body),
+      setStatus: (id: string, body: { status: 'OUT_FOR_DELIVERY' | 'DELIVERED'; collectedAmount?: string; note?: string }) =>
+        send<{ order: RiderOrder }>(`/api/rider/orders/${id}/status`, 'POST', body),
+      correctDropoff: (id: string, body: { latitude: number; longitude: number; note?: string }) => send<RiderOrder>(`/api/rider/orders/${id}/dropoff`, 'POST', body),
+      reportIssue: (id: string, body: { type: DeliveryIssueType; note?: string }) => send<RiderOrder>(`/api/rider/orders/${id}/issues`, 'POST', body),
+      collections: () => request<RiderCollections>('/api/rider/collections'),
+      deposit: (body: { collectionIds?: string[]; note?: string }) => send<CashDepositView>('/api/rider/deposits', 'POST', body),
+    },
+    dispatchBoard: (branchId?: string) => request<DispatchBoard>(`/api/merchant/dispatch/board${queryString({ branchId })}`),
+    dispatchPlan: (body: { branchId?: string; riderIds: string[]; orderIds?: string[]; maxPerRider: number }) => send<DispatchPlanResult>('/api/merchant/dispatch/plan', 'POST', body),
+    dispatchAssign: (body: { routes: { riderId: string; orderIds: string[] }[] }) => send<{ assigned: number }>('/api/merchant/dispatch/assign', 'POST', body),
+    orderHandoff: (id: string) => request<PickupHandoff>(`/api/merchant/orders/${id}/handoff`),
+    cashDeposits: () => request<StoreCashDeposits>('/api/merchant/cash-deposits'),
+    kitchen: (branchId?: string) => request<KitchenBoard>(`/api/merchant/kitchen${query({ branchId })}`),
+    takings: (params: { date?: string; branchId?: string } = {}) => request<StoreTakings>(`/api/merchant/takings${query(params)}`),
+    storeReport: (params: { from?: string; to?: string; branchId?: string } = {}) => request<StoreReport>(`/api/merchant/reports${query(params)}`),
+    storeReportFile: (kind: 'csv' | 'pdf', params: { from?: string; to?: string; branchId?: string } = {}) => file(`/api/merchant/reports/export.${kind}${query(params)}`),
+    setTableStatus: (id: string, status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'INACTIVE') => send(`/api/merchant/tables/${id}/status`, 'POST', { status }),
+    decideCashDeposit: (id: string, body: { decision: 'CONFIRMED' | 'REJECTED'; note?: string }) =>
+      send<StoreCashDeposits>(`/api/merchant/cash-deposits/${id}/decision`, 'POST', body),
     staff: () => request<Json[]>('/api/staff'),
     createStaff: (body: Json) => send('/api/staff', 'POST', body),
     suspendStaff: (id: string) => send(`/api/staff/${id}/suspend`, 'POST'),
@@ -181,8 +285,21 @@ export function createApiClient(baseUrl = '') {
     settlements: () => request<Json[]>('/api/finance/settlements'),
     decideSettlement: (id: string, decision: 'APPROVED' | 'REJECTED') =>
       send(`/api/finance/settlements/${id}/decision`, 'POST', { decision }),
-    merchantPromos: () => request<Json[]>('/api/promos'),
-    createMerchantPromo: (body: Json) => send('/api/promos', 'POST', body),
+    merchantPromos: () => request<MerchantPromo[]>('/api/promos'),
+    createMerchantPromo: (body: {
+      code: string;
+      description: string;
+      descriptionAr?: string;
+      discountType: 'FIXED' | 'PERCENTAGE';
+      discountValue: string;
+      minimumOrder?: string | null;
+      usageLimit?: number | null;
+      perCustomerLimit?: number | null;
+      startsAt: string;
+      endsAt: string;
+      firstOrderOnly?: boolean;
+    }) => send<MerchantPromo>('/api/promos', 'POST', body as Json),
+    setMerchantPromoActive: (id: string, active: boolean) => send<MerchantPromo>(`/api/promos/${id}/active`, 'POST', { active }),
     quoteSubscription: (body: { planId: string; billingInterval: 'MONTHLY' | 'ANNUAL'; promoCode?: string; referralCode?: string }) =>
       send<SubscriptionQuote>('/api/public/subscription-quote', 'POST', body),
     validateReferral: (code: string) =>
@@ -197,7 +314,7 @@ export function createApiClient(baseUrl = '') {
       post: <T = Json>(path: string, body: Json = {}) => send<T>(`/api/marketing${path}`, 'POST', body),
       patch: <T = Json>(path: string, body: Json = {}) => send<T>(`/api/marketing${path}`, 'PATCH', body),
       download: async (path: string, query: Record<string, unknown> | undefined, fallbackName: string) => {
-        const response = await fetch(`${baseUrl}/api/marketing${path}${queryString(query)}`, { credentials: 'include' });
+        const response = await fetch(`${baseUrl}/api/marketing${path}${queryString(query)}`, { credentials: 'include', headers: authHeaders() });
         if (!response.ok) {
           const data = (await response.json().catch(() => null)) as { message?: string } | null;
           throw new ApiError(response.status, data?.message ?? 'Download failed', data);
@@ -223,13 +340,39 @@ export function createApiClient(baseUrl = '') {
     shifts: () => request<Json[]>('/api/operations/shifts'),
     createShift: (note: string) => send('/api/operations/shifts', 'POST', { note }),
     products: () => request<Json[]>('/api/catalog/products'),
+    productOptions: (query: string) => request<Json[]>(`/api/catalog/product-options?q=${encodeURIComponent(query)}`),
     createProduct: (body: Json) => send('/api/catalog/products', 'POST', body),
     updateProduct: (id: string, body: Json) => send(`/api/catalog/products/${id}`, 'PATCH', body),
+    importProducts: (rows: object[]) =>
+      send<{ created: number; updated: number; errors: { row: number; message: string }[] }>('/api/catalog/products/import', 'POST', { rows } as Json),
+    exportProducts: async () => {
+      const load = () => fetch(`${baseUrl}/api/catalog/products/export`, { credentials: 'include', headers: authHeaders() });
+      let response = await load();
+      if (response.status === 401) {
+        const refreshed = await fetch(`${baseUrl}/api/auth/refresh`, { method: 'POST', credentials: 'include', headers: authHeaders() });
+        if (refreshed.ok) response = await load();
+      }
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new ApiError(response.status, data?.message ?? 'Download failed', data);
+      }
+      return response.text();
+    },
     createCategory: (body: Json) => send('/api/catalog/categories', 'POST', body),
+    updateCategory: (id: string, body: Json) => send(`/api/catalog/categories/${id}`, 'PATCH', body),
+    deleteCategory: (id: string) => send(`/api/catalog/categories/${id}`, 'DELETE'),
     categories: () => request<Json[]>('/api/catalog/categories'),
+    categoryOptions: (query: string) => request<Json[]>(`/api/catalog/category-options?q=${encodeURIComponent(query)}`),
+    adminCatalogCategories: () => request<Json[]>('/api/admin/catalog/categories'),
+    updateAdminCatalogCategory: (id: string, body: Json) => send(`/api/admin/catalog/categories/${id}`, 'PATCH', body),
+    mergeAdminCatalogCategory: (id: string, body: Json) => send(`/api/admin/catalog/categories/${id}/merge`, 'POST', body),
+    adminCatalogProducts: () => request<Json[]>('/api/admin/catalog/products'),
+    updateAdminCatalogProduct: (id: string, body: Json) => send(`/api/admin/catalog/products/${id}`, 'PATCH', body),
+    mergeAdminCatalogProduct: (id: string, body: Json) => send(`/api/admin/catalog/products/${id}/merge`, 'POST', body),
     createOffer: (body: Json) => send('/api/catalog/offers', 'POST', body),
     profile: () => request<Json>('/api/merchant/profile'),
     updateProfile: (body: Json) => send('/api/merchant/profile', 'PATCH', body),
+    completeBusinessSetup: (body: Json) => send('/api/merchant/business-setup', 'POST', body),
     upload: (file: File) => {
       const body = new FormData();
       body.append('file', file);
@@ -239,11 +382,19 @@ export function createApiClient(baseUrl = '') {
     createBranch: (body: Json) => send('/api/merchant/branches', 'POST', body),
     updateBranch: (id: string, body: Json) => send(`/api/merchant/branches/${id}`, 'PATCH', body),
     closeStore: (body: Json) => send('/api/merchant/closures', 'POST', body),
+    deliverySettings: <T>() => request<T>('/api/merchant/delivery-settings'),
+    createDeliverySetting: <T>(body: Json) => send<T>('/api/merchant/delivery-settings', 'POST', body),
+    updateDeliverySetting: <T>(id: string, body: Json) => send<T>(`/api/merchant/delivery-settings/${id}`, 'PATCH', body),
+    deactivateDeliverySetting: (id: string) => send(`/api/merchant/delivery-settings/${id}`, 'DELETE'),
+    previewDeliverySetting: <T>(body: Json) => send<T>('/api/merchant/delivery-settings/preview', 'POST', body),
     tables: () => request<Json[]>('/api/merchant/tables'),
     createFloor: (body: Json) => send('/api/merchant/floors', 'POST', body),
     createTable: (body: Json) => send('/api/merchant/tables', 'POST', body),
     updateTable: (id: string, body: Json) => send(`/api/merchant/tables/${id}`, 'PATCH', body),
     subscription: () => request<Json[]>('/api/merchant/subscription'),
+    renewSubscription: (body: { planId: string; billingInterval: 'MONTHLY' | 'ANNUAL'; autoRenew: boolean; paymentMethod?: 'CARD' | 'BENEFIT' | 'BANK' }) =>
+      send<{ scheduled: boolean; renewed: boolean; autoRenew: boolean; effectiveAt?: string; currentPeriodEnd?: string }>('/api/merchant/subscription/renew', 'POST', body as Json),
+    setSubscriptionAutoRenew: (autoRenew: boolean) => send<{ autoRenew: boolean }>('/api/merchant/subscription/auto-renew', 'POST', { autoRenew }),
     invoices: () => request<{ id: string; number: string; amount: string; currency: string; status: string; kind: string; issuedAt: string }[]>('/api/merchant/invoices'),
     areas: () => request<Json[]>('/api/service-areas'),
     enterQr: (code: string) => send<Json>(`/api/qr/${code}/enter`, 'POST'),
@@ -252,7 +403,24 @@ export function createApiClient(baseUrl = '') {
     requestCustomerWithdrawal: (amount: string) => send<{ id: string; amount: string; status: string }>('/api/customers/me/wallet/withdrawals', 'POST', { amount }),
     favourite: (merchantId: string) => send(`/api/customers/me/favourites/${merchantId}`, 'POST'),
     unfavourite: (merchantId: string) => send(`/api/customers/me/favourites/${merchantId}`, 'DELETE'),
-    addAddress: (body: Json) => send('/api/customers/me/addresses', 'POST', body),
+    addAddress: (body: Json) => send<CustomerAddress>('/api/customers/me/addresses', 'POST', body),
+    addresses: () => request<CustomerAddress[]>('/api/customers/me/addresses'),
+    updateAddress: (id: string, body: Json) => send<CustomerAddress>(`/api/customers/me/addresses/${id}`, 'PATCH', body),
+    deleteAddress: (id: string) => send<{ ok: true }>(`/api/customers/me/addresses/${id}`, 'DELETE'),
+    nearestAddress: (lat: string | number, lng: string | number) =>
+      request<NearestAddressView>(`/api/customers/me/addresses/nearest${queryString({ lat, lng })}`),
+    guestLocation: () => request<{ location: { latitude: string; longitude: string; label: string | null; source: string | null; updatedAt: string | null } | null }>('/api/guests/location'),
+    setGuestLocation: (body: { latitude: string | number; longitude: string | number; label?: string | null; source?: 'GPS' | 'SEARCH' | 'PIN' | 'AREA' | null }) =>
+      send<{ saved: boolean; latitude: string; longitude: string; label: string | null }>('/api/guests/location', 'PUT', body as Json),
+    reverseGeocode: (lat: string | number, lng: string | number, locale: 'en' | 'ar' = 'en', init?: RequestInit) =>
+      request<ReverseGeocodeView>(`/api/geo/reverse${queryString({ lat, lng, locale })}`, init),
+    nearby: (lat: string | number, lng: string | number) =>
+      request<{ located: boolean; merchants: MerchantCard[]; closedMerchants: MerchantCard[] }>(`/api/storefront/nearby${queryString({ lat, lng })}`),
+    deliveryQuote: (body: { addressId?: string | null; latitude?: string | number | null; longitude?: string | number | null; merchantId?: string | null; branchId?: string | null }) =>
+      send<DeliveryQuoteView>('/api/delivery/quote', 'POST', body as Json),
+    mergeCart: () => send<CartView>('/api/cart/merge', 'POST'),
+    validateCheckout: (body: Json, init?: RequestInit) =>
+      request<CheckoutSummary>('/api/checkout/validate', { ...init, method: 'POST', body: JSON.stringify(body) }),
     sessions: () => request<Page<Json> | Json[]>('/api/auth/sessions'),
   };
 }

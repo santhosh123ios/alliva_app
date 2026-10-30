@@ -1,9 +1,12 @@
 import { api } from '@/components/providers';
+import { cartQueryOptions } from '@/lib/cart-cache';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
-import { areas, usePlace } from '@/lib/place';
+import { usePlace } from '@/lib/place';
+import { LocationPicker } from '@/components/location-picker';
+import { ensureGuest, useLocationStore } from '@/lib/location';
 import { cn } from '@alliva/ui';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ClipboardList, Heart, Home, MapPin, Search, ShoppingCart, User, X } from 'lucide-react';
+import { ChevronDown, ClipboardList, Heart, Home, Loader2, MapPin, Search, ShoppingCart, User, X } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
@@ -13,23 +16,31 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
   const locale = useLocale() as 'en' | 'ar';
   const pathname = usePathname();
   const router = useRouter();
-  const areaId = usePlace((state) => state.area);
-  const setArea = usePlace((state) => state.setArea);
   const query = usePlace((state) => state.query);
   const setQuery = usePlace((state) => state.setQuery);
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.me(), retry: false });
-  const cart = useQuery({ queryKey: ['cart'], queryFn: () => api.cart(), retry: false });
+  const cart = useQuery(cartQueryOptions());
   const count = cart.data?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
   const cartPage = pathname === '/cart';
   const accountPage = pathname === '/profile';
   const ordersPage = pathname === '/orders' || pathname.startsWith('/orders/');
   const favouritesPage = pathname === '/favourites';
   const [searchOpen, setSearchOpen] = useState(false);
+  const prompted = useLocationStore((state) => state.prompted);
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [locationIntro, setLocationIntro] = useState(false);
 
   useEffect(() => {
-    void api.guest().catch(() => undefined);
+    void ensureGuest().catch(() => undefined);
     if ('serviceWorker' in navigator) void navigator.serviceWorker.register('/sw.js');
   }, []);
+
+  // Ask once, on first open. After the customer answers we never prompt again; the header offers "Change location".
+  useEffect(() => {
+    if (prompted || pathname === '/login') return;
+    setLocationIntro(true);
+    setLocationOpen(true);
+  }, [prompted, pathname]);
 
   const onSearch = (value: string) => {
     setQuery(value);
@@ -55,7 +66,15 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
           </Link>
           <div className="flex h-14 min-w-0 flex-1 items-center gap-2 rounded-full bg-[#141416] ps-3.5 pe-3.5 text-white shadow-[0_10px_28px_rgba(17,17,17,0.14)] md:h-16 md:gap-3.5 md:ps-5 md:pe-5">
             <div className={cn('min-w-0', searchOpen && 'max-md:hidden')}>
-              <LocationControl locale={locale} areaId={areaId} onSelect={setArea} label={t('customer.deliverTo')} />
+              <LocationControl
+                label={t('customer.deliverTo')}
+                emptyLabel={t('customer.locationFlow.choose')}
+                pinnedLabel={t('customer.locationFlow.pinnedLocation')}
+                onOpen={() => {
+                  setLocationIntro(false);
+                  setLocationOpen(true);
+                }}
+              />
             </div>
             {searchOpen ? (
               <SearchField
@@ -90,6 +109,7 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className="mx-auto max-w-[1180px] px-4 py-4 md:py-6">{children}</main>
+      <LocationPicker open={locationOpen} intro={locationIntro} onOpenChange={setLocationOpen} />
       <footer className="pointer-events-none fixed inset-x-0 bottom-0 z-40">
         <div className="pointer-events-auto px-3 pb-[max(0.7rem,env(safe-area-inset-bottom))]">
           <Dock
@@ -613,57 +633,35 @@ function SearchField({
 }
 
 function LocationControl({
-  locale,
-  areaId,
-  onSelect,
   label,
+  emptyLabel,
+  pinnedLabel,
+  onOpen,
 }: {
-  locale: 'en' | 'ar';
-  areaId: string;
-  onSelect: (area: string) => void;
   label: string;
+  emptyLabel: string;
+  pinnedLabel: string;
+  onOpen: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const area = areas.find((item) => item.id === areaId) ?? areas[0]!;
-  const name = locale === 'ar' ? area.ar : area.en;
-  useEffect(() => {
-    if (!open) return;
-    const close = () => setOpen(false);
-    window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
-  }, [open]);
+  const point = useLocationStore((state) => state.point);
+  const name = useLocationStore((state) => state.label);
+  const status = useLocationStore((state) => state.status);
+  const text = point ? name || pinnedLabel : emptyLabel;
   return (
-    <div className="relative min-w-0" onClick={(event) => event.stopPropagation()}>
+    <div className="relative min-w-0">
       <button
         type="button"
-        className="relative flex min-w-0 max-w-[9.5rem] items-center gap-1.5 rounded-full bg-[#2a2a2e] px-3 pt-1.5 pb-2 text-sm font-semibold text-white ring-1 ring-inset ring-white/10 md:max-w-none md:gap-2 md:px-3.5"
-        aria-label={label}
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+        className="relative flex min-w-0 max-w-[9.5rem] items-center gap-1.5 rounded-full bg-[#2a2a2e] px-3 pt-1.5 pb-2 text-sm font-semibold text-white ring-1 ring-inset ring-white/10 md:max-w-[16rem] md:gap-2 md:px-3.5"
+        aria-label={`${label}: ${text}`}
+        aria-haspopup="dialog"
+        title={text}
+        onClick={onOpen}
       >
-        <MapPin className="size-3.5 shrink-0" strokeWidth={2.25} />
-        <span className="min-w-0 truncate">{name}</span>
+        {status === 'locating' ? <Loader2 className="size-3.5 shrink-0 animate-spin" /> : <MapPin className="size-3.5 shrink-0" strokeWidth={2.25} />}
+        <span className="min-w-0 truncate">{text}</span>
         <ChevronDown className="size-3.5 shrink-0 opacity-90" />
         <span aria-hidden className="absolute bottom-1 left-1/2 h-[3px] w-8 -translate-x-1/2 rounded-full bg-primary" />
       </button>
-      {open ? (
-        <ul className="absolute start-0 z-40 mt-3 w-56 overflow-hidden rounded-2xl border border-[#eee] bg-white py-1 text-[#111] shadow-lg">
-          {areas.map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                className={cn('flex w-full px-4 py-2.5 text-start text-sm font-medium hover:bg-[#f7f7f5]', item.id === area.id && 'bg-[#fff6d0]')}
-                onClick={() => {
-                  onSelect(item.id);
-                  setOpen(false);
-                }}
-              >
-                {locale === 'ar' ? item.ar : item.en}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
     </div>
   );
 }

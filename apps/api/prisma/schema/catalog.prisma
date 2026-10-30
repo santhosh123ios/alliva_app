@@ -1,23 +1,70 @@
+model CatalogCategory {
+  id                    String                @id @default(uuid()) @db.Uuid
+  normalizedName        String                @unique
+  aliases               String[]              @default([])
+  name                  Json
+  icon                  String?
+  status                CatalogCategoryStatus @default(PENDING)
+  submittedByMerchantId String?               @db.Uuid
+  reviewedById          String?               @db.Uuid
+  reviewNote            String?
+  mergedIntoId          String?               @db.Uuid
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  mergedInto            CatalogCategory?      @relation("CatalogCategoryMerge", fields: [mergedIntoId], references: [id])
+  mergedCategories      CatalogCategory[]     @relation("CatalogCategoryMerge")
+  merchantCategories    ProductCategory[]
+
+  @@index([status, createdAt])
+  @@index([mergedIntoId])
+}
+
+model CatalogProduct {
+  id                    String                @id @default(uuid()) @db.Uuid
+  normalizedName        String                @unique
+  aliases               String[]              @default([])
+  name                  Json
+  description           Json
+  imageUrl              String?
+  status                CatalogCategoryStatus @default(PENDING)
+  submittedByMerchantId String?               @db.Uuid
+  reviewedById          String?               @db.Uuid
+  reviewNote            String?
+  mergedIntoId          String?               @db.Uuid
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  mergedInto            CatalogProduct?       @relation("CatalogProductMerge", fields: [mergedIntoId], references: [id])
+  mergedProducts        CatalogProduct[]      @relation("CatalogProductMerge")
+  merchantProducts      Product[]
+
+  @@index([status, createdAt])
+  @@index([mergedIntoId])
+}
+
 model ProductCategory {
-  id         String   @id @default(uuid()) @db.Uuid
-  merchantId String   @db.Uuid
-  parentId   String?  @db.Uuid
-  name       Json
-  sortOrder  Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  deletedAt  DateTime?
-  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  parent     ProductCategory? @relation("CategoryTree", fields: [parentId], references: [id])
-  children   ProductCategory[] @relation("CategoryTree")
-  products   Product[]
+  id                String   @id @default(uuid()) @db.Uuid
+  merchantId        String   @db.Uuid
+  catalogCategoryId String?  @db.Uuid
+  parentId          String?  @db.Uuid
+  name              Json
+  sortOrder         Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+  merchant          Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  catalogCategory   CatalogCategory? @relation(fields: [catalogCategoryId], references: [id])
+  parent            ProductCategory? @relation("CategoryTree", fields: [parentId], references: [id])
+  children          ProductCategory[] @relation("CategoryTree")
+  products          Product[]
 
   @@index([merchantId])
+  @@index([catalogCategoryId])
 }
 
 model Product {
   id             String                @id @default(uuid()) @db.Uuid
   merchantId     String                @db.Uuid
+  catalogProductId String?              @db.Uuid
   categoryId     String                @db.Uuid
   slug           String
   name           Json
@@ -37,6 +84,7 @@ model Product {
   updatedById    String?               @db.Uuid
   deletedAt      DateTime?
   merchant       Merchant              @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  catalogProduct CatalogProduct?       @relation(fields: [catalogProductId], references: [id])
   category       ProductCategory       @relation(fields: [categoryId], references: [id])
   variants       ProductVariant[]
   images         ProductImage[]
@@ -46,6 +94,7 @@ model Product {
 
   @@unique([merchantId, slug])
   @@index([merchantId, approvalStatus])
+  @@index([catalogProductId])
 }
 
 model ProductVariant {

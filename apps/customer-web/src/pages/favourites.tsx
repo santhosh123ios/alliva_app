@@ -1,8 +1,9 @@
 import { CartButtonSpinner, flyFromButton } from '@/components/cart-motion';
 import { api } from '@/components/providers';
+import { useCartAdd } from '@/components/store-switch';
 import { categoryIcon, formatDistanceKm } from '@/components/storefront';
 import { Link } from '@/i18n/navigation';
-import { areas, usePlace } from '@/lib/place';
+import { useAreaPoint } from '@/lib/location';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { cn, Dialog, DialogContent, DialogDescription, DialogTitle, EmptyState, ErrorState, Skeleton } from '@alliva/ui';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -29,8 +30,7 @@ export default function FavouritesPage() {
   const t = useTranslations();
   const locale = useLocale() as 'en' | 'ar';
   const client = useQueryClient();
-  const areaId = usePlace((state) => state.area);
-  const area = areas.find((item) => item.id === areaId) ?? areas[0]!;
+  const area = useAreaPoint();
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.me(), retry: false });
   const customer = useQuery({
     queryKey: ['customer'],
@@ -100,17 +100,7 @@ export default function FavouritesPage() {
     },
     onError: (error: Error) => toast.error(error.message),
   });
-  const add = useMutation({
-    mutationFn: async (productId: string) => {
-      await api.guest().catch(() => undefined);
-      return api.addItem({ productId, quantity: 1 });
-    },
-    onSuccess: async () => {
-      toast.success(t('customer.added'));
-      await client.invalidateQueries({ queryKey: ['cart'] });
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
+  const cartAdd = useCartAdd();
 
   const distanceOf = (merchant: StoreCardData) => {
     const km = formatDistanceKm(merchant.latitude, merchant.longitude, area);
@@ -327,8 +317,8 @@ export default function FavouritesPage() {
                       key={item.product.id}
                       product={item.product}
                       locale={locale}
-                      pending={add.isPending && add.variables === item.product.id}
-                      onAdd={() => add.mutate(item.product.id)}
+                      pending={cartAdd.pendingId === item.product.id}
+                      onAdd={() => cartAdd.requestAdd(item.product.merchantId, item.product.merchantName, { productId: item.product.id, quantity: 1, preview: { name: item.product.name, description: item.product.description, imageUrl: item.product.imageUrl, unitPrice: item.product.price } })}
                       onUnsave={() => hideProduct(item.product.id)}
                     />
                   ))}
@@ -368,6 +358,7 @@ export default function FavouritesPage() {
           </form>
         </DialogContent>
       </Dialog>
+      {cartAdd.dialog}
     </div>
   );
 }
@@ -471,15 +462,21 @@ function FavouriteStoreCard({
   const tone = logoTones[(merchant.slug.charCodeAt(0) + merchant.slug.length) % logoTones.length]!;
   const rating = Number(merchant.rating);
   const name = pickLocalized(merchant.name, locale);
+  const unavailable = merchant.temporarilyUnavailable;
+  const cover = <img src={merchant.coverUrl || '/no-image-16x9.jpg'} alt="" className="size-full object-cover" />;
   return (
     <article className="lift h-full overflow-hidden rounded-2xl border border-[#ecece6] bg-white shadow-[0_8px_24px_rgba(17,17,17,0.04)]">
       <div className="relative aspect-[16/10]">
-        <Link href={`/merchants/${merchant.slug}`} aria-label={name} className="absolute inset-0">
-          <img src={merchant.coverUrl || '/no-image-16x9.jpg'} alt="" className="size-full object-cover" />
-        </Link>
+        {unavailable ? (
+          <div className="absolute inset-0" aria-hidden>{cover}</div>
+        ) : (
+          <Link href={`/merchants/${merchant.slug}`} aria-label={name} className="absolute inset-0">
+            {cover}
+          </Link>
+        )}
         <span className="pointer-events-none absolute start-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-semibold shadow-sm">
-          <span className={cn('size-2 rounded-full', merchant.isOpen ? 'bg-[#1f8a4c]' : 'bg-[#e11d48]')} />
-          {merchant.isOpen ? t('customer.open') : t('customer.closed')}
+          <span className={cn('size-2 rounded-full', unavailable ? 'bg-[#8a6d00]' : merchant.isOpen ? 'bg-[#1f8a4c]' : 'bg-[#e11d48]')} />
+          {unavailable ? t('customer.temporarilyUnavailable') : merchant.isOpen ? t('customer.open') : t('customer.closed')}
         </span>
         <button
           type="button"
@@ -497,13 +494,19 @@ function FavouriteStoreCard({
             {merchant.logoUrl ? <img src={merchant.logoUrl} alt="" className="size-full object-cover" /> : <Icon className="size-5" />}
           </div>
           <div className="min-w-0 flex-1">
-            <Link href={`/merchants/${merchant.slug}`} className="block truncate text-[15px] font-semibold">{name}</Link>
+            {unavailable ? (
+              <p className="block truncate text-[15px] font-semibold">{name}</p>
+            ) : (
+              <Link href={`/merchants/${merchant.slug}`} className="block truncate text-[15px] font-semibold">{name}</Link>
+            )}
             <div className="flex items-center justify-between gap-2">
               <p className="truncate text-sm text-[#6f6f6a]">{category}</p>
-              <Link href={`/merchants/${merchant.slug}`} className="hidden shrink-0 items-center gap-1 text-sm font-semibold lg:inline-flex">
-                {t('customer.savedPage.viewStore')}
-                <ArrowRight className="size-3.5 rtl:rotate-180" />
-              </Link>
+              {unavailable ? null : (
+                <Link href={`/merchants/${merchant.slug}`} className="hidden shrink-0 items-center gap-1 text-sm font-semibold lg:inline-flex">
+                  {t('customer.savedPage.viewStore')}
+                  <ArrowRight className="size-3.5 rtl:rotate-180" />
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -547,7 +550,7 @@ function FavouriteProductCard({
   product: MenuProduct;
   locale: 'en' | 'ar';
   pending: boolean;
-  onAdd: () => void;
+  onAdd: () => boolean | void;
   onUnsave: () => void;
 }) {
   const t = useTranslations();
@@ -592,8 +595,8 @@ function FavouriteProductCard({
             disabled={!product.available || pending}
             aria-busy={pending}
             onClick={(event) => {
+              if (onAdd() === false) return;
               flyFromButton(event.currentTarget, product.imageUrl || '/no-image-1x1.jpg');
-              onAdd();
             }}
             className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-primary px-3 text-sm font-bold text-[#111] disabled:opacity-50"
           >

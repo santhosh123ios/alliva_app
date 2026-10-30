@@ -24,10 +24,10 @@ export type FulfillmentType = 'DELIVERY' | 'TAKEAWAY' | 'DINE_IN';
 export type VisibilityMode = 'ALL_STORES' | 'EXCLUDE_SAME_BUSINESS_TYPE' | 'CURRENT_STORE_ONLY' | 'MARKETPLACE' | 'EXCLUSIVE_STOREFRONT';
 
 /** Methods a store can accept today. */
-export type PaymentMethod = 'BANK_TRANSFER' | 'BENEFIT_PAY' | 'TAP_PAY' | 'PAYPAL';
+export type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'BENEFIT_PAY' | 'TAP_PAY' | 'PAYPAL';
 
 /** Methods an existing order may carry, including ones retired from the catalog. */
-export type OrderPaymentMethod = PaymentMethod | 'CARD' | 'BENEFIT' | 'CASH';
+export type OrderPaymentMethod = PaymentMethod | 'CARD' | 'BENEFIT';
 
 export type StorePaymentMethod = {
   code: PaymentMethod;
@@ -132,6 +132,14 @@ export type AuditItem = {
   actorName: string | null;
 };
 
+export type MerchantChannelSales = {
+  fulfillment: FulfillmentType;
+  amount: MoneyString;
+  change: string | null;
+};
+
+export type MerchantSalesPoint = { at: string; amount: MoneyString };
+
 export type MerchantDashboard = {
   ordersToday: number;
   pendingOrders: number;
@@ -139,11 +147,50 @@ export type MerchantDashboard = {
   revenueToday: MoneyString;
   cashCollections: MoneyString;
   settlementBalance: MoneyString;
-  topProducts: { id: string; name: LocalizedText; quantity: number }[];
+  topProducts: { id: string; name: LocalizedText; quantity: number; orders: number; revenue: MoneyString; imageUrl: string | null }[];
   lowStock: { id: string; name: LocalizedText; quantity: number }[];
   subscriptionUsage: EntitlementUsage[];
   feedbackAverage: string;
   feedbackCount: number;
+  merchantName: LocalizedText;
+  slug: string;
+  acceptingOrders: boolean;
+  preparationTargetMinutes: number;
+  branches: { id: string; name: LocalizedText; city: string }[];
+  ordersChange: string | null;
+  salesChange: string | null;
+  netSales: MoneyString;
+  activeOrders: number;
+  attentionOrders: number;
+  averagePreparationMinutes: number | null;
+  liveOrders: {
+    id: string;
+    number: string;
+    customerName: string;
+    tableNumber: string | null;
+    fulfillmentType: FulfillmentType;
+    amount: MoneyString;
+    status: OrderStatus;
+    createdAt: string;
+    preparationMinutes: number | null;
+  }[];
+  drivers: { id: string; name: string }[];
+  sales: { today: MerchantSalesPoint[]; week: MerchantSalesPoint[]; month: MerchantSalesPoint[] };
+  channels: { today: MerchantChannelSales[]; week: MerchantChannelSales[]; month: MerchantChannelSales[] };
+  delivery: {
+    onTimeRate: string | null;
+    onTimeChange: string | null;
+    averageDistanceKm: string | null;
+    distanceChange: string | null;
+    driversOnline: number;
+    driversAssigned: number;
+  };
+  plan: {
+    name: LocalizedText | null;
+    products: { used: number; limit: number | null };
+    orders: { used: number; limit: number | null };
+    staff: { used: number; limit: number | null };
+  };
 };
 
 export type EntitlementUsage = {
@@ -163,6 +210,10 @@ export type StorefrontHome = {
   recommended: ProductCard[];
   recentlyViewed: ProductCard[];
   freeDelivery: MerchantCard[];
+  /** True when the list was filtered and sorted for a customer location. */
+  located?: boolean;
+  openMerchants?: MerchantCard[];
+  closedMerchants?: MerchantCard[];
 };
 
 export type MerchantCard = {
@@ -178,6 +229,7 @@ export type MerchantCard = {
   deliveryFee: MoneyString;
   minimumOrder: MoneyString;
   isOpen: boolean;
+  temporarilyUnavailable: boolean;
   visibility: VisibilityMode;
   fulfillment: FulfillmentType[];
   categories: LocalizedText[];
@@ -186,6 +238,120 @@ export type MerchantCard = {
   freeDelivery: boolean;
   latitude: number | null;
   longitude: number | null;
+  /** Branch that serves the customer's location, when one was given. */
+  branchId?: string | null;
+  distanceKm?: string | null;
+  deliveryAvailable?: boolean;
+  deliveryUnavailableReason?: DeliveryUnavailableReason | null;
+  freeDeliveryAbove?: MoneyString | null;
+};
+
+export type DeliveryUnavailableReason = 'DELIVERY_DISABLED' | 'OUT_OF_RANGE' | 'CONFIG_MISSING' | 'INVALID_COORDINATES' | 'BRANCH_INACTIVE';
+
+export type DeliveryQuoteView = {
+  branchId: string | null;
+  branchName: string | null;
+  available: boolean;
+  reason: DeliveryUnavailableReason | null;
+  distance: string | null;
+  distanceUnit: 'km';
+  estimatedMinutes: number;
+  freeDelivery: boolean;
+  freeReason: 'PROMOTION' | 'MINIMUM_ORDER' | 'WITHIN_FREE_RADIUS' | null;
+  freeAboveOrder: MoneyString | null;
+  deliveryCharge: MoneyString;
+  tax: MoneyString;
+  total: MoneyString;
+  currency: 'BHD';
+  summary: {
+    method: 'ROAD' | 'HAVERSINE';
+    freeRadiusKm: string;
+    maxRadiusKm: string;
+    chargeableKm: string;
+    billingStepKm: string;
+    billingUnits: number;
+    ratePerStep: MoneyString;
+    baseCharge: MoneyString;
+    minCharge: MoneyString | null;
+    maxCharge: MoneyString | null;
+    standardCharge: MoneyString;
+    taxRate: string;
+    source: 'ZONE' | 'BRANCH' | 'MERCHANT' | 'LEGACY_MERCHANT' | 'PLATFORM_DEFAULT';
+    version: number;
+    configUpdatedAt: string | null;
+  } | null;
+};
+
+export type CustomerAddress = {
+  id: string;
+  label: string;
+  line1: string;
+  line2: string | null;
+  city: string;
+  latitude: string;
+  longitude: string;
+  building: string | null;
+  flat: string | null;
+  road: string | null;
+  block: string | null;
+  area: string | null;
+  landmark: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  instructions: string | null;
+  isDefault: boolean;
+};
+
+export type ReverseGeocodeView = {
+  latitude: string;
+  longitude: string;
+  insideServiceCountry: boolean;
+  resolved: boolean;
+  label: string | null;
+  road: string | null;
+  block: string | null;
+  area: string | null;
+  city: string | null;
+};
+
+export type NearestAddressView = {
+  maxDistanceKm: string;
+  address: CustomerAddress | null;
+  distanceKm: string | null;
+  closestDistanceKm: string | null;
+  savedCount: number;
+};
+
+export type CheckoutProblemCode =
+  | 'AUTH_REQUIRED'
+  | 'CART_EMPTY'
+  | 'CART_CHANGED'
+  | 'STORE_UNAVAILABLE'
+  | 'MERCHANT_CLOSED'
+  | 'PRODUCT_UNAVAILABLE'
+  | 'ADDRESS_REQUIRED'
+  | 'ADDRESS_INVALID'
+  | 'ADDRESS_OUT_OF_RANGE'
+  | 'DELIVERY_DISABLED'
+  | 'DELIVERY_CONFIG_MISSING'
+  | 'DELIVERY_QUOTE_FAILED'
+  | 'FULFILLMENT_UNAVAILABLE'
+  | 'PAYMENT_METHOD_UNAVAILABLE'
+  | 'PROMO_INVALID'
+  | 'TOTAL_CHANGED';
+
+export type CheckoutSummary = {
+  cartVersion: string;
+  merchant: MerchantCard | null;
+  branch: { id: string; name: LocalizedText; address: string; latitude: string; longitude: string } | null;
+  fulfillmentType: FulfillmentType;
+  address: CustomerAddress | null;
+  delivery: DeliveryQuoteView | null;
+  items: Pick<CartLine, 'id' | 'productId' | 'name' | 'variantName' | 'quantity' | 'unitPrice' | 'lineTotal' | 'addons' | 'notes' | 'imageUrl'>[];
+  pricing: PriceBreakdown | null;
+  paymentMethods: StorePaymentMethod[];
+  problems: { code: CheckoutProblemCode; message: string }[];
+  canPlace: boolean;
 };
 
 export type OfferCard = {
@@ -216,6 +382,7 @@ export type ProductCard = {
   reviewCount: number;
   available: boolean;
   customizable: boolean;
+  temporarilyUnavailable?: boolean;
 };
 
 export type ProductDetail = ProductCard & {
@@ -269,7 +436,11 @@ export type PriceBreakdown = {
   discount: MoneyString;
   deliveryFee: MoneyString;
   deliveryFeeSaved: MoneyString;
+  serviceFee: MoneyString;
+  serviceFeeLabel?: LocalizedText;
+  deliveryTax?: MoneyString;
   tax: MoneyString;
+  taxLabel?: LocalizedText;
   total: MoneyString;
   currency: 'BHD';
   promoCode: string | null;
@@ -286,6 +457,10 @@ export type CartView = {
   addressId: string | null;
   tableId: string | null;
   paymentMethods: StorePaymentMethod[];
+  /** Delivery quote for the cart's location; null before a location is known or when not delivering. */
+  delivery?: DeliveryQuoteView | null;
+  /** Changes when lines change; checkout sends it back to detect edits from another tab. */
+  version?: string;
 };
 
 export type OrderView = {
@@ -392,4 +567,232 @@ export type ReportOverview = {
   cancellations: number;
   refunds: MoneyString;
   topProducts: { name: LocalizedText; quantity: number; revenue: MoneyString }[];
+};
+
+export type RiderProfile = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  phone: string | null;
+  vehicle: string | null;
+  onShift: boolean;
+  shiftStartedAt: string | null;
+  store: { name: LocalizedText; logoUrl: string | null; phone: string | null } | null;
+  deliveredToday: number;
+  activeOrders: number;
+};
+
+export type DeliveryIssueType = 'CUSTOMER_UNREACHABLE' | 'WRONG_ADDRESS' | 'ITEM_MISSING' | 'DAMAGED' | 'PAYMENT_REFUSED' | 'OTHER';
+
+export type RiderOrder = {
+  id: string;
+  number: string;
+  status: OrderStatus;
+  stop: number | null;
+  sequence: number;
+  createdAt: string;
+  scheduledFor: string | null;
+  assignedAt: string | null;
+  pickupVerifiedAt: string | null;
+  pickupMethod: 'QR' | 'CODE' | null;
+  notes: string | null;
+  customer: { name: string; phone: string | null };
+  address: {
+    label: string | null;
+    line1: string | null;
+    line2: string | null;
+    city: string | null;
+    building: string | null;
+    flat: string | null;
+    road: string | null;
+    block: string | null;
+    area: string | null;
+    landmark: string | null;
+    instructions: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    pinCorrectedAt: string | null;
+  };
+  store: { name: LocalizedText; branch: LocalizedText; line1: string; city: string; phone: string | null; latitude: number; longitude: number };
+  distanceKm: number | null;
+  fromHereKm: number | null;
+  items: { name: LocalizedText; quantity: number; lineTotal: MoneyString; notes: string | null; addons: { name: LocalizedText; quantity: number }[] }[];
+  total: MoneyString;
+  deliveryFee: MoneyString;
+  paymentMethod: string | null;
+  paid: boolean;
+  cashDue: MoneyString | null;
+  cashCollected: MoneyString | null;
+  issues: { id: string; type: DeliveryIssueType; note: string | null; status: string; createdAt: string }[];
+  events: { status: OrderStatus; note: string | null; createdAt: string }[];
+};
+
+export type RiderOrders = {
+  origin: { latitude: number; longitude: number } | null;
+  active: RiderOrder[];
+  delivered: RiderOrder[];
+};
+
+export type CashDepositStatus = 'SUBMITTED' | 'CONFIRMED' | 'REJECTED';
+
+export type CashDepositView = {
+  id: string;
+  amount: MoneyString;
+  status: CashDepositStatus;
+  note: string | null;
+  reviewNote: string | null;
+  orders: number;
+  createdAt: string;
+  reviewedAt: string | null;
+};
+
+export type RiderCollections = {
+  cashInHand: MoneyString;
+  pendingDeposit: MoneyString;
+  collectedToday: MoneyString;
+  deliveredToday: number;
+  inHand: { id: string; orderId: string; orderNumber: string; amount: MoneyString; collectedAt: string | null }[];
+  transactions: {
+    orderId: string;
+    orderNumber: string;
+    total: MoneyString;
+    method: string | null;
+    collected: MoneyString | null;
+    cashStatus: 'PENDING' | 'COLLECTED' | 'CONFIRMED' | 'DISPUTED' | 'DEPOSIT_PENDING' | null;
+    deliveredAt: string;
+  }[];
+  deposits: CashDepositView[];
+};
+
+export type StoreCashDeposits = {
+  deposits: (Omit<CashDepositView, 'orders'> & {
+    rider: { id: string; name: string; phone: string | null };
+    orders: { number: string; amount: MoneyString }[];
+  })[];
+  inHand: { riderId: string; name: string; amount: MoneyString }[];
+};
+
+export type PickupHandoff = { orderId: string; number: string; code: string; qr: string };
+
+export type DispatchReason =
+  | { code: 'WAITING'; minutes: number }
+  | { code: 'LATE'; minutes: number }
+  | { code: 'HOT' }
+  | { code: 'DUE_SOON'; minutes: number }
+  | { code: 'SCHEDULED_LATER'; minutes: number }
+  | { code: 'FAR'; km: number }
+  | { code: 'NO_PIN' };
+
+export type DispatchOrder = {
+  id: string;
+  number: string;
+  status: OrderStatus;
+  ready: boolean;
+  customerName: string;
+  address: { line1: string | null; area: string | null };
+  latitude: number | null;
+  longitude: number | null;
+  distanceKm: number | null;
+  items: number;
+  total: MoneyString;
+  cash: boolean;
+  hot: boolean;
+  createdAt: string;
+  readyAt: string | null;
+  estimatedReadyAt: string | null;
+  scheduledFor: string | null;
+  score: number;
+  reasons: DispatchReason[];
+};
+
+export type DispatchRider = {
+  id: string;
+  name: string;
+  phone: string | null;
+  vehicle: string | null;
+  onShift: boolean;
+  lastLatitude: number | null;
+  lastLongitude: number | null;
+  lastSeenAt: string | null;
+  active: { orderId: string; number: string; status: OrderStatus; sequence: number; pickedUp: boolean; assignedAt: string; latitude: number | null; longitude: number | null }[];
+};
+
+export type DispatchBoard = {
+  branch: { id: string; name: LocalizedText; line1: string; latitude: number; longitude: number };
+  branches: { id: string; name: LocalizedText }[];
+  ready: DispatchOrder[];
+  upcoming: DispatchOrder[];
+  riders: DispatchRider[];
+  generatedAt: string;
+};
+
+export type DispatchPlanResult = {
+  routes: { riderId: string; stops: { orderId: string; legKm: number | null; cumulativeKm: number | null }[]; totalKm: number; etaMinutes: number }[];
+  leftover: string[];
+  board: DispatchBoard;
+};
+
+export type KitchenTicket = {
+  id: string;
+  number: string;
+  status: OrderStatus;
+  fulfillmentType: FulfillmentType;
+  tableNumber: string | null;
+  customerName: string;
+  notes: string | null;
+  createdAt: string;
+  acceptedAt: string | null;
+  startedAt: string | null;
+  readyAt: string | null;
+  scheduledFor: string | null;
+  preparationMinutes: number | null;
+  estimatedReadyAt: string | null;
+  items: { id: string; name: LocalizedText; quantity: number; notes: string | null; addons: LocalizedText[] }[];
+};
+
+export type KitchenBoard = { tickets: KitchenTicket[]; generatedAt: string };
+
+/** Payment method on an order, or UNPAID when no payment was recorded. */
+export type TakingsMethod = OrderPaymentMethod | 'UNPAID';
+
+export type StoreTakings = {
+  date: string;
+  orders: { total: number; completed: number; open: number; cancelled: number };
+  gross: MoneyString;
+  completedSales: MoneyString;
+  discounts: MoneyString;
+  deliveryFees: MoneyString;
+  tax: MoneyString;
+  averageOrder: MoneyString;
+  byMethod: { method: TakingsMethod; orders: number; amount: MoneyString; paid: MoneyString; due: MoneyString }[];
+  byHour: { hour: number; orders: number; amount: MoneyString }[];
+  refunds: { count: number; requested: MoneyString; processed: MoneyString };
+  cash: { withRiders: MoneyString; awaitingConfirmation: MoneyString; depositsToReview: number; confirmed: MoneyString };
+};
+
+export type StoreReport = {
+  from: string;
+  to: string;
+  summary: {
+    orders: number;
+    completed: number;
+    cancelled: number;
+    cancellationRate: number;
+    sales: MoneyString;
+    averageOrder: MoneyString;
+    discounts: MoneyString;
+    deliveryFees: MoneyString;
+    refunds: MoneyString;
+    customers: number;
+    repeatCustomers: number;
+    prepMinutes: number | null;
+    deliveryMinutes: number | null;
+    fulfilmentMinutes: number | null;
+  };
+  daily: { date: string; orders: number; sales: MoneyString }[];
+  byChannel: { type: FulfillmentType; orders: number; sales: MoneyString }[];
+  byPayment: { method: TakingsMethod; orders: number; sales: MoneyString }[];
+  byHour: { hour: number; orders: number }[];
+  topProducts: { name: LocalizedText; quantity: number; sales: MoneyString }[];
 };

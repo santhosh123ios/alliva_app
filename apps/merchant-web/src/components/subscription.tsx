@@ -1,10 +1,11 @@
 import { api } from '@/components/providers';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, EmptyState, ErrorState, Skeleton } from '@alliva/ui';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar, CreditCard, FileText, Info, Megaphone, QrCode, Store, Truck, UtensilsCrossed } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 type Localized = { en?: string; ar?: string };
 type Entitlement = { key: string; value: unknown };
@@ -25,6 +26,7 @@ type MerchantProfile = {
     status: string;
     billingInterval: 'MONTHLY' | 'ANNUAL';
     currentPeriodEnd: string;
+    autoRenew?: boolean;
     plan: Plan;
   } | null;
 };
@@ -49,12 +51,61 @@ export function SubscriptionPage() {
   const locale = useLocale() as 'en' | 'ar';
   const billingRef = useRef<HTMLElement>(null);
   const compareRef = useRef<HTMLElement>(null);
+  const client = useQueryClient();
+  const seeded = useRef(false);
   const [details, setDetails] = useState<Plan | null>(null);
-  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [billing, setBilling] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
+  const [autoRenew, setAutoRenew] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+  const [method, setMethod] = useState<'CARD' | 'BENEFIT' | 'BANK'>('CARD');
+  const [card, setCard] = useState({ name: '', number: '', expiry: '', cvv: '' });
+  const [cardError, setCardError] = useState('');
   const profileQuery = useQuery({ queryKey: ['merchant', 'profile'], queryFn: () => api.profile() });
   const usageQuery = useQuery({ queryKey: ['merchant', 'subscription'], queryFn: () => api.subscription() });
   const plansQuery = useQuery({ queryKey: ['public', 'plans'], queryFn: () => api.publicPlans() });
   const invoicesQuery = useQuery({ queryKey: ['merchant', 'invoices'], queryFn: () => api.invoices() });
+  const quoteQuery = useQuery({
+    queryKey: ['merchant', 'subscription-quote', selectedId, billing],
+    queryFn: () => api.quoteSubscription({ planId: selectedId!, billingInterval: billing }),
+    enabled: Boolean(selectedId),
+  });
+  useEffect(() => {
+    const current = (profileQuery.data as MerchantProfile | undefined)?.subscription;
+    if (!current || seeded.current) return;
+    seeded.current = true;
+    setSelectedId(current.plan.id);
+    setBilling(current.billingInterval);
+    setAutoRenew(Boolean(current.autoRenew));
+  }, [profileQuery.data]);
+  useEffect(() => {
+    if (!selectedId) return;
+    const plan = ((plansQuery.data ?? []) as Plan[]).find((item) => item.id === selectedId);
+    const next = planIntervals(plan);
+    if (!next.includes(billing)) setBilling(next[0] ?? 'MONTHLY');
+  }, [selectedId, billing, plansQuery.data]);
+  const renew = useMutation({
+    mutationFn: (paymentMethod?: 'CARD' | 'BENEFIT' | 'BANK') => {
+      if (!selectedId) throw new Error(t('choosePlanFirst'));
+      return api.renewSubscription({ planId: selectedId, billingInterval: billing, autoRenew, paymentMethod });
+    },
+    onSuccess: async (result) => {
+      await client.invalidateQueries({ queryKey: ['merchant'] });
+      setPayOpen(false);
+      toast.success(result.scheduled ? t('scheduled') : result.renewed ? t('paid') : t('autoRenewSaved'));
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const saveAuto = useMutation({
+    mutationFn: (next: boolean) => api.setSubscriptionAutoRenew(next),
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: ['merchant', 'profile'] });
+    },
+    onError: (error: Error, next) => {
+      setAutoRenew(!next);
+      toast.error(error.message);
+    },
+  });
 
   if (profileQuery.isLoading || usageQuery.isLoading || plansQuery.isLoading || invoicesQuery.isLoading) {
     return (
@@ -76,7 +127,34 @@ export function SubscriptionPage() {
   const usage = (usageQuery.data ?? []) as UsageRow[];
   const plans = (plansQuery.data ?? []) as Plan[];
   const invoices = (invoicesQuery.data ?? []) as InvoiceRow[];
-  const alternatives = plans.filter((plan) => plan.status === 'ACTIVE' && plan.id !== subscription?.plan.id);
+  const choices = plans.filter((plan) => plan.status === 'ACTIVE');
+  const selected = choices.find((plan) => plan.id === selectedId) ?? null;
+  const allowed = planIntervals(selected);
+  const activeBilling = allowed.includes(billing) ? billing : allowed[0] ?? 'MONTHLY';
+  const expired = Boolean(subscription && (subscription.status !== 'ACTIVE' || new Date(subscription.currentPeriodEnd).getTime() <= Date.now()));
+  const samePlan = Boolean(subscription && selected && selected.id === subscription.plan.id && activeBilling === subscription.billingInterval);
+  const payable = quoteQuery.data?.payable ?? (selected ? (activeBilling === 'ANNUAL' ? selected.priceAnnual : selected.priceMonthly) : '0');
+  const choosePlan = (plan: Plan) => {
+    const next = planIntervals(plan);
+    setSelectedId(plan.id);
+    if (!next.includes(billing)) setBilling(next[0] ?? 'MONTHLY');
+  };
+  const startPayment = () => {
+    if (!selected) {
+      toast.error(t('choosePlanFirst'));
+      return;
+    }
+    if (expired) {
+      setCardError('');
+      setPayOpen(true);
+      return;
+    }
+    if (!samePlan) {
+      renew.mutate(undefined);
+      return;
+    }
+    saveAuto.mutate(autoRenew);
+  };
 
   const scrollTo = (node: HTMLElement | null) => node?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -96,6 +174,13 @@ export function SubscriptionPage() {
           {t('viewInvoices')}
         </button>
       </div>
+
+      {expired && subscription ? (
+        <div className="rounded-2xl border border-[#F5D0D0] bg-[#FFF6F6] px-4 py-3 text-sm text-[#7A1F1A]">
+          <p className="font-semibold">{t('renewTitle')}</p>
+          <p className="mt-1">{t('renewBody', { date: formatDate(subscription.currentPeriodEnd, locale) })}</p>
+        </div>
+      ) : null}
 
       {subscription ? (
         <CurrentPlan
@@ -140,35 +225,83 @@ export function SubscriptionPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section ref={compareRef} className="rounded-2xl border border-[#EEEEEC] bg-white p-5">
-          <h2 className="text-base font-semibold text-[#161616]">{t('compareTitle')}</h2>
-          <p className="mt-1 text-sm text-[#8A8A86]">{t('compareHint')}</p>
-          <div className="mt-4 grid gap-3">
-            {alternatives.map((plan) => (
-              <article key={plan.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#EEEEEC] p-4">
-                <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-[#F7F7F5]">
-                  <Store className="size-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-[#161616]">{pickLocalized(plan.name, locale)}</p>
-                  <p className="text-sm text-[#3A3A36]">
-                    {formatMoney(plan.priceMonthly, locale)} <span className="text-[#8A8A86]">{t('perMonth')}</span>
-                  </p>
-                  <p className="mt-0.5 text-xs text-[#8A8A86]">{pickLocalized(plan.description, locale)}</p>
-                </div>
+        <section ref={compareRef} className="rounded-2xl border border-[#EEEEEC] bg-white p-5 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-[#161616]">{t('selectPlan')}</h2>
+              <p className="mt-1 text-sm text-[#8A8A86]">{t('selectPlanHint')}</p>
+            </div>
+            <div className="flex rounded-full bg-[#F1F1EE] p-1">
+              {(['MONTHLY', 'ANNUAL'] as const).map((option) => (
                 <button
+                  key={option}
                   type="button"
-                  className="h-9 rounded-xl border border-[#E6E6E2] bg-white px-3 text-sm font-semibold"
-                  onClick={() => setDetails(plan)}
+                  disabled={!allowed.includes(option)}
+                  className={`h-8 rounded-full px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${activeBilling === option ? 'bg-primary text-[#111111]' : 'text-[#6b6b66]'}`}
+                  onClick={() => setBilling(option)}
                 >
-                  {t('viewDetails')}
+                  {option === 'MONTHLY' ? t('monthly') : t('yearly')}
                 </button>
-              </article>
-            ))}
+              ))}
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {choices.map((plan) => {
+              const picked = plan.id === selected?.id;
+              const price = activeBilling === 'ANNUAL' ? plan.priceAnnual : plan.priceMonthly;
+              return (
+                <article key={plan.id} className={`flex flex-wrap items-center gap-3 rounded-2xl border p-4 ${picked ? 'border-[#111111] bg-[#FFFDF5]' : 'border-[#EEEEEC]'}`}>
+                  <button type="button" className="flex min-w-0 flex-1 items-center gap-3 text-start" onClick={() => choosePlan(plan)} aria-pressed={picked}>
+                    <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-[#F7F7F5]">
+                      <Store className="size-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-[#161616]">{pickLocalized(plan.name, locale)}</span>
+                        {subscription?.plan.id === plan.id ? <span className="rounded-full bg-[#F1F1EE] px-2 py-0.5 text-[10px] font-bold text-[#696965]">{t('current')}</span> : null}
+                        {picked ? <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-[#161616]">{t('selected')}</span> : null}
+                      </span>
+                      <span className="mt-0.5 block text-sm text-[#3A3A36]">
+                        {formatMoney(price, locale)} <span className="text-[#8A8A86]">{activeBilling === 'ANNUAL' ? t('perYear') : t('perMonth')}</span>
+                      </span>
+                    </span>
+                  </button>
+                  <button type="button" className="h-9 rounded-xl border border-[#E6E6E2] bg-white px-3 text-sm font-semibold" onClick={() => setDetails(plan)}>
+                    {t('viewDetails')}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#F3F3F1] pt-4">
+            <label className="flex max-w-xl items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1 size-4 accent-[#111111]"
+                checked={autoRenew}
+                onChange={(event) => {
+                  const next = event.target.checked;
+                  setAutoRenew(next);
+                  if (subscription) saveAuto.mutate(next);
+                }}
+              />
+              <span>
+                <span className="block font-semibold text-[#161616]">{t('autoRenew')}</span>
+                <span className="mt-0.5 block text-xs text-[#8A8A86]">{t('autoRenewHint')}</span>
+              </span>
+            </label>
+            <button
+              type="button"
+              className="h-11 rounded-xl bg-[#111111] px-4 text-sm font-semibold text-white disabled:opacity-60"
+              disabled={renew.isPending || saveAuto.isPending}
+              onClick={startPayment}
+            >
+              {expired ? t('payNow', { amount: formatMoney(payable, locale) }) : samePlan ? t('saveAutoRenew') : t('scheduleChange')}
+            </button>
           </div>
         </section>
 
-        <section ref={billingRef} className="rounded-2xl border border-[#EEEEEC] bg-white p-5">
+        <section ref={billingRef} className="rounded-2xl border border-[#EEEEEC] bg-white p-5 lg:col-span-2">
           <h2 className="text-base font-semibold text-[#161616]">{t('billing')}</h2>
           <div className="mt-4 overflow-x-auto">
             <div className="min-w-[28rem]">
@@ -209,7 +342,7 @@ export function SubscriptionPage() {
             <button
               type="button"
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-3 text-sm font-semibold text-[#161616]"
-              onClick={() => setPaymentOpen(true)}
+              onClick={startPayment}
             >
               <CreditCard className="size-4" />
               {t('addPayment')}
@@ -240,12 +373,60 @@ export function SubscriptionPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
+      <Dialog open={payOpen} onOpenChange={setPayOpen}>
         <DialogContent className="w-[min(100%-2rem,28rem)]">
-          <DialogTitle>{t('paymentTitle')}</DialogTitle>
-          <DialogDescription>{t('paymentBody')}</DialogDescription>
-          <button type="button" className="mt-5 h-10 rounded-xl bg-[#111111] px-4 text-sm font-semibold text-white" onClick={() => setPaymentOpen(false)}>
-            {t('close')}
+          <DialogTitle>{t('payTitle')}</DialogTitle>
+          <DialogDescription>{t('payBody')}</DialogDescription>
+          {selected ? (
+            <p className="mt-3 text-sm font-semibold text-[#161616]">
+              {pickLocalized(selected.name, locale)} · {formatMoney(payable, locale)}
+            </p>
+          ) : null}
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {(['CARD', 'BENEFIT', 'BANK'] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={method === option}
+                className={`h-10 rounded-xl border text-xs font-semibold ${method === option ? 'border-[#111111] bg-[#FFF6CC]' : 'border-[#E6E6E2] bg-white'}`}
+                onClick={() => setMethod(option)}
+              >
+                {t(option === 'CARD' ? 'card' : option === 'BENEFIT' ? 'benefit' : 'bank')}
+              </button>
+            ))}
+          </div>
+          {method === 'CARD' ? (
+            <div className="mt-4 grid gap-2">
+              <input className="h-10 rounded-xl border border-[#E6E6E2] px-3 text-sm" placeholder={t('cardName')} value={card.name} onChange={(event) => setCard({ ...card, name: event.target.value })} />
+              <input className="h-10 rounded-xl border border-[#E6E6E2] px-3 text-sm" inputMode="numeric" placeholder={t('cardNumber')} value={card.number} onChange={(event) => setCard({ ...card, number: event.target.value })} />
+              <div className="grid grid-cols-2 gap-2">
+                <input className="h-10 rounded-xl border border-[#E6E6E2] px-3 text-sm" placeholder={t('expiry')} value={card.expiry} onChange={(event) => setCard({ ...card, expiry: event.target.value })} />
+                <input className="h-10 rounded-xl border border-[#E6E6E2] px-3 text-sm" inputMode="numeric" placeholder={t('cvv')} value={card.cvv} onChange={(event) => setCard({ ...card, cvv: event.target.value })} />
+              </div>
+            </div>
+          ) : null}
+          {cardError ? <p className="mt-2 text-sm text-[#B42318]">{cardError}</p> : null}
+          <label className="mt-4 flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-1 size-4 accent-[#111111]" checked={autoRenew} onChange={(event) => setAutoRenew(event.target.checked)} />
+            <span>
+              <span className="font-semibold">{t('autoRenew')}</span>
+              <span className="mt-0.5 block text-xs text-[#8A8A86]">{t('autoRenewHint')}</span>
+            </span>
+          </label>
+          <button
+            type="button"
+            className="mt-5 h-11 w-full rounded-xl bg-[#111111] text-sm font-semibold text-white disabled:opacity-60"
+            disabled={renew.isPending}
+            onClick={() => {
+              if (method === 'CARD' && (card.name.trim().length < 2 || card.number.replace(/\D/g, '').length < 12 || card.expiry.replace(/\D/g, '').length < 4 || card.cvv.replace(/\D/g, '').length < 3)) {
+                setCardError(t('cardInvalid'));
+                return;
+              }
+              setCardError('');
+              renew.mutate(method);
+            }}
+          >
+            {t('confirmPay')}
           </button>
         </DialogContent>
       </Dialog>
@@ -272,6 +453,8 @@ function CurrentPlan({
 }) {
   const t = useTranslations('merchantSubscription');
   const price = interval === 'ANNUAL' ? plan.priceAnnual : plan.priceMonthly;
+  const ended = status !== 'ACTIVE' || new Date(renewsAt).getTime() <= Date.now();
+  const dateLabel = formatDate(renewsAt, locale);
   return (
     <section className="grid overflow-hidden rounded-2xl border border-[#EEEEEC] bg-white lg:grid-cols-[1.45fr_1fr]">
       <div className="bg-[#FFF6CC] p-5 sm:p-6">
@@ -284,9 +467,9 @@ function CurrentPlan({
           <span className="font-semibold text-[#161616]">
             {formatMoney(price, locale)} <span className="font-normal text-[#696965]">{interval === 'ANNUAL' ? t('perYear') : t('perMonth')}</span>
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#E7F8EE] px-2 py-0.5 text-xs font-semibold text-[#16924A]">
-            <span className="size-1.5 rounded-full bg-[#22A85A]" />
-            {statusLabel(status, t)}
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${ended ? 'bg-[#FDECEC] text-[#B42318]' : 'bg-[#E7F8EE] text-[#16924A]'}`}>
+            <span className={`size-1.5 rounded-full ${ended ? 'bg-[#D92D20]' : 'bg-[#22A85A]'}`} />
+            {statusLabel(ended && status === 'ACTIVE' ? 'EXPIRED' : status, t)}
           </span>
         </p>
         <p className="mt-2 text-sm text-[#696965]">{pickLocalized(plan.description, locale)}</p>
@@ -295,7 +478,7 @@ function CurrentPlan({
         <div className="flex items-start gap-2 text-sm">
           <Calendar className="mt-0.5 size-4 shrink-0" />
           <div>
-            <p className="font-semibold text-[#161616]">{t('nextRenewal', { date: formatDate(renewsAt, locale) })}</p>
+            <p className="font-semibold text-[#161616]">{ended ? t('expiredOn', { date: dateLabel }) : t('nextRenewal', { date: dateLabel })}</p>
             <p className="text-[#8A8A86]">{interval === 'ANNUAL' ? t('annualBilling') : t('monthlyBilling')}</p>
           </div>
         </div>
@@ -321,6 +504,12 @@ function UsageMeter({ label, usage, limit, unlimitedLabel }: { label: string; us
       <span className="tabular-nums text-[#3A3A36]">{usage} / {limit ?? unlimitedLabel}</span>
     </li>
   );
+}
+
+function planIntervals(plan: Plan | null | undefined) {
+  const value = plan?.entitlements.find((row) => row.key === 'billingIntervals')?.value;
+  const choices = Array.isArray(value) ? value.filter((item): item is 'MONTHLY' | 'ANNUAL' => item === 'MONTHLY' || item === 'ANNUAL') : [];
+  return choices.length ? choices : (['MONTHLY'] as ('MONTHLY' | 'ANNUAL')[]);
 }
 
 function entitlement(rows: Entitlement[] | undefined, key: string) {

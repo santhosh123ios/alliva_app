@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Input, Label } from '@alliva/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from '@/i18n/navigation';
+import { landingFor } from '@/lib/roles';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
@@ -21,7 +22,7 @@ export default function LoginPage() {
   });
   const login = useMutation({
     mutationFn: (values: z.infer<typeof loginSchema>) => api.login(values),
-    onSuccess: () => router.push('/dashboard'),
+    onSuccess: (result) => router.push('user' in result ? landingFor(result.user) : '/dashboard'),
     onError: (error: Error) => toast.error(error.message),
   });
 

@@ -1,9 +1,10 @@
 import type { Request } from 'express';
-import { cartContextSchema, cartItemSchema, checkoutSchema, promoApplySchema, reviewSchema, type PaymentMethodCode } from '@alliva/validation';
-import { forbidden, notFound } from '../common/errors';
-import { cookieBase, RequestUser, validate } from '../common/http';
+import { cartContextSchema, cartItemSchema, checkoutSchema, promoApplySchema, reviewSchema } from '@alliva/validation';
+import { checkoutError, forbidden, notFound } from '../common/errors';
+import { authCookieName, authPortal, cookieBase, RequestUser, validate } from '../common/http';
 import { createRoutes } from '../common/routes';
 import type { Container } from '../container';
+import type { CheckoutRequest } from '../modules/commerce.service';
 
 export function storefrontRoutes({ prisma, jwt, crypto, commerce }: Container) {
   const routes = createRoutes({ jwt, prisma }, 'Storefront');
@@ -13,12 +14,19 @@ export function storefrontRoutes({ prisma, jwt, crypto, commerce }: Container) {
     const existing = current
       ? await prisma.guest.findUnique({ where: { tokenHash: crypto.hash(current) } })
       : null;
-    if (existing && !existing.mergedIntoCustomerId) return { id: existing.id };
+    if (existing && !existing.mergedIntoCustomerId) {
+      // A restored guest whose readable CSRF cookie was cleared could never change its cart again; hand out a fresh one.
+      const csrfName = authCookieName('alliva_csrf', authPortal(request));
+      if (request.cookies?.[csrfName]) return { id: existing.id };
+      const csrf = crypto.random(24);
+      response.cookie(csrfName, csrf, { ...cookieBase(), httpOnly: false, maxAge: 180 * 86400000 });
+      return { id: existing.id, csrfToken: csrf };
+    }
     const token = crypto.random();
     const guest = await prisma.guest.create({ data: { tokenHash: crypto.hash(token) } });
     response.cookie('alliva_guest', token, { ...cookieBase(), httpOnly: true, maxAge: 180 * 86400000 });
     const csrf = crypto.random(24);
-    response.cookie('alliva_csrf', csrf, { ...cookieBase(), httpOnly: false, maxAge: 180 * 86400000 });
+    response.cookie(authCookieName('alliva_csrf', authPortal(request)), csrf, { ...cookieBase(), httpOnly: false, maxAge: 180 * 86400000 });
     return { id: guest.id, csrfToken: csrf };
   });
 
@@ -56,7 +64,7 @@ export function storefrontRoutes({ prisma, jwt, crypto, commerce }: Container) {
   routes.get('/cart', { public: true }, async (request) => commerce.cartFor(await viewerFor(request, request.user)));
 
   routes.post('/cart/items', { public: true }, async (request) => {
-    const body = validate<{ productId: string; variantId?: string | null; addonIds?: string[]; quantity: number; notes?: string }>(cartItemSchema, request.body);
+    const body = validate<{ productId: string; variantId?: string | null; addonIds?: string[]; quantity: number; notes?: string; replace?: boolean }>(cartItemSchema, request.body);
     return commerce.addItem(await viewerFor(request, request.user), body);
   });
 
@@ -81,11 +89,11 @@ export function storefrontRoutes({ prisma, jwt, crypto, commerce }: Container) {
 
   routes.delete('/cart/promo', { public: true }, async (request) => commerce.clearPromo(await viewerFor(request, request.user)));
 
-  routes.post('/orders', (request) => {
+  routes.post('/orders', { throttle: 20 }, (request) => {
     const user = request.user!;
-    const body = validate<{ paymentMethod: PaymentMethodCode; fulfillmentType: 'DELIVERY' | 'TAKEAWAY' | 'DINE_IN'; addressId?: string | null; tableId?: string | null; scheduledFor?: string | null; notes?: string | null; promoCode?: string | null }>(checkoutSchema, request.body);
+    const body = validate<CheckoutRequest>(checkoutSchema, request.body);
     const key = request.header('idempotency-key');
-    if (!user.customerId) throw new Error('A customer account is required');
+    if (!user.customerId) throw checkoutError('AUTH_REQUIRED', 'A customer account is required');
     return commerce.checkout(
       { customerId: user.customerId, userId: user.id, roles: user.roles },
       { ...body, idempotencyKey: key || `order-${user.customerId}-${Date.now()}` },

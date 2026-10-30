@@ -9,6 +9,10 @@ export class Logger {
     console.log(line('LOG', this.context, message));
   }
 
+  warn(message: string) {
+    console.warn(line('WARN', this.context, message));
+  }
+
   error(message: string) {
     console.error(line('ERROR', this.context, message));
   }

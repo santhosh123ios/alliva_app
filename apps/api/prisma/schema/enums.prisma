@@ -217,6 +217,12 @@ enum ProductApprovalStatus {
   REJECTED
 }
 
+enum CatalogCategoryStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum BannerStatus {
   PENDING
   APPROVED
@@ -256,6 +262,26 @@ enum CashCollectionStatus {
   COLLECTED
   CONFIRMED
   DISPUTED
+}
+
+enum CashDepositStatus {
+  SUBMITTED
+  CONFIRMED
+  REJECTED
+}
+
+enum PickupVerification {
+  QR
+  CODE
+}
+
+enum DeliveryIssueType {
+  CUSTOMER_UNREACHABLE
+  WRONG_ADDRESS
+  ITEM_MISSING
+  DAMAGED
+  PAYMENT_REFUSED
+  OTHER
 }
 
 enum OtpPurpose {

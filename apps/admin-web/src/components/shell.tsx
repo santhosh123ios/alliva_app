@@ -4,7 +4,7 @@ import { NAV, useT as useConsoleT, type MessageKey } from '@alliva/marketing-con
 import { ShellSkeleton } from '@alliva/ui';
 import type { AuthUser } from '@alliva/types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BarChart3, Bell, ChevronRight, FileText, LayoutGrid, MessageSquare, RefreshCcw, Search, Settings, ShoppingCart, Store, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { BarChart3, Bell, ChevronRight, FileText, LayoutGrid, MessageSquare, PackageSearch, RefreshCcw, Search, Settings, ShoppingCart, Store, Tags, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -21,6 +21,8 @@ const groups = [
     label: 'management',
     items: [
       { href: '/subscriptions', label: 'subscriptions', icon: RefreshCcw, permission: 'subscription.manage' },
+      { href: '/categories', label: 'catalogCategories', icon: Tags, permission: 'catalog.moderate' },
+      { href: '/catalog-products', label: 'sharedProducts', icon: PackageSearch, permission: 'catalog.moderate' },
       { href: '/staff', label: 'rolesStaff', icon: Users, permission: 'staff.manage' },
       { href: '/complaints', label: 'complaintsFeedback', icon: MessageSquare, permission: 'complaint.view' },
       { href: '/finance', label: 'accounts', icon: Wallet, permission: 'payment.view' },
@@ -61,6 +63,17 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.me(), retry: false, enabled: !isPublic });
   const canSeeAlerts = Boolean(me.data && (me.data.roles.includes('SUPER_ADMIN') || me.data.permissions.includes('order.view')));
   const alerts = useQuery({ queryKey: ['admin', 'dashboard'], queryFn: () => api.adminDashboard(), enabled: canSeeAlerts });
+  const canModerateCatalog = Boolean(me.data && allowed(me.data, 'catalog.moderate'));
+  const categoryAlerts = useQuery({
+    queryKey: ['admin', 'catalog-categories'],
+    queryFn: () => api.adminCatalogCategories(),
+    enabled: canModerateCatalog,
+  });
+  const productAlerts = useQuery({
+    queryKey: ['admin', 'catalog-products'],
+    queryFn: () => api.adminCatalogProducts(),
+    enabled: canModerateCatalog,
+  });
   useEffect(() => {
     if (!isPublic && me.isError) router.replace('/login');
   }, [isPublic, me.isError, router]);
@@ -105,7 +118,9 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const matches = query.trim()
     ? [...nav.flatMap((group) => group.items), ...(allowed(me.data, settingsItem.permission) ? [settingsItem] : [])].filter((item) => labelFor(t, ct, item.label).toLowerCase().includes(query.trim().toLowerCase()))
     : [];
-  const attention = (alerts.data?.pendingApprovals ?? 0) + (alerts.data?.refundSummary.pending ?? 0) + (alerts.data?.complaintsRequiringAction ?? 0);
+  const categoryAttention = (categoryAlerts.data ?? []).filter((item) => (item as { status?: string }).status === 'PENDING').length;
+  const productAttention = (productAlerts.data ?? []).filter((item) => (item as { status?: string }).status === 'PENDING').length;
+  const attention = (alerts.data?.pendingApprovals ?? 0) + (alerts.data?.refundSummary.pending ?? 0) + (alerts.data?.complaintsRequiringAction ?? 0) + categoryAttention + productAttention;
   const initials = `${me.data.firstName[0] ?? ''}${me.data.lastName[0] ?? ''}`.toUpperCase();
 
   return (

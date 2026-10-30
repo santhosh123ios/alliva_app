@@ -42,6 +42,25 @@ export function countsTowardMonthlyOrderLimit(status: string) {
   return status !== 'CANCELLED';
 }
 
+/**
+ * A store can accept customers only while the subscription is active and the paid period
+ * has not reached its end. `currentPeriodEnd` is exclusive.
+ */
+export function subscriptionIsLive(
+  subscription: { status: string; currentPeriodEnd: Date } | null | undefined,
+  now = new Date(),
+) {
+  if (!subscription || subscription.status !== 'ACTIVE') return false;
+  return subscription.currentPeriodEnd.getTime() > now.getTime();
+}
+
+export function subscriptionShouldExpire(
+  subscription: { status: string; currentPeriodEnd: Date },
+  now = new Date(),
+) {
+  return subscription.status === 'ACTIVE' && subscription.currentPeriodEnd.getTime() <= now.getTime();
+}
+
 export function assignmentBlockReason(status: string) {
   if (status === 'ARCHIVED') return 'Archived plans cannot be assigned to new merchants';
   if (status !== 'ACTIVE') return 'Only published plans can be assigned';

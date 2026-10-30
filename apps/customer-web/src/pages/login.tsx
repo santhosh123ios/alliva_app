@@ -8,6 +8,7 @@ import type { ConfirmationResult } from 'firebase/auth';
 import { ChevronDown, Eye, EyeOff, X } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 export default function LoginPage() {
   const t = useTranslations('auth');
@@ -15,6 +16,11 @@ export default function LoginPage() {
   const locale = useLocale();
   const router = useRouter();
   const client = useQueryClient();
+  const [params] = useSearchParams();
+  // Only same-site paths: never bounce the customer to another origin after signing in.
+  const requested = params.get('next');
+  const next = requested && requested.startsWith('/') && !requested.startsWith('//') ? requested : null;
+  const leaveTo = next?.startsWith('/checkout') ? '/cart' : '/';
   const [mode, setMode] = useState<'sign-in' | 'create'>('sign-in');
   const [method, setMethod] = useState<'phone' | 'email'>('phone');
   const [step, setStep] = useState<'details' | 'code' | 'forgot'>('details');
@@ -59,9 +65,13 @@ export default function LoginPage() {
       toast.error(c('customerOnly'));
       return;
     }
-    void client.invalidateQueries({ queryKey: ['cart'] });
+    // Sign-in already moved the guest cart; this repeats it safely in case the cookie arrived late.
+    const merged = await api.mergeCart().catch(() => null);
+    if (merged) client.setQueryData(['cart'], merged);
+    else void client.invalidateQueries({ queryKey: ['cart'] });
+    void client.invalidateQueries({ queryKey: ['customer'] });
     await client.invalidateQueries({ queryKey: ['me'] });
-    router.push('/');
+    router.replace(next ?? '/');
   };
   const send = useMutation({
     mutationFn: async () => {
@@ -196,7 +206,7 @@ export default function LoginPage() {
             <button
               type="button"
               aria-label={c('close')}
-              onClick={() => router.replace('/')}
+              onClick={() => router.replace(leaveTo)}
               className="absolute end-3 top-3 grid size-8 place-items-center rounded-full text-white/80 transition hover:bg-white/10"
             >
               <X className="size-4" />
@@ -463,7 +473,7 @@ export default function LoginPage() {
               {c('orContinue')}
               <span className="h-px flex-1 bg-white/20" />
             </div>
-            <button type="button" className={cn(socialClass, 'w-full')} onClick={() => router.push('/')}>
+            <button type="button" className={cn(socialClass, 'w-full')} onClick={() => router.push(leaveTo)}>
               {c('guest')}
             </button>
             <p className="mt-2 text-center text-[11px] text-white/60">{c('guestHint')}</p>

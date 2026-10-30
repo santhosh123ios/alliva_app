@@ -17,6 +17,7 @@ import {
   forgetAuthSession,
   forgetAuthUser,
   loadActor,
+  readAuthCookie,
   RequestUser,
   setAuthCookies,
   validate,
@@ -27,7 +28,7 @@ import { firebaseWebConfig, verifyFirebasePhoneToken } from '../providers/fireba
 import { numericOtp } from '../providers/whatsapp.otp';
 import { customerResetUrl, marketingInviteUrl } from '../providers/welcome-email';
 
-export function authRoutes({ prisma, jwt, crypto, audit, sms, email }: Container) {
+export function authRoutes({ prisma, jwt, crypto, audit, sms, email, commerce }: Container) {
   const routes = createRoutes({ jwt, prisma }, 'Authentication', '/auth');
 
   routes.post('/login', { public: true, throttle: 10 }, async (request, response) => {
@@ -79,13 +80,13 @@ export function authRoutes({ prisma, jwt, crypto, audit, sms, email }: Container
     const user = request.user!;
     await prisma.session.update({ where: { id: user.sessionId }, data: { revokedAt: new Date() } });
     forgetAuthSession(user.sessionId);
-    clearAuthCookies(response);
+    clearAuthCookies(response, request);
     await audit.log({ actorId: user.id, action: 'auth.logout', entityType: 'User', entityId: user.id });
     return { ok: true };
   });
 
   routes.post('/refresh', { public: true }, async (request, response) => {
-    const raw = request.cookies?.alliva_refresh as string | undefined;
+    const raw = readAuthCookie(request, 'alliva_refresh');
     if (!raw) throw unauthorized('Session expired');
     const session = await prisma.session.findUnique({ where: { refreshTokenHash: crypto.hash(raw) } });
     if (!session || session.revokedAt || session.expiresAt < new Date()) throw unauthorized('Session expired');
@@ -294,27 +295,7 @@ export function authRoutes({ prisma, jwt, crypto, audit, sms, email }: Container
     if (!guest || guest.mergedIntoCustomerId) return;
     const customer = await prisma.customer.findUnique({ where: { userId } });
     if (!customer) return;
-    const guestCart = await prisma.cart.findUnique({ where: { guestId: guest.id }, include: { items: { include: { addons: true } } } });
-    if (guestCart) {
-      const existing = await prisma.cart.findUnique({ where: { customerId: customer.id } });
-      if (!existing) {
-        await prisma.cart.update({ where: { id: guestCart.id }, data: { guestId: null, customerId: customer.id } });
-      } else if (guestCart.items.length && existing.merchantId === guestCart.merchantId) {
-        for (const item of guestCart.items) {
-          const created = await prisma.cartItem.create({
-            data: { cartId: existing.id, productId: item.productId, variantId: item.variantId, quantity: item.quantity, notes: item.notes },
-          });
-          if (item.addons.length) {
-            await prisma.cartItemAddon.createMany({
-              data: item.addons.map((addon) => ({ cartItemId: created.id, addonId: addon.addonId })),
-            });
-          }
-        }
-        await prisma.cart.delete({ where: { id: guestCart.id } });
-      }
-    }
-    await prisma.recentlyViewed.updateMany({ where: { guestId: guest.id }, data: { customerId: customer.id, guestId: null } });
-    await prisma.guest.update({ where: { id: guest.id }, data: { mergedIntoCustomerId: customer.id } });
+    await commerce.mergeGuestCart(guest.id, customer.id);
   }
 
   async function issueSession(userId: string, remember: boolean, request: Request, response: Response, previousId?: string) {
@@ -336,7 +317,7 @@ export function authRoutes({ prisma, jwt, crypto, audit, sms, email }: Container
       forgetAuthSession(previousId);
     }
     const access = await jwt.signAsync({ sub: userId, sid: session.id });
-    setAuthCookies(response, { access, refresh, csrf, remember });
+    setAuthCookies(response, { access, refresh, csrf, remember }, request);
     return { actor: await loadActor(prisma, userId, session.id), csrf };
   }
 

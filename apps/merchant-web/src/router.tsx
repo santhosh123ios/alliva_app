@@ -10,6 +10,12 @@ const Login = lazy(() => import('@/pages/login'));
 const Forgot = lazy(() => import('@/pages/forgot'));
 const Register = lazy(() => import('@/pages/register'));
 const Section = lazy(() => import('@/pages/section'));
+const RiderLayout = lazy(() => import('@/rider/layout'));
+const RiderHome = lazy(() => import('@/rider/home'));
+const RiderOrder = lazy(() => import('@/rider/order'));
+const RiderCollection = lazy(() => import('@/rider/collection'));
+const RiderProfile = lazy(() => import('@/rider/profile'));
+const Kitchen = lazy(() => import('@/kitchen/kitchen'));
 
 function ShellLayout() {
   return (
@@ -27,6 +33,17 @@ export const router = createBrowserRouter([
     path: ':locale',
     element: <LocaleLayout />,
     children: [
+      {
+        path: 'rider',
+        element: <Suspense fallback={<Loading />}><RiderLayout /></Suspense>,
+        children: [
+          { index: true, element: <RiderHome /> },
+          { path: 'orders/:id', element: <RiderOrder /> },
+          { path: 'collection', element: <RiderCollection /> },
+          { path: 'profile', element: <RiderProfile /> },
+        ],
+      },
+      { path: 'kitchen', element: <Suspense fallback={<Loading />}><Kitchen /></Suspense> },
       {
         element: <ShellLayout />,
         children: [

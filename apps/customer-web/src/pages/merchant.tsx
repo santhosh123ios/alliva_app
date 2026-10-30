@@ -1,8 +1,11 @@
 import { CartButtonSpinner, flyFromButton } from '@/components/cart-motion';
 import { api } from '@/components/providers';
-import { categoryIcon, formatDistanceKm } from '@/components/storefront';
+import { useCartAdd } from '@/components/store-switch';
+import { beginCartChange, cartQueryOptions, clearCartLines, failCartChange, optimisticLine, setLineQuantity, settleCartChange } from '@/lib/cart-cache';
+import { categoryIcon, formatDistanceKm, StoreUnavailable } from '@/components/storefront';
 import { Link, useRouter } from '@/i18n/navigation';
-import { areas, usePlace, type FulfillmentMode } from '@/lib/place';
+import { usePlace, type FulfillmentMode } from '@/lib/place';
+import { useAreaPoint } from '@/lib/location';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { cn, ErrorState } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -28,10 +31,9 @@ export default function MerchantPage() {
   const t = useTranslations();
   const router = useRouter();
   const client = useQueryClient();
-  const areaId = usePlace((state) => state.area);
   const fulfillment = usePlace((state) => state.fulfillment);
   const setFulfillment = usePlace((state) => state.setFulfillment);
-  const area = areas.find((item) => item.id === areaId) ?? areas[0]!;
+  const area = useAreaPoint();
   const [tab, setTab] = useState('popular');
   const [search, setSearch] = useState('');
   const [infoOpen, setInfoOpen] = useState(false);
@@ -43,28 +45,22 @@ export default function MerchantPage() {
     retry: false,
   });
   const merchant = useQuery({ queryKey: ['merchant', slug], queryFn: () => api.merchant(slug) });
-  const cart = useQuery({ queryKey: ['cart'], queryFn: () => api.cart(), retry: false });
+  const cart = useQuery(cartQueryOptions());
+  const cartAdd = useCartAdd();
   const favouriteIds = new Set(
     ((customer.data as { favourites?: { merchantId: string }[] } | undefined)?.favourites ?? []).map((row) => row.merchantId),
   );
-  const add = useMutation({
-    mutationFn: async (productId: string) => {
-      await api.guest().catch(() => undefined);
-      return api.addItem({ productId, quantity: 1 });
-    },
-    onSuccess: (cartView) => {
-      client.setQueryData(['cart'], cartView);
-      toast.success(t('customer.added'));
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
   const edit = useMutation({
     mutationFn: async ({ id, quantity }: { id: string; quantity: number }) => {
       await api.guest().catch(() => undefined);
       return quantity < 1 ? api.removeItem(id) : api.updateItem(id, quantity);
     },
-    onSuccess: (cartView) => client.setQueryData(['cart'], cartView),
-    onError: (error: Error) => toast.error(error.message),
+    onMutate: ({ id, quantity }) => beginCartChange(client, (current) => setLineQuantity(current, id, quantity)),
+    onSuccess: (cartView, _variables, changeId) => settleCartChange(client, changeId, cartView),
+    onError: (error: Error, _variables, changeId) => {
+      if (typeof changeId === 'number') failCartChange(client, changeId);
+      toast.error(error.message);
+    },
   });
   const clear = useMutation({
     mutationFn: async (ids: string[]) => {
@@ -73,10 +69,16 @@ export default function MerchantPage() {
       for (const id of ids) latest = await api.removeItem(id);
       return latest;
     },
-    onSuccess: (cartView) => {
-      if (cartView) client.setQueryData(['cart'], cartView);
+    onMutate: (ids) => (ids.length ? beginCartChange(client, clearCartLines) : undefined),
+    onSuccess: (cartView, _ids, changeId) => {
+      if (typeof changeId !== 'number') return;
+      if (cartView) settleCartChange(client, changeId, cartView);
+      else failCartChange(client, changeId);
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error, _ids, changeId) => {
+      if (typeof changeId === 'number') failCartChange(client, changeId);
+      toast.error(error.message);
+    },
   });
   const save = useMutation({
     mutationFn: async (merchantId: string) => {
@@ -94,6 +96,9 @@ export default function MerchantPage() {
 
   const data = merchant.data;
   const name = pickLocalized(data.name, locale);
+  if (data.temporarilyUnavailable) {
+    return <StoreUnavailable name={name} title={t('customer.temporarilyUnavailable')} body={t('customer.storeUnavailableBody')} backLabel={t('customer.back')} />;
+  }
   const saved = favouriteIds.has(data.id);
   const kinds = (data.businessCategories ?? []).map((item) => pickLocalized(item, locale)).filter(Boolean);
   const rating = Number(data.rating);
@@ -275,12 +280,12 @@ export default function MerchantPage() {
               <>
                 <ul className="lg:hidden">
                   {visible.map((product) => (
-                    <DishRow key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={add.isPending && add.variables === product.id} onAdd={() => add.mutate(product.id)} />
+                    <DishRow key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={cartAdd.pendingId === product.id} onAdd={() => cartAdd.requestAdd(data.id, data.name, { productId: product.id, quantity: 1, preview: { name: product.name, description: product.description, imageUrl: product.imageUrl, unitPrice: product.price } })} />
                   ))}
                 </ul>
                 <ul className="mt-3 hidden gap-3 lg:grid lg:grid-cols-2">
                   {visible.map((product) => (
-                    <DishCard key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={add.isPending && add.variables === product.id} onAdd={() => add.mutate(product.id)} />
+                    <DishCard key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={cartAdd.pendingId === product.id} onAdd={() => cartAdd.requestAdd(data.id, data.name, { productId: product.id, quantity: 1, preview: { name: product.name, description: product.description, imageUrl: product.imageUrl, unitPrice: product.price } })} />
                   ))}
                 </ul>
               </>
@@ -345,6 +350,7 @@ export default function MerchantPage() {
           </div>
         </div>
       ) : null}
+      {cartAdd.dialog}
     </div>
   );
 }
@@ -515,15 +521,15 @@ function DishFacts({ product, locale }: { product: MenuProduct; locale: 'en' | '
   );
 }
 
-function AddButton({ label, pending, disabled, imageSrc, onClick, className }: { label: string; pending: boolean; disabled: boolean; imageSrc: string; onClick: () => void; className?: string }) {
+function AddButton({ label, pending, disabled, imageSrc, onClick, className }: { label: string; pending: boolean; disabled: boolean; imageSrc: string; onClick: () => boolean | void; className?: string }) {
   return (
     <button
       type="button"
       disabled={disabled || pending}
       aria-busy={pending}
       onClick={(event) => {
+        if (onClick() === false) return;
         flyFromButton(event.currentTarget, imageSrc);
-        onClick();
       }}
       className={cn('inline-flex h-9 shrink-0 items-center gap-0.5 rounded-full bg-primary px-3 text-sm font-bold text-[#111] shadow-sm disabled:opacity-50', className)}
     >
@@ -539,7 +545,7 @@ type DishProps = {
   locale: 'en' | 'ar';
   addLabel: string;
   pending: boolean;
-  onAdd: () => void;
+  onAdd: () => boolean | void;
 };
 
 function OrderPanel({
@@ -592,6 +598,7 @@ function OrderPanel({
   onQty: (id: string, quantity: number) => void;
   onClear: () => void;
 }) {
+  const t = useTranslations();
   const deliveryFree = pricing ? Number(pricing.deliveryFee) === 0 : false;
   return (
     <aside className="sticky top-24 hidden rounded-3xl border border-[#eee] bg-white p-5 shadow-sm lg:block">
@@ -624,15 +631,15 @@ function OrderPanel({
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <div className="flex items-center rounded-full border border-[#e6e6e0]">
-                  <button type="button" aria-label="-" disabled={pending} onClick={() => onQty(item.id, item.quantity - 1)} className="grid size-7 place-items-center disabled:opacity-50">
+                  <button type="button" aria-label="-" disabled={pending || optimisticLine(item.id)} onClick={() => onQty(item.id, item.quantity - 1)} className="grid size-7 place-items-center disabled:opacity-50">
                     <Minus className="size-3.5" />
                   </button>
                   <span className="w-4 text-center text-sm font-semibold">{item.quantity}</span>
-                  <button type="button" aria-label="+" disabled={pending} onClick={() => onQty(item.id, item.quantity + 1)} className="grid size-7 place-items-center disabled:opacity-50">
+                  <button type="button" aria-label="+" disabled={pending || optimisticLine(item.id)} onClick={() => onQty(item.id, item.quantity + 1)} className="grid size-7 place-items-center disabled:opacity-50">
                     <Plus className="size-3.5" />
                   </button>
                 </div>
-                <button type="button" aria-label={labels.remove} disabled={pending} onClick={() => onQty(item.id, 0)} className="grid size-8 place-items-center text-[#6f6f6a] disabled:opacity-50">
+                <button type="button" aria-label={labels.remove} disabled={pending || optimisticLine(item.id)} onClick={() => onQty(item.id, 0)} className="grid size-8 place-items-center text-[#6f6f6a] disabled:opacity-50">
                   <Trash2 className="size-4" />
                 </button>
               </div>
@@ -670,6 +677,18 @@ function OrderPanel({
             <span className="text-[#6f6f6a]">{labels.deliveryFee}</span>
             <span className={cn('font-semibold', deliveryFree && 'text-emerald-600')}>{deliveryFree ? labels.free : formatMoney(pricing.deliveryFee, locale)}</span>
           </div>
+          {Number(pricing.serviceFee) > 0 ? (
+            <div className="flex justify-between gap-3">
+              <span className="text-[#6f6f6a]">{pickLocalized(pricing.serviceFeeLabel, locale) || t('customer.serviceFee')}</span>
+              <span className="font-semibold">{formatMoney(pricing.serviceFee, locale)}</span>
+            </div>
+          ) : null}
+          {Number(pricing.tax) > 0 ? (
+            <div className="flex justify-between gap-3">
+              <span className="text-[#6f6f6a]">{pickLocalized(pricing.taxLabel, locale) || t('customer.tax')}</span>
+              <span className="font-semibold">{formatMoney(pricing.tax, locale)}</span>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#fff6d0] px-3 py-3">
             <span className="font-bold">{labels.total}</span>
             <span className="text-lg font-bold">{formatMoney(pricing.total, locale)}</span>

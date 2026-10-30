@@ -1,4 +1,4 @@
-import { paymentMethodCodeSchema } from '@alliva/validation';
+import { PAYMENT_METHOD_CODES, paymentMethodCodeSchema } from '@alliva/validation';
 import { z } from 'zod';
 import { LEAD_STATUSES } from '../../domain/marketing';
 
@@ -86,7 +86,7 @@ export const storeSchema = z.object({
   billingInterval: z.enum(['MONTHLY', 'ANNUAL']).optional(),
   promoCode: z.string().trim().max(40).nullish(),
   leadId: z.uuid().nullish(),
-  paymentMethods: z.array(paymentMethodCodeSchema).min(1).max(4).optional(),
+  paymentMethods: z.array(paymentMethodCodeSchema).min(1).max(PAYMENT_METHOD_CODES.length).optional(),
 });
 
 export const reassignStoreSchema = z.object({ staffUserId: z.uuid(), reason: z.string().trim().min(5).max(300) });

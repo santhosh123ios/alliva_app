@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** The methods Alliva can offer. Which of them are switched on is decided by the admin in platform settings. */
-export const PAYMENT_METHOD_CODES = ['BANK_TRANSFER', 'BENEFIT_PAY', 'TAP_PAY', 'PAYPAL'] as const;
+export const PAYMENT_METHOD_CODES = ['CASH', 'BANK_TRANSFER', 'BENEFIT_PAY', 'TAP_PAY', 'PAYPAL'] as const;
 
 export const paymentMethodCodeSchema = z.enum(PAYMENT_METHOD_CODES);
 
@@ -14,13 +14,14 @@ export type PaymentMethodConfig = {
 };
 
 /** Methods the customer settles outside a payment gateway. The order is placed and the payment stays pending. */
-export const OFFLINE_PAYMENT_METHODS: readonly PaymentMethodCode[] = ['BANK_TRANSFER'];
+export const OFFLINE_PAYMENT_METHODS: readonly PaymentMethodCode[] = ['CASH', 'BANK_TRANSFER'];
 
 export function isOfflinePaymentMethod(code: string): boolean {
   return (OFFLINE_PAYMENT_METHODS as readonly string[]).includes(code);
 }
 
 const DEFAULTS: PaymentMethodConfig[] = [
+  { code: 'CASH', enabled: true, name: { en: 'Cash on delivery', ar: 'الدفع عند الاستلام' } },
   { code: 'BANK_TRANSFER', enabled: true, name: { en: 'Bank transfer', ar: 'تحويل بنكي' } },
   { code: 'BENEFIT_PAY', enabled: true, name: { en: 'BenefitPay', ar: 'بنفت باي' } },
   { code: 'TAP_PAY', enabled: true, name: { en: 'Tap Pay', ar: 'تاب باي' } },
@@ -28,14 +29,13 @@ const DEFAULTS: PaymentMethodConfig[] = [
 ];
 
 /**
- * Codes used before the catalog was reduced to the four methods above. Stores and saved settings may still carry
- * them, so they are translated instead of being dropped. Cash has no equivalent and is not carried over.
+ * Codes used before the catalog was reduced. Stores and saved settings may still carry them, so they are translated
+ * instead of being dropped.
  */
 const LEGACY_CODES: Record<string, PaymentMethodCode | null> = {
   CARD: 'TAP_PAY',
   BENEFIT: 'BENEFIT_PAY',
   BENEFIT_PAY: 'BENEFIT_PAY',
-  CASH: null,
 };
 
 function isCode(value: unknown): value is PaymentMethodCode {

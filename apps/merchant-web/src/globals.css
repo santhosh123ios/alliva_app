@@ -10,3 +10,46 @@
   --font-arabic: "Noto Sans Arabic Variable";
   --font-kufi: "Noto Kufi Arabic";
 }
+
+@keyframes alliva-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes alliva-pop {
+  0% { opacity: 0; transform: scale(0.72); }
+  70% { transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes alliva-halo {
+  0%, 100% { transform: scale(0.92); opacity: 0.55; }
+  50% { transform: scale(1.12); opacity: 0.15; }
+}
+
+@keyframes alliva-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes alliva-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.alliva-rise { animation: alliva-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.alliva-rise-delay { animation: alliva-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both; }
+.alliva-pop { animation: alliva-pop 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.alliva-halo { animation: alliva-halo 1.8s ease-in-out infinite; }
+.alliva-draw { stroke-dasharray: 28; stroke-dashoffset: 28; animation: alliva-draw 0.45s ease 0.2s forwards; }
+.alliva-fill { transform-origin: left; animation: alliva-fill 2s linear both; }
+[dir='rtl'] .alliva-fill { transform-origin: right; }
+
+@media (prefers-reduced-motion: reduce) {
+  .alliva-rise,
+  .alliva-rise-delay,
+  .alliva-pop,
+  .alliva-halo,
+  .alliva-fill { animation: none; }
+  .alliva-draw { animation: none; stroke-dashoffset: 0; }
+  .alliva-fill { transform: none; }
+}

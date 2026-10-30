@@ -22,6 +22,7 @@ export type CaptureSplitInput = {
   total: string;
   foodAfterDiscount: string;
   tax: string;
+  serviceFee?: string;
   deliveryFee: string;
   commissionRate: string;
   gatewayRate: string;
@@ -33,6 +34,7 @@ export function buildCaptureLedger(input: CaptureSplitInput): LedgerDraft[] {
   const total = money(input.total);
   const food = money(input.foodAfterDiscount);
   const tax = money(input.tax);
+  const serviceFee = money(input.serviceFee ?? '0');
   const delivery = money(input.deliveryFee);
   const commission = food.mul(input.commissionRate);
   const merchantNet = food.minus(commission);
@@ -47,7 +49,7 @@ export function buildCaptureLedger(input: CaptureSplitInput): LedgerDraft[] {
   ].filter((line) => money(line.amount).gt(0));
 
   const outflow = commission.plus(merchantNet).plus(driver).plus(gatewayFee);
-  const expected = food.plus(delivery).plus(tax);
+  const expected = food.plus(delivery).plus(serviceFee).plus(tax);
   if (!expected.minus(total).abs().lt('0.001')) {
     throw new Error('Order total does not match the priced components');
   }

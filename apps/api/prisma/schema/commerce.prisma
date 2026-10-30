@@ -49,6 +49,7 @@ model Order {
   fulfillmentType      FulfillmentType
   status               OrderStatus     @default(PENDING)
   addressSnapshot      Json?
+  deliveryQuote        Json?
   tableId              String?         @db.Uuid
   scheduledFor         DateTime?
   notes                String?
@@ -57,6 +58,7 @@ model Order {
   discount             Decimal         @db.Decimal(19, 3)
   deliveryFee          Decimal         @db.Decimal(19, 3)
   deliveryFeeSaved     Decimal         @db.Decimal(19, 3)
+  serviceFee           Decimal         @default(0) @db.Decimal(19, 3)
   tax                  Decimal         @db.Decimal(19, 3)
   total                Decimal         @db.Decimal(19, 3)
   currency             String          @default("BHD")
@@ -67,6 +69,10 @@ model Order {
   preparationMinutes   Int?
   estimatedReadyAt     DateTime?
   assignedStaffId      String?         @db.Uuid
+  /// Short code the rider types at the store when the QR cannot be scanned. Set when the order is ready.
+  handoffCode          String?
+  /// Secret carried in the pickup QR. Set when the order is ready.
+  handoffToken         String?         @unique
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
   createdById          String?         @db.Uuid
@@ -84,6 +90,8 @@ model Order {
   reviews              Review[]
   dispatch             DispatchAssignment?
   cashCollection       CashCollection?
+  dropoffCorrections   DeliveryLocationCorrection[]
+  deliveryIssues       DeliveryIssue[]
 
   @@index([merchantId, status])
   @@index([customerId, createdAt])
@@ -135,10 +143,46 @@ model DispatchAssignment {
   merchantId String   @db.Uuid
   assignedAt DateTime @default(now())
   assignedById String? @db.Uuid
+  /// Stop number in the rider's route, starting at 1. 0 when no plan set it.
+  sequence   Int      @default(0)
+  pickupVerifiedAt DateTime?
+  pickupMethod     PickupVerification?
   order      Order    @relation(fields: [orderId], references: [id])
   driver     DriverProfile @relation("DispatchDriver", fields: [driverId], references: [id])
 
   @@index([merchantId])
+  @@index([driverId])
+}
+
+/// A rider's correction of the drop-off pin, kept as history. The latest one wins on the order.
+model DeliveryLocationCorrection {
+  id         String   @id @default(uuid()) @db.Uuid
+  orderId    String   @db.Uuid
+  merchantId String   @db.Uuid
+  driverId   String   @db.Uuid
+  latitude   Decimal  @db.Decimal(10, 7)
+  longitude  Decimal  @db.Decimal(10, 7)
+  note       String?
+  createdAt  DateTime @default(now())
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model DeliveryIssue {
+  id         String            @id @default(uuid()) @db.Uuid
+  orderId    String            @db.Uuid
+  merchantId String            @db.Uuid
+  driverId   String            @db.Uuid
+  type       DeliveryIssueType
+  note       String?
+  status     String            @default("OPEN")
+  createdAt  DateTime          @default(now())
+  resolvedAt DateTime?
+  order      Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId, status])
+  @@index([orderId])
 }
 
 model Floor {

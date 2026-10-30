@@ -101,13 +101,40 @@ model CashCollection {
   amount     Decimal              @db.Decimal(19, 3)
   currency   String               @default("BHD")
   status     CashCollectionStatus @default(PENDING)
+  /// What the rider actually took from the customer. Null until delivery.
+  collectedAmount Decimal?        @db.Decimal(19, 3)
+  collectedAt     DateTime?
+  depositId       String?         @db.Uuid
   createdAt  DateTime             @default(now())
   updatedAt  DateTime             @updatedAt
   order      Order                @relation(fields: [orderId], references: [id])
   merchant   Merchant             @relation(fields: [merchantId], references: [id])
   driver     DriverProfile?       @relation(fields: [driverId], references: [id])
+  deposit    CashDeposit?         @relation(fields: [depositId], references: [id])
 
   @@index([merchantId, status])
+  @@index([driverId, status])
+}
+
+/// Cash a rider hands over to the store. The store confirms or rejects it.
+model CashDeposit {
+  id           String            @id @default(uuid()) @db.Uuid
+  merchantId   String            @db.Uuid
+  driverId     String            @db.Uuid
+  amount       Decimal           @db.Decimal(19, 3)
+  currency     String            @default("BHD")
+  status       CashDepositStatus @default(SUBMITTED)
+  note         String?
+  reviewNote   String?
+  reviewedById String?           @db.Uuid
+  reviewedAt   DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  driver       DriverProfile     @relation(fields: [driverId], references: [id])
+  collections  CashCollection[]
+
+  @@index([merchantId, status])
+  @@index([driverId, createdAt])
 }
 
 model LedgerEntry {
@@ -199,6 +226,7 @@ model MerchantSubscription {
   pendingBillingInterval BillingInterval?
   pendingEffectiveAt DateTime?
   pendingMarkPaid Boolean            @default(true)
+  autoRenew       Boolean            @default(false)
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   merchant        Merchant           @relation(fields: [merchantId], references: [id])

@@ -15,10 +15,10 @@ const permissions = [
   'subscription.manage', 'staff.manage', 'report.export', 'complaint.view', 'complaint.manage',
   'promo.manage', 'marketing.manage', 'settings.manage', 'audit.view', 'dispatch.manage',
   'catalog.manage', 'catalog.moderate', 'finance.view', 'customer.view', 'table.manage',
-  'marketing.portal',
+  'marketing.portal', 'delivery.app', 'cash.confirm',
 ];
 
-const merchantPerms = ['merchant.profile.manage', 'catalog.manage', 'order.view', 'order.update', 'staff.manage', 'table.manage', 'payment.view', 'report.export', 'refund.request', 'complaint.view'];
+const merchantPerms = ['merchant.profile.manage', 'catalog.manage', 'order.view', 'order.update', 'staff.manage', 'table.manage', 'payment.view', 'report.export', 'refund.request', 'complaint.view', 'promo.manage', 'dispatch.manage', 'cash.confirm'];
 
 const roleMap: Record<string, string[]> = {
   SUPER_ADMIN: permissions,
@@ -34,8 +34,8 @@ const roleMap: Record<string, string[]> = {
   MERCHANT_MANAGER: merchantPerms.filter((key) => key !== 'staff.manage'),
   ORDER_TAKING_STAFF: ['order.view', 'order.update'],
   KITCHEN_STAFF: ['order.view', 'order.update'],
-  BILLING_STAFF: ['payment.view', 'order.view'],
-  DELIVERY_STAFF: ['order.view', 'order.update'],
+  BILLING_STAFF: ['payment.view', 'order.view', 'cash.confirm'],
+  DELIVERY_STAFF: ['order.view', 'order.update', 'delivery.app'],
   REPORT_VIEWER: ['order.view', 'payment.view', 'report.export'],
 };
 
@@ -339,7 +339,9 @@ async function main() {
     ['billing@saffronhouse.bh', 'BILLING_STAFF', 'Dana', 'Saleh'],
     ['driver@saffronhouse.bh', 'DELIVERY_STAFF', 'Hamad', 'Jassim'],
     ['reports@saffronhouse.bh', 'REPORT_VIEWER', 'Lulwa', 'Ahmed'],
+    ['rider2@saffronhouse.bh', 'DELIVERY_STAFF', 'Yousif', 'Mahdi'],
   ] as const;
+  let driverIndex = 0;
   for (const [index, [email, roleKey, firstName, lastName]] of merchantStaff.entries()) {
     const role = await prisma.role.findUniqueOrThrow({ where: { key: roleKey } });
     await prisma.user.upsert({
@@ -355,7 +357,7 @@ async function main() {
         lastName,
         merchantId: id(501),
         userRoles: { create: { roleId: role.id, merchantId: id(501) } },
-        ...(roleKey === 'DELIVERY_STAFF' ? { driverProfile: { create: { id: id(910), merchantId: id(501), vehicle: 'Motorbike', active: true } } } : {}),
+        ...(roleKey === 'DELIVERY_STAFF' ? { driverProfile: { create: { id: id(910 + driverIndex++), merchantId: id(501), vehicle: 'Motorbike', active: true } } } : {}),
       },
     });
   }
@@ -384,9 +386,14 @@ async function main() {
       customerId: customer.customer!.id,
       label: 'Home',
       line1: 'Road 2406, Block 324',
+      road: '2406',
+      block: '324',
+      area: 'Adliya',
       city: 'Manama',
       latitude: '26.223500',
       longitude: '50.587800',
+      contactName: 'Demo Customer',
+      contactPhone: '+97336000001',
       isDefault: true,
     },
   });
@@ -500,6 +507,7 @@ async function main() {
       discount: quote.discount,
       deliveryFee: quote.deliveryFee,
       deliveryFeeSaved: quote.deliveryFeeSaved,
+      serviceFee: quote.serviceFee,
       tax: quote.tax,
       total: quote.total,
       commissionPercent: '12.000',
@@ -513,6 +521,7 @@ async function main() {
     total: quote.total,
     foodAfterDiscount: moneyString(money(quote.subtotal).minus(quote.discount)),
     tax: quote.tax,
+    serviceFee: quote.serviceFee,
     deliveryFee: quote.deliveryFee,
     commissionRate: '0.12',
     gatewayRate: '0.025',
@@ -546,6 +555,7 @@ async function main() {
       discount: '0.000',
       deliveryFee: '0.500',
       deliveryFeeSaved: '0.000',
+      serviceFee: '0.000',
       tax: '0.975',
       total: '11.225',
       commissionPercent: '12.000',
@@ -746,6 +756,31 @@ async function main() {
     where: { id: id(2000) },
     update: {},
     create: { id: id(2000), merchantId: id(501), amount: '8.580', status: 'PENDING_APPROVAL', periodStart: new Date(Date.now() - 7 * 86400000), periodEnd: new Date(), lines: { create: { description: 'ALV-10001 merchant net', amount: '8.580', orderId: order.id } } },
+  });
+
+  // Delivery pricing demo: Saffron House uses the store-wide rule (3 km free, then 0.300 BHD a started kilometre, 10 km limit);
+  // Pearl Grill prices its Muharraq branch with half-kilometre steps, limits and free delivery above 15 BHD.
+  await prisma.deliverySetting.upsert({
+    where: { id: id(2100) },
+    update: {},
+    create: { id: id(2100), merchantId: id(501), freeRadiusKm: '3', maxRadiusKm: '10', baseCharge: '0', chargePerStep: '0.300', billingStepKm: '1' },
+  });
+  await prisma.deliverySetting.upsert({
+    where: { id: id(2101) },
+    update: {},
+    create: {
+      id: id(2101),
+      merchantId: id(502),
+      branchId: id(602),
+      freeRadiusKm: '2',
+      maxRadiusKm: '8',
+      baseCharge: '0.500',
+      chargePerStep: '0.150',
+      billingStepKm: '0.5',
+      minCharge: '0.500',
+      maxCharge: '2.000',
+      freeAboveOrder: '15.000',
+    },
   });
 
   await prisma.$executeRawUnsafe(`

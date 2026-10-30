@@ -1,11 +1,12 @@
 import { CartButtonSpinner, flyToCart } from '@/components/cart-motion';
 import { api } from '@/components/providers';
-import { categoryIcon, formatDistanceKm } from '@/components/storefront';
+import { useCartAdd } from '@/components/store-switch';
+import { categoryIcon, formatDistanceKm, StoreUnavailable } from '@/components/storefront';
 import { Link } from '@/i18n/navigation';
-import { areas, usePlace } from '@/lib/place';
+import { useAreaPoint } from '@/lib/location';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { cn, ErrorState, Skeleton } from '@alliva/ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
   ArrowRight,
@@ -43,9 +44,7 @@ export default function ProductPage() {
   const { slug, id } = useParams() as { slug: string; id: string };
   const locale = useLocale() as 'en' | 'ar';
   const t = useTranslations();
-  const client = useQueryClient();
-  const areaId = usePlace((state) => state.area);
-  const area = areas.find((item) => item.id === areaId) ?? areas[0]!;
+  const area = useAreaPoint();
   const product = useQuery({ queryKey: ['product', id], queryFn: () => api.product(id) });
   const merchant = useQuery({ queryKey: ['merchant', slug], queryFn: () => api.merchant(slug) });
   const [variantId, setVariantId] = useState<string | null>(null);
@@ -76,25 +75,13 @@ export default function ProductPage() {
     setNotesOpen(false);
   }, [loadedId]);
 
-  const add = useMutation({
-    mutationFn: async () => {
-      await api.guest().catch(() => undefined);
-      return api.addItem({
-        productId: id,
-        variantId,
-        addonIds: addons,
-        quantity,
-        notes: notes.trim() || undefined,
-      });
-    },
-    onSuccess: (cartView) => {
-      client.setQueryData(['cart'], cartView);
-      toast.success(t('customer.added'));
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
+  const cartAdd = useCartAdd();
 
-  if (product.isLoading) return <ProductSkeleton />;
+  if (product.isLoading || merchant.isLoading) return <ProductSkeleton />;
+  if (merchant.data?.temporarilyUnavailable || product.data?.temporarilyUnavailable) {
+    const storeName = merchant.data ? pickLocalized(merchant.data.name, locale) : pickLocalized(product.data?.merchantName ?? { en: '', ar: '' }, locale);
+    return <StoreUnavailable name={storeName} title={t('customer.temporarilyUnavailable')} body={t('customer.storeUnavailableBody')} backLabel={t('customer.back')} />;
+  }
   if (!product.data || product.data.id !== id) return <ErrorState title="Product" body={(product.error as Error)?.message ?? 'Missing'} />;
 
   const data = product.data;
@@ -112,6 +99,21 @@ export default function ProductPage() {
   const canAdd = data.available && !missingRequired && (!data.variants.length || Boolean(variant));
   const related = (merchant.data?.categories ?? []).flatMap((category) => category.products).filter((item) => item.id !== data.id).slice(0, 8);
   const storeName = merchant.data ? pickLocalized(merchant.data.name, locale) : pickLocalized(data.merchantName, locale);
+  const placeInCart = () =>
+    cartAdd.requestAdd(data.merchantId, merchant.data?.name ?? data.merchantName, {
+      productId: id,
+      variantId,
+      addonIds: addons,
+      quantity,
+      notes: notes.trim() || undefined,
+      preview: {
+        name: data.name,
+        description: data.description,
+        imageUrl: data.imageUrl,
+        unitPrice: runningTotal(variant?.price ?? data.price, selectedAddons, 1),
+        addons: selectedAddons.map((addon) => ({ id: addon.id, name: addon.name, price: addon.price })),
+      },
+    });
 
   const share = async () => {
     const url = window.location.href;
@@ -368,11 +370,11 @@ export default function ProductPage() {
                 <span className="font-bold"> · {formatMoney(total, locale)}</span>
               </p>
               <AddButton
-                pending={add.isPending}
+                pending={cartAdd.pending}
                 disabled={!canAdd}
                 onClick={(event) => {
+                  if (!placeInCart()) return;
                   flyToCart(photoRef.current, event.currentTarget, images[photoIndex] || '/no-image-1x1.jpg');
-                  add.mutate();
                 }}
                 label={data.available ? t('customer.add') : t('customer.unavailable')}
                 icon
@@ -404,11 +406,11 @@ export default function ProductPage() {
         <div className="mx-auto flex max-w-[1180px] items-center gap-3">
           <Quantity value={quantity} onChange={setQuantity} decreaseLabel={t('customer.decreaseQty')} increaseLabel={t('customer.increaseQty')} />
           <AddButton
-            pending={add.isPending}
+            pending={cartAdd.pending}
             disabled={!canAdd}
             onClick={(event) => {
+              if (!placeInCart()) return;
               flyToCart(photoRef.current, event.currentTarget, images[photoIndex] || '/no-image-1x1.jpg');
-              add.mutate();
             }}
             label={data.available ? t('customer.add') : t('customer.unavailable')}
             price={formatMoney(total, locale)}
@@ -416,6 +418,7 @@ export default function ProductPage() {
           />
         </div>
       </div>
+      {cartAdd.dialog}
     </div>
   );
 }

@@ -1,8 +1,11 @@
 import { CartButtonSpinner, flyFromButton } from '@/components/cart-motion';
 import { api } from '@/components/providers';
+import { beginCartChange, bumpCart, cartQueryOptions, clearCartLines, failCartChange, optimisticLine, setLineQuantity, settleCartChange } from '@/lib/cart-cache';
 import { categoryIcon } from '@/components/storefront';
 import { Link } from '@/i18n/navigation';
 import { areas, usePlace, type FulfillmentMode } from '@/lib/place';
+import { chooseLocation, useLocationStore } from '@/lib/location';
+import { deliveryProblem } from '@/lib/checkout-errors';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { cn, EmptyState, ErrorState, Skeleton } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -47,11 +50,12 @@ export default function CartPage() {
   const locale = useLocale() as 'en' | 'ar';
   const t = useTranslations();
   const client = useQueryClient();
-  const areaId = usePlace((state) => state.area);
-  const setArea = usePlace((state) => state.setArea);
+  const locationLabel = useLocationStore((state) => state.label);
+  const locationChosen = useLocationStore((state) => Boolean(state.point));
+  const revision = useLocationStore((state) => state.revision);
   const fulfillment = usePlace((state) => state.fulfillment);
   const setFulfillment = usePlace((state) => state.setFulfillment);
-  const cart = useQuery({ queryKey: ['cart'], queryFn: () => api.cart() });
+  const cart = useQuery(cartQueryOptions());
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.me(), retry: false });
   const customer = useQuery({
     queryKey: ['customer'],
@@ -64,6 +68,10 @@ export default function CartPage() {
   const [noteReady, setNoteReady] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [saved, setSaved] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (revision) void client.invalidateQueries({ queryKey: ['cart'] });
+  }, [revision, client]);
 
   const slug = cart.data?.merchant?.slug;
   const store = useQuery({
@@ -90,19 +98,27 @@ export default function CartPage() {
       if (input.remove || input.quantity < 1) return api.removeItem(input.id);
       return api.updateItem(input.id, input.quantity, input.variantId);
     },
-    onSuccess: (view) => client.setQueryData(['cart'], view),
-    onError: (error: Error) => toast.error(error.message),
+    onMutate: (input) => beginCartChange(client, (current) => setLineQuantity(current, input.id, input.remove ? 0 : input.quantity, input.variantId)),
+    onSuccess: (view, _variables, changeId) => settleCartChange(client, changeId, view),
+    onError: (error: Error, _variables, changeId) => {
+      if (typeof changeId === 'number') failCartChange(client, changeId);
+      toast.error(error.message);
+    },
   });
   const add = useMutation({
-    mutationFn: async (productId: string) => {
+    mutationFn: async (input: { productId: string; preview?: { name?: { en?: string; ar?: string }; description?: { en?: string; ar?: string }; imageUrl?: string | null; unitPrice?: string } }) => {
       await api.guest().catch(() => undefined);
-      return api.addItem({ productId, quantity: 1 });
+      return api.addItem({ productId: input.productId, quantity: 1 });
     },
-    onSuccess: (view) => {
-      client.setQueryData(['cart'], view);
+    onMutate: (input) => beginCartChange(client, (current) => bumpCart(current, { productId: input.productId, quantity: 1, preview: input.preview })),
+    onSuccess: (view, _variables, changeId) => {
+      settleCartChange(client, changeId, view);
       toast.success(t('customer.added'));
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error, _variables, changeId) => {
+      if (typeof changeId === 'number') failCartChange(client, changeId);
+      toast.error(error.message);
+    },
   });
   const clear = useMutation({
     mutationFn: async (ids: string[]) => {
@@ -111,10 +127,16 @@ export default function CartPage() {
       for (const id of ids) latest = await api.removeItem(id);
       return latest;
     },
-    onSuccess: (view) => {
-      if (view) client.setQueryData(['cart'], view);
+    onMutate: (ids) => (ids.length ? beginCartChange(client, clearCartLines) : undefined),
+    onSuccess: (view, _ids, changeId) => {
+      if (typeof changeId !== 'number') return;
+      if (view) settleCartChange(client, changeId, view);
+      else failCartChange(client, changeId);
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error, _ids, changeId) => {
+      if (typeof changeId === 'number') failCartChange(client, changeId);
+      toast.error(error.message);
+    },
   });
   const promo = useMutation({
     mutationFn: async () => {
@@ -182,16 +204,21 @@ export default function CartPage() {
     .filter((product, index, list) => product.available && !inCart.has(product.id) && list.findIndex((row) => row.id === product.id) === index)
     .slice(0, 3);
   const addresses = ((customer.data as { addresses?: SavedAddress[] } | undefined)?.addresses ?? []).filter((row) => row.id);
-  const area = areas.find((item) => item.id === areaId) ?? areas[0]!;
-  const selectedAddress = addresses.find((row) => row.id === data.addressId) ?? addresses.find((row) => row.isDefault) ?? addresses[0];
+  const selectedAddress = addresses.find((row) => row.id === data.addressId);
   const addressText = selectedAddress
     ? `${selectedAddress.label} • ${selectedAddress.city}, ${t('customer.bahrain')}`
-    : `${locale === 'ar' ? area.ar : area.en}, ${t('customer.bahrain')}`;
-  const minutes = merchant?.deliveryMinutes ?? 30;
+    : locationChosen
+      ? `${locationLabel || t('customer.locationFlow.pinnedLocation')}, ${t('customer.bahrain')}`
+      : t('customer.locationFlow.choose');
+  const signedIn = me.data?.kind === 'CUSTOMER';
+  const checkoutHref = signedIn ? '/checkout' : `/login?next=${encodeURIComponent('/checkout')}`;
+  const deliveryIssue = data.delivery && !data.delivery.available ? deliveryProblem(data.delivery.reason) : null;
+  const minutes = data.delivery?.available ? data.delivery.estimatedMinutes : (merchant?.deliveryMinutes ?? 30);
   const eta = t('customer.minuteRange', { from: Math.max(10, minutes - 5), to: minutes + 5 });
   const delivering = mode === 'DELIVERY';
   const freeDelivery = delivering && (Number(data.pricing.deliveryFee) === 0 || Boolean(merchant?.freeDelivery));
-  const backHref = merchant ? `/merchants/${merchant.slug}` : '/';
+  const unavailable = Boolean(merchant?.temporarilyUnavailable);
+  const backHref = merchant && !unavailable ? `/merchants/${merchant.slug}` : '/';
   const busy = edit.isPending || clear.isPending || context.isPending;
 
   const selectMode = (id: FulfillmentMode) => {
@@ -218,7 +245,7 @@ export default function CartPage() {
         deliveryHint: t('customer.deliveryFeeHint'),
         free: t('customer.free'),
         serviceFee: t('customer.serviceFee'),
-        serviceHint: t('customer.serviceFeeHint'),
+        tax: t('customer.tax'),
         discount: t('customer.discount'),
         total: t('customer.total'),
       }}
@@ -248,15 +275,23 @@ export default function CartPage() {
       addresses={addresses}
       areas={areas.map((item) => ({ id: item.id, label: locale === 'ar' ? item.ar : item.en }))}
       selectedAddressId={selectedAddress?.id ?? null}
-      selectedAreaId={area.id}
+      selectedAreaId={null}
       manageHref={me.data?.kind === 'CUSTOMER' ? '/profile' : null}
       manageLabel={t('customer.storeAddress')}
       onAddress={(id) => context.mutate({ addressId: id, notes: note.trim() || null })}
-      onArea={setArea}
+      onArea={(id) => {
+        const picked = areas.find((item) => item.id === id);
+        if (picked) void chooseLocation({ lat: Number(picked.lat), lng: Number(picked.lng) }, 'AREA', locale, locale === 'ar' ? picked.ar : picked.en);
+      }}
     />
   ) : null;
 
   const etaRow = delivering ? <EtaRow label={t('customer.estimatedDelivery')} value={eta} /> : null;
+  const deliveryWarning = delivering && deliveryIssue ? (
+    <p role="alert" className="mt-3 rounded-2xl bg-[#fff6d0] px-4 py-3 text-sm font-semibold text-[#8a6d00]">
+      {t(`customer.checkoutErrors.${deliveryIssue}`)}
+    </p>
+  ) : null;
 
   return (
     <div className="lg:pt-2">
@@ -265,7 +300,7 @@ export default function CartPage() {
       <nav className="mb-4 hidden items-center gap-2 text-sm text-[#8d8d88] lg:flex">
         <Link href="/" className="hover:text-[#111]">{t('nav.home')}</Link>
         <span>/</span>
-        {merchant ? (
+        {merchant && !unavailable ? (
           <Link href={`/merchants/${merchant.slug}`} className="hover:text-[#111]">{name}</Link>
         ) : (
           <span>{name}</span>
@@ -289,7 +324,12 @@ export default function CartPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="truncate text-base font-bold">{name}</p>
                 {merchant ? (
-                  merchant.isOpen ? (
+                  unavailable ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#fff6d0] px-2 py-0.5 text-xs font-semibold text-[#8a6d00]">
+                      <span className="size-1.5 rounded-full bg-[#c9a227]" />
+                      {t('customer.temporarilyUnavailable')}
+                    </span>
+                  ) : merchant.isOpen ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-[#e7f8ee] px-2 py-0.5 text-xs font-semibold text-[#1c9a4b]">
                       <span className="size-1.5 rounded-full bg-[#22a85a]" />
                       {t('customer.open')}
@@ -304,7 +344,7 @@ export default function CartPage() {
               </div>
               {kinds ? <p className="truncate text-sm text-[#8d8d88]">{kinds}</p> : null}
             </div>
-            {merchant ? (
+            {merchant && !unavailable ? (
               <Link href={`/merchants/${merchant.slug}`} className="inline-flex shrink-0 items-center gap-0.5 text-sm font-semibold text-[#8a6d00]">
                 {t('customer.addMoreItems')}
                 <ChevronRight className="size-4 rtl:rotate-180" />
@@ -342,9 +382,9 @@ export default function CartPage() {
                 key={item.id}
                 item={item}
                 locale={locale}
-                slug={merchant?.slug}
+                slug={unavailable ? undefined : merchant?.slug}
                 saved={saved.includes(item.productId)}
-                pending={(edit.isPending && edit.variables?.id === item.id) || clear.isPending}
+                pending={(edit.isPending && edit.variables?.id === item.id) || clear.isPending || optimisticLine(item.id)}
                 labels={{
                   customizable: t('customer.customizable'),
                   edit: t('customer.editOptions'),
@@ -375,15 +415,18 @@ export default function CartPage() {
                         <span className="text-sm font-bold">{formatMoney(product.price, locale)}</span>
                         <button
                           type="button"
-                          disabled={add.isPending && add.variables === product.id}
-                          aria-busy={add.isPending && add.variables === product.id}
+                          disabled={add.isPending && add.variables?.productId === product.id}
+                          aria-busy={add.isPending && add.variables?.productId === product.id}
                           onClick={(event) => {
                             flyFromButton(event.currentTarget, product.imageUrl || '/no-image-1x1.jpg');
-                            add.mutate(product.id);
+                            add.mutate({
+                              productId: product.id,
+                              preview: { name: product.name, description: product.description, imageUrl: product.imageUrl, unitPrice: product.price },
+                            });
                           }}
                           className="inline-flex h-8 shrink-0 items-center gap-0.5 rounded-full bg-primary px-2.5 text-sm font-bold text-[#111] disabled:opacity-50"
                         >
-                          {add.isPending && add.variables === product.id ? <CartButtonSpinner /> : <Plus className="size-3.5" />}
+                          {add.isPending && add.variables?.productId === product.id ? <CartButtonSpinner /> : <Plus className="size-3.5" />}
                           {t('customer.addShort')}
                         </button>
                       </div>
@@ -417,6 +460,7 @@ export default function CartPage() {
           <div className="mt-4 rounded-3xl border border-[#eee] bg-white p-4 lg:hidden">{summary}</div>
           {banner ? <div className="mt-3 lg:hidden">{banner}</div> : null}
           {address ? <div className="mt-1 lg:hidden">{address}</div> : null}
+          {deliveryWarning ? <div className="lg:hidden">{deliveryWarning}</div> : null}
           {etaRow ? <div className="lg:hidden">{etaRow}</div> : null}
         </div>
 
@@ -428,11 +472,16 @@ export default function CartPage() {
           </div>
           {banner ? <div className="mt-4">{banner}</div> : null}
           {address}
+          {deliveryWarning}
           {etaRow}
-          <Link href="/checkout" className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-sm font-bold text-[#111]">
-            {t('customer.proceedCheckout')}
-            <ArrowRight className="size-4 rtl:rotate-180" />
-          </Link>
+          {unavailable ? (
+            <p className="mt-4 rounded-2xl bg-[#fff6d0] px-4 py-3 text-sm font-semibold text-[#8a6d00]">{t('customer.storeUnavailableBody')}</p>
+          ) : (
+            <Link href={checkoutHref} className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-sm font-bold text-[#111]">
+              {t('customer.proceedCheckout')}
+              <ArrowRight className="size-4 rtl:rotate-180" />
+            </Link>
+          )}
           <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[#f0f0ea] pt-4 text-xs">
             <div className="flex gap-2">
               <ShieldCheck className="size-4 shrink-0" />
@@ -452,8 +501,13 @@ export default function CartPage() {
         </aside>
       </div>
 
+      {unavailable ? (
+        <p className="fixed inset-x-4 bottom-[calc(4.65rem+max(0.7rem,env(safe-area-inset-bottom))+1.9rem)] z-40 mx-auto max-w-[640px] rounded-2xl bg-[#fff6d0] px-4 py-3 text-center text-sm font-semibold text-[#8a6d00] lg:hidden">
+          {t('customer.temporarilyUnavailable')}
+        </p>
+      ) : (
       <Link
-        href="/checkout"
+        href={checkoutHref}
         className="fixed inset-x-4 bottom-[calc(4.65rem+max(0.7rem,env(safe-area-inset-bottom))+1.9rem)] z-40 mx-auto flex max-w-[640px] items-center justify-between gap-3 rounded-full bg-[#111] py-2 ps-5 pe-2 text-white shadow-[0_10px_28px_rgba(0,0,0,0.28)] lg:hidden"
       >
         <span className="min-w-0">
@@ -465,6 +519,7 @@ export default function CartPage() {
           <ArrowRight className="size-4 rtl:rotate-180" />
         </span>
       </Link>
+      )}
     </div>
   );
 }
@@ -757,7 +812,7 @@ function Summary({
     deliveryHint: string;
     free: string;
     serviceFee: string;
-    serviceHint: string;
+    tax: string;
     discount: string;
     total: string;
   };
@@ -776,7 +831,8 @@ function Summary({
             valueClass={deliveryFree ? 'font-semibold text-[#168A52]' : 'font-semibold'}
           />
         ) : null}
-        <Row label={labels.serviceFee} hint={labels.serviceHint} value={formatMoney(pricing.tax, locale)} />
+        {Number(pricing.serviceFee) > 0 ? <Row label={pickLocalized(pricing.serviceFeeLabel, locale) || labels.serviceFee} value={formatMoney(pricing.serviceFee, locale)} /> : null}
+        {Number(pricing.tax) > 0 ? <Row label={pickLocalized(pricing.taxLabel, locale) || labels.tax} value={formatMoney(pricing.tax, locale)} /> : null}
         {Number(pricing.discount) > 0 ? <Row label={labels.discount} value={`− ${formatMoney(pricing.discount, locale)}`} valueClass="font-semibold text-[#168A52]" /> : null}
       </div>
       <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#fff6d0] px-4 py-3">
@@ -842,7 +898,7 @@ function AddressRow({
   addresses: SavedAddress[];
   areas: { id: string; label: string }[];
   selectedAddressId: string | null;
-  selectedAreaId: string;
+  selectedAreaId: string | null;
   manageHref: string | null;
   manageLabel: string;
   onAddress: (id: string) => void;

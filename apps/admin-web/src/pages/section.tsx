@@ -1,4 +1,6 @@
 import { MarketingHost } from '@/components/marketing-host';
+import { CatalogCategories } from '@/components/catalog-categories';
+import { CatalogProducts } from '@/components/catalog-products';
 import { Merchants, type MerchantRow } from '@/components/merchants';
 import { Overview } from '@/components/overview';
 import { PlatformSettings, type SettingsData } from '@/components/platform-settings';
@@ -17,6 +19,8 @@ export default function SectionPage() {
   const key = section?.[0] ?? 'dashboard';
   // Marketing (including promo codes) is one shared console; it loads its own data.
   if (key === 'marketing') return <MarketingHost screen={section?.[1] ?? 'dashboard'} />;
+  if (key === 'categories') return <CatalogCategories />;
+  if (key === 'catalog-products') return <CatalogProducts />;
   if (key === 'promos') return <Navigate replace to={localizeHref('/marketing/promos', locale)} />;
   return <DataSection section={section} />;
 }

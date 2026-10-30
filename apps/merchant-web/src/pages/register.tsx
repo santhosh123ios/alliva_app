@@ -39,8 +39,18 @@ export default function RegisterPage() {
     promoCode: params.get('promo') ?? '',
     referralCode: params.get('ref') ?? '',
   });
+  const normalizedEmail = form.email.trim().toLowerCase();
+  const emailFormatValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
+  const emailToCheck = useDebounced(normalizedEmail, 450);
   const referralCode = useDebounced(form.referralCode.trim(), 400);
   const promoCode = useDebounced(form.promoCode.trim(), 400);
+  const emailAvailability = useQuery({
+    queryKey: ['merchant-email-availability', emailToCheck],
+    queryFn: () => api.merchantEmailAvailability(emailToCheck),
+    enabled: emailFormatValid && emailToCheck === normalizedEmail,
+    retry: false,
+    staleTime: 30_000,
+  });
   const referralCheck = useQuery({
     queryKey: ['referral-check', referralCode],
     queryFn: () => api.validateReferral(referralCode),
@@ -58,10 +68,18 @@ export default function RegisterPage() {
   const referralBad = Boolean(referralCode) && form.referralCode.trim() === referralCode && !referralCheck.isFetching && (referralCheck.isError || (referralCheck.data && !referralCheck.data.valid));
   const promoWaiting = Boolean(form.promoCode.trim()) && (form.promoCode.trim() !== promoCode || quote.isFetching);
   const promoBad = Boolean(promoCode) && form.promoCode.trim() === promoCode && !quote.isFetching && quote.data?.promo?.valid === false;
+  const emailWaiting = emailFormatValid && (emailToCheck !== normalizedEmail || emailAvailability.isFetching);
+  const emailTaken = emailFormatValid && emailToCheck === normalizedEmail && emailAvailability.data?.available === false;
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [phase, setPhase] = useState<'form' | 'working' | 'welcome'>('form');
   const list = [...(plans.data ?? [])].sort((a, b) => a.displayOrder - b.displayOrder || Number(a.priceMonthly) - Number(b.priceMonthly));
   const selectedPlan = list.find((plan) => plan.id === planId);
+  const startedAt = useRef(0);
+  const holdTimer = useRef<number | undefined>(undefined);
+  const submitting = useRef(false);
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const register = useMutation({
     mutationFn: async () => {
       if (!planId) throw new Error(t('selectPlan'));
@@ -92,17 +110,34 @@ export default function RegisterPage() {
       });
       await api.login({ email: form.email, password: form.password });
     },
-    onSuccess: () => router.push('/dashboard'),
-    onError: (reason: Error) => setError(reason.message),
+    onSuccess: () => {
+      const wait = Math.max(0, 1700 - (Date.now() - startedAt.current));
+      holdTimer.current = window.setTimeout(() => setPhase('welcome'), wait);
+    },
+    onError: (reason: Error) => {
+      window.clearTimeout(holdTimer.current);
+      submitting.current = false;
+      setPhase('form');
+      setError(reason.message);
+    },
   });
   const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => () => window.clearTimeout(holdTimer.current), []);
   useEffect(() => {
     scroller.current?.scrollTo({ top: 0 });
   }, [step]);
+  useEffect(() => {
+    if (phase !== 'welcome') return;
+    const timer = window.setTimeout(() => routerRef.current.push('/dashboard'), 2100);
+    return () => window.clearTimeout(timer);
+  }, [phase]);
 
   const continueAccount = () => {
     const next: Record<string, string> = {};
-    if (!form.email.includes('@')) next.email = t('emailInvalid');
+    if (!emailFormatValid) next.email = t('emailInvalid');
+    else if (emailWaiting) next.email = t('emailChecking');
+    else if (emailTaken) next.email = t('emailExists');
+    else if (emailAvailability.isError || !emailAvailability.data) next.email = t('emailCheckFailed');
     if (form.password.length < 8) next.password = t('passwordShort');
     if (form.businessName.trim().length < 2) next.businessName = t('required');
     if (form.phone.trim().length < 8) next.phone = t('required');
@@ -150,8 +185,12 @@ export default function RegisterPage() {
       setError(t('fixCodes'));
       return;
     }
+    if (submitting.current) return;
     setFieldErrors({});
     setError('');
+    submitting.current = true;
+    startedAt.current = Date.now();
+    setPhase('working');
     register.mutate();
   };
 
@@ -171,6 +210,16 @@ export default function RegisterPage() {
         <img src="/merchant-hero.png" alt="" className="relative z-10 mx-auto mt-auto h-auto max-h-[45%] w-auto max-w-[90%] object-contain" />
       </aside>
       <main className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
+        {phase !== 'form' ? (
+          <RegistrationFinale
+            phase={phase}
+            title={phase === 'welcome' ? t('welcomeTitle') : t('finishingTitle')}
+            lead={phase === 'welcome' ? t('welcomeLead', { name: form.businessName.trim() }) : undefined}
+            nextLabel={t('welcomeNext')}
+            steps={[t('finishingPayment'), t('finishingStore', { name: form.businessName.trim() }), t('finishingPortal')]}
+          />
+        ) : (
+        <>
         <header className="shrink-0 border-b border-[#ecece8] bg-white px-5 py-3.5 sm:px-10 lg:px-12 xl:px-16">
           <div className="mx-auto flex w-full max-w-[640px] items-center gap-3 sm:gap-5">
             <img src="/logo-on-light.png" alt="Alliva" className="h-8 w-auto shrink-0 sm:h-9" />
@@ -183,11 +232,16 @@ export default function RegisterPage() {
             <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em]">{step === 0 ? t('title') : step === 1 ? t('choosePlan') : t('paymentTitle')}</h2>
             <p className="mt-1.5 text-sm text-[#6b6b66]">{step === 0 ? t('lead') : step === 1 ? t('choosePlanHint') : t('paymentLead')}</p>
           </div>
-          <div className="mt-6">
+          <div className={`mt-6 ${step === 0 ? 'mx-auto w-full max-w-[560px]' : ''}`}>
           {step === 0 ? (
-            <div className="rounded-xl border border-[#e3e3df] bg-white p-4 shadow-[0_8px_30px_rgba(20,20,20,0.035)] sm:p-5">
+            <div className="mx-auto w-full max-w-[560px]">
               <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
-                <IconField icon={Mail} label={t('email')} value={form.email} error={fieldErrors.email} onChange={(email) => { setForm({ ...form, email }); setFieldErrors((current) => ({ ...current, email: '' })); }} type="email" placeholder={t('emailPlaceholder')} autoComplete="email" />
+                <div>
+                  <IconField icon={Mail} label={t('email')} value={form.email} error={fieldErrors.email || (normalizedEmail && !emailFormatValid ? t('emailInvalid') : undefined) || (emailTaken ? t('emailExists') : undefined)} onChange={(email) => { setForm({ ...form, email }); setFieldErrors((current) => ({ ...current, email: '' })); }} type="email" placeholder={t('emailPlaceholder')} autoComplete="email" />
+                  {emailWaiting ? <p className="mt-1 text-[10px] text-[#6b6b66]">{t('emailChecking')}</p> : null}
+                  {!emailWaiting && emailFormatValid && emailAvailability.data?.available ? <p className="mt-1 text-[10px] font-medium text-[#147D54]">{t('emailAvailable')}</p> : null}
+                  {!emailWaiting && emailAvailability.isError ? <p className="mt-1 text-[10px] font-medium text-[#D9342B]">{t('emailCheckFailed')}</p> : null}
+                </div>
                 <IconField icon={Lock} label={t('password')} value={form.password} error={fieldErrors.password} onChange={(password) => { setForm({ ...form, password }); setFieldErrors((current) => ({ ...current, password: '' })); }} type={showPassword ? 'text' : 'password'} placeholder={t('passwordPlaceholder')} autoComplete="new-password" trailing={<button type="button" onClick={() => setShowPassword((value) => !value)} className="flex size-8 items-center justify-center text-[#777773]" aria-label={showPassword ? t('hidePassword') : t('showPassword')}>{showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>} />
                 <IconField icon={Store} label={t('businessName')} value={form.businessName} error={fieldErrors.businessName} onChange={(businessName) => { setForm({ ...form, businessName }); setFieldErrors((current) => ({ ...current, businessName: '' })); }} placeholder={t('businessNamePlaceholder')} autoComplete="organization" />
                 <IconField icon={Phone} label={t('mobile')} value={form.phone} error={fieldErrors.phone} onChange={(phone) => { setForm({ ...form, phone }); setFieldErrors((current) => ({ ...current, phone: '' })); }} placeholder={t('mobilePlaceholder')} type="tel" autoComplete="tel" />
@@ -227,7 +281,7 @@ export default function RegisterPage() {
                 <button type="button" className={`h-8 flex-1 rounded-full text-xs font-semibold transition-colors ${interval === 'ANNUAL' ? 'bg-primary text-[#111111] shadow-sm' : 'text-[#6b6b66]'}`} onClick={() => setInterval('ANNUAL')}>{t('yearly')}</button>
               </div>
               {fieldErrors.planId ? <p className="mt-3 text-sm font-medium text-[#D9342B]">{fieldErrors.planId}</p> : null}
-              <div className="mt-4 grid snap-x grid-flow-col auto-cols-[85%] items-stretch gap-2.5 overflow-x-auto pb-2 sm:auto-cols-[calc((100%-1.25rem)/3)]">
+              <div className="mt-2 grid snap-x grid-flow-col auto-cols-[85%] items-stretch gap-2.5 overflow-x-auto px-0.5 pb-2 pt-4 sm:auto-cols-[calc((100%-1.25rem)/3)]">
                 {list.map((plan) => (
                   <PlanChoice key={plan.id} plan={plan} locale={locale} selected={planId === plan.id} yearly={interval === 'ANNUAL'} onSelect={() => { setPlanId(plan.id); setFieldErrors((current) => ({ ...current, planId: '' })); }} monthlyLabel={t('perMonth')} yearlyLabel={t('perYear')} selectedLabel={t('selectedPlan')} selectLabel={t('selectNamedPlan', { name: pickLocalized(plan.name, locale) })} popularLabel={t('mostPopular')} />
                 ))}
@@ -284,6 +338,8 @@ export default function RegisterPage() {
                   <dl className="mt-3 space-y-2 text-[10px]" aria-label={t('summaryTitle')}>
                     <div className="flex justify-between"><dt>{t('summaryGross')}</dt><dd className="font-semibold">{formatMoney(quote.data.gross, locale)}</dd></div>
                     <div className="flex justify-between"><dt>{t('summaryDiscount')}</dt><dd className="font-semibold text-[#159447]">-{formatMoney(quote.data.discount, locale)}</dd></div>
+                    {Number(quote.data.serviceFee) > 0 ? <div className="flex justify-between"><dt>{pickLocalized(quote.data.serviceFeeLabel, locale)}</dt><dd className="font-semibold">{formatMoney(quote.data.serviceFee, locale)}</dd></div> : null}
+                    {Number(quote.data.tax) > 0 ? <div className="flex justify-between"><dt>{pickLocalized(quote.data.taxLabel, locale)}</dt><dd className="font-semibold">{formatMoney(quote.data.tax, locale)}</dd></div> : null}
                     <div className="flex justify-between border-t border-[#e8e8e4] pt-3 text-sm font-extrabold"><dt>{t('totalDue')}</dt><dd>{formatMoney(quote.data.payable, locale)}</dd></div>
                   </dl>
                 ) : null}
@@ -319,7 +375,82 @@ export default function RegisterPage() {
             </p>
           </div>
         </footer>
+        </>
+        )}
       </main>
+    </div>
+  );
+}
+
+function RegistrationFinale({ phase, title, lead, nextLabel, steps }: { phase: 'working' | 'welcome'; title: string; lead?: string; nextLabel: string; steps: string[] }) {
+  const [beat, setBeat] = useState(0);
+  useEffect(() => {
+    if (phase !== 'working') return;
+    const timers = [620, 1240].map((delay, index) => window.setTimeout(() => setBeat(index + 1), delay));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [phase]);
+  const progress = phase === 'welcome' ? 1 : (beat + 1) / steps.length;
+
+  return (
+    <div className="relative flex h-full min-h-0 flex-1 flex-col items-center justify-center overflow-hidden bg-white px-6" role="status" aria-live="polite" aria-busy={phase === 'working'}>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,196,0,0.22),transparent_58%)]" />
+      <div key={phase} className="alliva-rise relative flex w-full max-w-sm flex-col items-center text-center">
+        <img src="/logo-on-light.png" alt="" className="mb-8 h-8 w-auto" />
+        {phase === 'working' ? <WorkingMark progress={progress} /> : <SuccessMark />}
+        <h2 className="mt-8 font-display text-[2rem] leading-tight tracking-[-0.03em]">{title}</h2>
+        {phase === 'welcome' ? (
+          <>
+            <p className="alliva-rise-delay mt-2 text-base text-[#3f3f3c]">{lead}</p>
+            <p className="mt-8 text-sm font-medium text-[#6b6b66]">{nextLabel}</p>
+            <div className="mt-3 h-1 w-40 overflow-hidden rounded-full bg-[#ecece8]" aria-hidden="true">
+              <div className="alliva-fill h-full w-full rounded-full bg-primary" />
+            </div>
+          </>
+        ) : (
+          <ol className="mt-8 w-full space-y-3">
+            {steps.map((label, index) => {
+              const done = index < beat;
+              const current = index === beat;
+              return (
+                <li key={label} className={`flex items-center gap-3 text-start text-sm ${current ? 'font-semibold text-[#111111]' : done ? 'text-[#111111]' : 'text-[#a1a19c]'}`}>
+                  <span className={`grid size-6 shrink-0 place-items-center rounded-full ${done || current ? 'bg-primary text-[#111111]' : 'bg-[#f1f1ee]'}`}>
+                    {done ? <Check className="size-3.5" strokeWidth={3} /> : <span className={`size-1.5 rounded-full ${current ? 'bg-[#111111]' : 'bg-[#c8c8c2]'}`} />}
+                  </span>
+                  <span>{label}</span>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WorkingMark({ progress }: { progress: number }) {
+  const radius = 34;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <div className="relative grid size-28 place-items-center" aria-hidden="true">
+      <span className="alliva-halo absolute inset-1 rounded-full bg-primary/30" />
+      <svg viewBox="0 0 80 80" className="relative size-28 -rotate-90">
+        <circle cx="40" cy="40" r={radius} stroke="#ecece8" strokeWidth="5" fill="white" />
+        <circle cx="40" cy="40" r={radius} stroke="#FFC400" strokeWidth="5" fill="none" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - progress)} className="transition-[stroke-dashoffset] duration-700 ease-out motion-reduce:transition-none" />
+      </svg>
+      <Store className="absolute size-7 text-[#111111]" />
+    </div>
+  );
+}
+
+function SuccessMark() {
+  return (
+    <div className="alliva-pop relative grid size-28 place-items-center" aria-hidden="true">
+      <span className="alliva-halo absolute inset-1 rounded-full bg-primary/35" />
+      <span className="relative grid size-20 place-items-center rounded-full bg-primary shadow-[0_16px_40px_rgba(255,196,0,0.45)]">
+        <svg viewBox="0 0 24 24" className="size-10" fill="none">
+          <path d="M5 12.5 10 17.5 19 7.5" stroke="#111111" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="alliva-draw" />
+        </svg>
+      </span>
     </div>
   );
 }
@@ -365,7 +496,7 @@ function PlanChoice({ plan, locale, selected, yearly, onSelect, monthlyLabel, ye
   const exclusive = visibility === 'CURRENT_STORE_ONLY' || visibility === 'EXCLUSIVE_STOREFRONT';
   return (
     <article className={`relative flex min-h-[290px] snap-start flex-col rounded-xl border p-3 text-start transition-colors ${selected ? 'border-primary bg-[#fffdf3] shadow-[0_0_0_1px_#FFC400]' : 'border-[#deded9] bg-white'}`}>
-      {plan.recommended ? <span className="absolute -top-2.5 start-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-3 py-1 text-[9px] font-bold">{popularLabel}</span> : null}
+      {plan.recommended ? <span className="absolute -top-2.5 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-3 py-1 text-[9px] font-bold">{popularLabel}</span> : null}
       <h3 className="font-display text-lg leading-tight">{pickLocalized(plan.name, locale)}</h3>
       <p className="mt-1 whitespace-nowrap text-[1.35rem] font-extrabold leading-none tracking-tight">{formatMoney(yearly ? plan.priceAnnual : plan.priceMonthly, locale)} <span className="text-[9px] font-normal text-[#777773]">{yearly ? yearlyLabel : monthlyLabel}</span></p>
       <p className="mt-2 min-h-8 text-[9px] leading-relaxed text-[#666662]">{pickLocalized(plan.description, locale)}</p>

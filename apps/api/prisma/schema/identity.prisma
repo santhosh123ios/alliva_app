@@ -183,6 +183,11 @@ model Guest {
   id                   String    @id @default(uuid()) @db.Uuid
   tokenHash            String    @unique
   mergedIntoCustomerId String?   @db.Uuid
+  latitude             Decimal?  @db.Decimal(9, 6)
+  longitude            Decimal?  @db.Decimal(9, 6)
+  locationLabel        String?
+  locationSource       String?
+  locationUpdatedAt    DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
   cart                 Cart?
@@ -198,6 +203,14 @@ model Address {
   city         String
   latitude     Decimal  @db.Decimal(9, 6)
   longitude    Decimal  @db.Decimal(9, 6)
+  building     String?
+  flat         String?
+  road         String?
+  block        String?
+  area         String?
+  landmark     String?
+  contactName  String?
+  contactPhone String?
   instructions String?
   isDefault    Boolean  @default(false)
   createdAt    DateTime @default(now())

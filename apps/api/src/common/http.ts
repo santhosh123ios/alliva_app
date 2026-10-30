@@ -36,10 +36,27 @@ export function forgetAuthUser(userId: string) {
   }
 }
 
+const AUTH_PORTALS = new Set(['admin', 'merchant', 'customer', 'marketing']);
+
+/** Browsers ignore port when storing cookies, so each portal must use its own cookie names. */
+export function authPortal(request: Request): string | null {
+  const value = request.header('x-alliva-portal');
+  return value && AUTH_PORTALS.has(value) ? value : null;
+}
+
+export function authCookieName(base: 'alliva_access' | 'alliva_refresh' | 'alliva_csrf', portal: string | null) {
+  return portal ? `${base}_${portal}` : base;
+}
+
+export function readAuthCookie(request: Request, base: 'alliva_access' | 'alliva_refresh' | 'alliva_csrf') {
+  const value = request.cookies?.[authCookieName(base, authPortal(request))];
+  return typeof value === 'string' && value ? value : undefined;
+}
+
 function readToken(request: Request): string | undefined {
   const header = request.headers.authorization;
   if (header?.startsWith('Bearer ')) return header.slice(7);
-  return request.cookies?.alliva_access as string | undefined;
+  return readAuthCookie(request, 'alliva_access');
 }
 
 export function authenticate(deps: { jwt: JwtService; prisma: PrismaService }, isPublic: boolean) {
@@ -95,6 +112,7 @@ const csrfExempt = [
   '/auth/otp',
   '/auth/refresh',
   '/guests',
+  '/public/merchant-email-availability',
   '/public/merchant-registration',
   '/public/subscription-quote',
   '/payments/webhooks',
@@ -104,7 +122,7 @@ export function csrf(request: Request, _response: Response, next: NextFunction) 
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) return next();
   const path = `${request.baseUrl}${request.path}`;
   if (csrfExempt.some((exempt) => path.includes(exempt))) return next();
-  const cookie = request.cookies?.alliva_csrf;
+  const cookie = readAuthCookie(request, 'alliva_csrf');
   const header = request.header('x-csrf-token');
   if (!cookie || cookie !== header) return next(forbidden('CSRF token missing'));
   return next();
@@ -123,9 +141,10 @@ export async function loadActor(prisma: PrismaService, userId: string, sessionId
   }
   const roles = user.userRoles.map((entry) => entry.role.key);
   const permissions = [
-    ...new Set(
-      user.userRoles.flatMap((entry) => entry.role.permissions.map((item) => item.permission.key)),
-    ),
+    ...new Set([
+      ...user.userRoles.flatMap((entry) => entry.role.permissions.map((item) => item.permission.key)),
+      ...(roles.includes('MERCHANT_OWNER') || roles.includes('MERCHANT_MANAGER') ? ['promo.manage'] : []),
+    ]),
   ];
   return {
     id: user.id,
@@ -164,25 +183,40 @@ export const cookieBase = () => ({
   path: '/',
 });
 
+function clearLegacyAuthCookies(response: Response) {
+  const base = cookieBase();
+  response.clearCookie('alliva_access', base);
+  response.clearCookie('alliva_refresh', base);
+  response.clearCookie('alliva_csrf', base);
+}
+
 export function setAuthCookies(
   response: Response,
   input: { access: string; refresh: string; csrf: string; remember: boolean },
+  request: Request,
 ) {
+  const portal = authPortal(request);
   const days = input.remember
     ? Number(process.env.REFRESH_TTL_REMEMBER_DAYS ?? 30)
     : Number(process.env.REFRESH_TTL_DAYS ?? 7);
-  response.cookie('alliva_access', input.access, { ...cookieBase(), httpOnly: true, maxAge: 15 * 60 * 1000 });
-  response.cookie('alliva_refresh', input.refresh, {
-    ...cookieBase(),
+  const base = cookieBase();
+  response.cookie(authCookieName('alliva_access', portal), input.access, { ...base, httpOnly: true, maxAge: 15 * 60 * 1000 });
+  response.cookie(authCookieName('alliva_refresh', portal), input.refresh, {
+    ...base,
     httpOnly: true,
     maxAge: days * 86400000,
   });
-  response.cookie('alliva_csrf', input.csrf, { ...cookieBase(), httpOnly: false, maxAge: days * 86400000 });
+  response.cookie(authCookieName('alliva_csrf', portal), input.csrf, { ...base, httpOnly: false, maxAge: days * 86400000 });
+  if (portal) clearLegacyAuthCookies(response);
 }
 
-export function clearAuthCookies(response: Response) {
-  response.clearCookie('alliva_access', cookieBase());
-  response.clearCookie('alliva_refresh', cookieBase());
+export function clearAuthCookies(response: Response, request: Request) {
+  const portal = authPortal(request);
+  const base = cookieBase();
+  response.clearCookie(authCookieName('alliva_access', portal), base);
+  response.clearCookie(authCookieName('alliva_refresh', portal), base);
+  response.clearCookie(authCookieName('alliva_csrf', portal), base);
+  if (portal) clearLegacyAuthCookies(response);
 }
 
 export function scopedMerchantId(user: RequestUser, requested?: string | null): string | undefined {

@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node scripts/with-env.mjs node dist/main.js",
     "lint": "echo ok",
-    "test": "node scripts/with-env.mjs jest --runInBand && node scripts/with-env.mjs node --import tsx --test --test-force-exit test/orders.integration.spec.ts test/marketing.integration.spec.ts",
+    "test": "node scripts/with-env.mjs jest --runInBand && node scripts/with-env.mjs node --import tsx --test --test-force-exit test/orders.integration.spec.ts test/marketing.integration.spec.ts test/delivery-checkout.integration.spec.ts test/delivery-settings.integration.spec.ts",
     "db:generate": "prisma generate",
     "db:migrate": "node scripts/with-env.mjs prisma migrate deploy",
     "db:seed": "node scripts/with-env.mjs tsx prisma/seed.ts"

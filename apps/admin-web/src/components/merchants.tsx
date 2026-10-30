@@ -230,9 +230,9 @@ export function Merchants({ rows }: { rows: MerchantRow[] }) {
           <option value="all">{t('allPlans')}</option>
           {plans.map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
-        <div className="ms-auto flex items-center gap-2">
-          <IconToggle active={layout === 'list'} label={t('listView')} onClick={() => setLayout('list')} icon={List} />
-          <IconToggle active={layout === 'grid'} label={t('gridView')} onClick={() => setLayout('grid')} icon={LayoutGrid} />
+        <div className="ms-auto flex h-11 overflow-hidden rounded-xl border bg-card">
+          <button type="button" aria-label={t('listView')} aria-pressed={layout === 'list'} onClick={() => setLayout('list')} className={`grid w-11 place-items-center ${layout === 'list' ? 'bg-primary text-[#111111]' : ''}`}><List className="size-4" /></button>
+          <button type="button" aria-label={t('gridView')} aria-pressed={layout === 'grid'} onClick={() => setLayout('grid')} className={`grid w-11 place-items-center border-s ${layout === 'grid' ? 'bg-primary text-[#111111]' : ''}`}><LayoutGrid className="size-4" /></button>
         </div>
       </div>
 
@@ -564,14 +564,6 @@ function TabButton({ active, count, onClick, children }: { active: boolean; coun
     <button type="button" onClick={onClick} className={`-mb-px inline-flex items-center gap-2 border-b-2 pb-3 text-sm font-semibold ${active ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}>
       {children}
       <span className="rounded-full bg-[#F1F1EE] px-2 py-0.5 text-xs">{count}</span>
-    </button>
-  );
-}
-
-function IconToggle({ active, label, onClick, icon: Icon }: { active: boolean; label: string; onClick: () => void; icon: LucideIcon }) {
-  return (
-    <button type="button" aria-label={label} aria-pressed={active} onClick={onClick} className={`grid size-11 place-items-center rounded-xl ${active ? 'bg-primary text-[#111111]' : 'border bg-card'}`}>
-      <Icon className="size-4" />
     </button>
   );
 }

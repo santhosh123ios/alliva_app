@@ -13,6 +13,7 @@ import {
   Coffee,
   Flower2,
   ArrowRight,
+  Bike,
   Heart,
   Leaf,
   MapPin,
@@ -73,14 +74,29 @@ export function formatDistanceKm(latitude: number | null, longitude: number | nu
   return (2 * 6371 * Math.asin(Math.sqrt(a))).toFixed(1);
 }
 
+export function StoreUnavailable({ name, title, body, backLabel }: { name: string; title: string; body: string; backLabel: string }) {
+  return (
+    <div className="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center px-6 text-center">
+      <span className="rounded-full bg-[#fff6d0] px-3 py-1 text-xs font-bold tracking-wide text-[#8a6d00]">{title}</span>
+      {name ? <h1 className="mt-4 text-3xl font-bold tracking-tight text-[#111]">{name}</h1> : null}
+      <p className="mt-3 text-sm leading-relaxed text-[#6f6f6a]">{body}</p>
+      <Link href="/" className="mt-6 inline-flex h-11 items-center rounded-full bg-primary px-5 text-sm font-bold text-[#111]">
+        {backLabel}
+      </Link>
+    </div>
+  );
+}
+
 export function MerchantTile({
   merchant,
   locale,
   saved,
   saveLabel,
   closedLabel,
+  unavailableLabel,
   minuteLabel,
   distanceLabel,
+  deliveryLabel,
   onToggleSave,
 }: {
   merchant: MerchantCard;
@@ -88,24 +104,28 @@ export function MerchantTile({
   saved: boolean;
   saveLabel: string;
   closedLabel: string;
+  unavailableLabel: string;
   minuteLabel: string;
   distanceLabel: string | null;
+  deliveryLabel?: { text: string; free: boolean } | null;
   onToggleSave: () => void;
 }) {
   const Icon = categoryIcon(merchant.categorySlugs[0] ?? '');
   const tone = logoTones[(merchant.slug.charCodeAt(0) + merchant.slug.length) % logoTones.length]!;
   const category = merchant.categories.map((item) => pickLocalized(item, locale)).filter(Boolean).join(' · ');
   const rating = Number(merchant.rating);
+  const name = pickLocalized(merchant.name, locale);
+  const cover = merchant.coverUrl ? <img src={merchant.coverUrl} alt="" className="size-full object-cover" /> : <CoverFallback />;
   return (
     <article className="lift h-full overflow-hidden rounded-2xl border border-[#ecece6] bg-white">
       <div className="relative aspect-video">
-        <Link href={`/merchants/${merchant.slug}`} aria-label={pickLocalized(merchant.name, locale)} className="absolute inset-0">
-          {merchant.coverUrl ? (
-            <img src={merchant.coverUrl} alt="" className="size-full object-cover" />
-          ) : (
-            <CoverFallback />
-          )}
-        </Link>
+        {merchant.temporarilyUnavailable ? (
+          <div className="absolute inset-0" aria-hidden>{cover}</div>
+        ) : (
+          <Link href={`/merchants/${merchant.slug}`} aria-label={name} className="absolute inset-0">
+            {cover}
+          </Link>
+        )}
         <button
           type="button"
           aria-pressed={saved}
@@ -115,7 +135,9 @@ export function MerchantTile({
         >
           <Heart className={cn('size-4', saved && 'fill-[#111]')} />
         </button>
-        {merchant.isOpen ? null : (
+        {merchant.temporarilyUnavailable ? (
+          <span className="pointer-events-none absolute end-3 bottom-3 rounded-full bg-[#111] px-2.5 py-0.5 text-xs font-semibold text-white">{unavailableLabel}</span>
+        ) : merchant.isOpen ? null : (
           <span className="pointer-events-none absolute end-3 bottom-3 rounded-full bg-[#111] px-2.5 py-0.5 text-xs font-semibold text-white">{closedLabel}</span>
         )}
       </div>
@@ -124,9 +146,13 @@ export function MerchantTile({
           {merchant.logoUrl ? <img src={merchant.logoUrl} alt="" className="size-full object-cover" /> : <Icon className="size-5" />}
         </div>
         <div className="mt-1.5 w-full min-w-0">
-          <Link href={`/merchants/${merchant.slug}`} className="block w-full truncate text-[15px] font-semibold">
-            {pickLocalized(merchant.name, locale)}
-          </Link>
+          {merchant.temporarilyUnavailable ? (
+            <p className="block w-full truncate text-[15px] font-semibold">{name}</p>
+          ) : (
+            <Link href={`/merchants/${merchant.slug}`} className="block w-full truncate text-[15px] font-semibold">
+              {name}
+            </Link>
+          )}
           <p className="w-full truncate text-sm text-[#6f6f6a]">{category}</p>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
@@ -145,6 +171,12 @@ export function MerchantTile({
             <span className="inline-flex items-center gap-1 text-[#6f6f6a]">
               <MapPin className="size-3.5" />
               {distanceLabel}
+            </span>
+          ) : null}
+          {deliveryLabel ? (
+            <span className={cn('inline-flex items-center gap-1', deliveryLabel.free ? 'rounded-full bg-primary px-2 py-0.5 font-semibold text-[#111]' : 'text-[#6f6f6a]')}>
+              <Bike className="size-3.5" />
+              {deliveryLabel.text}
             </span>
           ) : null}
         </div>
@@ -170,7 +202,7 @@ export function ProductTile({
   addLabel: string;
   minuteLabel?: string | null;
   pending: boolean;
-  onAdd: () => void;
+  onAdd: () => boolean | void;
 }) {
   const rating = Number(product.rating);
   return (
@@ -212,8 +244,8 @@ export function ProductTile({
             disabled={!product.available || pending}
             aria-busy={pending}
             onClick={(event) => {
+              if (onAdd() === false) return;
               flyFromButton(event.currentTarget, product.imageUrl || '/no-image-1x1.jpg');
-              onAdd();
             }}
             className="inline-flex h-8 items-center gap-1 rounded-full bg-primary px-3 text-sm font-bold text-[#111] disabled:opacity-50"
           >

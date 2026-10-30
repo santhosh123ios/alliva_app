@@ -21,12 +21,22 @@ export type PromoFacts = {
   now: Date;
 };
 
+export type ChargeInput = {
+  enabled: boolean;
+  mode: 'PERCENTAGE' | 'FIXED';
+  amount: string;
+};
+
 export type PriceInput = {
   lines: { unitPrice: string; quantity: number }[];
   fulfillment: 'DELIVERY' | 'TAKEAWAY' | 'DINE_IN';
   deliveryFee: string;
+  /** Tax on the delivery charge itself, from the branch delivery settings. Dropped when delivery becomes free. */
+  deliveryTax?: string;
   freeDeliveryMinimum: string | null;
   taxRate: string;
+  serviceFee?: ChargeInput;
+  tax?: ChargeInput;
   promo: PromoFacts | null;
 };
 
@@ -35,10 +45,22 @@ export type PriceResult = {
   discount: string;
   deliveryFee: string;
   deliveryFeeSaved: string;
+  serviceFee: string;
+  /** Part of `tax` charged on delivery. */
+  deliveryTax: string;
   tax: string;
   total: string;
   currency: 'BHD';
 };
+
+/** An order promo applies only when the customer's cart belongs to the merchant who owns the code. */
+export function orderPromoForMerchant(
+  promo: { purpose: string; merchantId: string | null; active?: boolean; deletedAt?: Date | null },
+  cartMerchantId: string | null,
+): boolean {
+  if (promo.purpose !== 'ORDER' || promo.active === false || promo.deletedAt) return false;
+  return promo.merchantId !== null && promo.merchantId === cartMerchantId;
+}
 
 export function quotePromoDiscount(subtotal: Money, promo: PromoFacts | null): Money {
   if (!promo) return zero();
@@ -85,6 +107,7 @@ export function priceOrder(input: PriceInput): PriceResult {
   const food = subtotal.minus(discount);
   let deliveryFee = input.fulfillment === 'DELIVERY' ? money(input.deliveryFee) : zero();
   let deliveryFeeSaved = zero();
+  let deliveryTax = input.fulfillment === 'DELIVERY' && input.deliveryTax ? money(input.deliveryTax) : zero();
   if (
     input.fulfillment === 'DELIVERY' &&
     input.freeDeliveryMinimum &&
@@ -92,18 +115,30 @@ export function priceOrder(input: PriceInput): PriceResult {
   ) {
     deliveryFeeSaved = deliveryFee;
     deliveryFee = zero();
+    deliveryTax = zero();
   }
-  const tax = food.mul(input.taxRate);
-  const total = food.plus(deliveryFee).plus(tax);
+  assertNonNegative(deliveryTax, 'delivery tax');
+  const serviceFee = input.serviceFee ? chargeAmount(food, input.serviceFee) : zero();
+  const tax = (input.tax ? chargeAmount(food, input.tax) : food.mul(input.taxRate)).plus(deliveryTax);
+  const total = food.plus(deliveryFee).plus(serviceFee).plus(tax);
   return {
     subtotal: moneyString(subtotal),
     discount: moneyString(discount),
     deliveryFee: moneyString(deliveryFee),
     deliveryFeeSaved: moneyString(deliveryFeeSaved),
+    serviceFee: moneyString(serviceFee),
+    deliveryTax: moneyString(deliveryTax),
     tax: moneyString(tax),
     total: moneyString(total),
     currency: 'BHD',
   };
+}
+
+function chargeAmount(base: Money, rule: ChargeInput): Money {
+  if (!rule.enabled) return zero();
+  const amount = rule.mode === 'FIXED' ? money(rule.amount || '0') : base.mul(rule.amount || '0');
+  assertNonNegative(amount, 'charge');
+  return amount;
 }
 
 function DecimalMin(a: Money, b: Money): Money {

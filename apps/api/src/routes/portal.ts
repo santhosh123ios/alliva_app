@@ -2,8 +2,9 @@ import * as argon2 from 'argon2';
 import type { NextFunction, Request, Response } from 'express';
 import multer from 'multer';
 import {
-  addressSchema,
   assignSubscriptionSchema,
+  merchantAutoRenewSchema,
+  merchantRenewalSchema,
   bankSchema,
   branchSchema,
   categorySchema,
@@ -11,6 +12,13 @@ import {
   complaintSchema,
   complaintUpdateSchema,
   dispatchSchema,
+  deliveryPreviewSchema,
+  deliverySettingSchema,
+  deliverySettingUpdateSchema,
+  type DeliveryPreviewInput,
+  type DeliverySettingInput,
+  type DeliverySettingUpdateInput,
+  emailAvailabilitySchema,
   floorSchema,
   hoursSchema,
   incidentSchema,
@@ -21,7 +29,9 @@ import {
   offerSchema,
   productSchema,
   productUpdateSchema,
-  promoSchema,
+  merchantPromoActiveSchema,
+  merchantPromoSchema,
+  type MerchantPromoInput,
   refundDecisionSchema,
   reportQuerySchema,
   rolePermissionsSchema,
@@ -33,16 +43,23 @@ import {
   shiftNoteSchema,
   staffSchema,
   tableSchema,
+  tableStatusSchema,
   tableUpdateSchema,
 } from '@alliva/validation';
 import { dec, loc } from '../common/crypto';
-import { badRequest, forbidden, notFound } from '../common/errors';
+import { badRequest, forbidden, HttpError, notFound } from '../common/errors';
+import { businessSetupGaps, detailedDeliveryPricing } from '../domain/business-setup';
+import { merchantOrderCharges, normalizeOrderCharges, platformPlanCharges, priceWithCharges } from '../domain/charges';
 import { RequestUser, scopedMerchantId, validate } from '../common/http';
 import { createRoutes } from '../common/routes';
 import type { Container } from '../container';
 import type { PlatformService } from '../modules/platform.service';
 import { ALLOWED_UPLOAD_TYPES, MAX_UPLOAD_BYTES } from '../providers/interfaces';
 import { paymentMethodsForRegistration, publicPaymentMethods } from '../modules/payment-methods';
+import { importCatalogProducts } from '../modules/catalog-import';
+import { deliverySettingData, presentDeliverySetting, previewDeliverySetting } from '../modules/delivery-settings';
+import { categoryNameKey, mergeCatalogCategory, replaceMerchantCategory, resolveMerchantCategory } from '../modules/catalog-categories';
+import { mergeCatalogProduct, resolveCatalogProduct } from '../modules/catalog-products';
 import { customerRewardAvailable, customerWallet, merchantWallet, requestCustomerWithdrawal, requestMerchantWithdrawal } from '../modules/portal-wallet';
 import { adminSignInUrl, merchantSignInUrl, roleLabel, sendWelcomeEmail } from '../providers/welcome-email';
 import { extensionFor, LocalStorageProvider, S3StorageProvider } from '../providers/mock.providers';
@@ -67,7 +84,8 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
   routes.get('/merchant/dashboard', { permissions: ['order.view'] }, (request) => {
     const user = request.user!;
     if (!user.merchantId) throw badRequest('Merchant account required');
-    return platform.merchantDashboard(user.merchantId);
+    const branchId = typeof request.query.branchId === 'string' ? request.query.branchId : undefined;
+    return platform.merchantDashboard(user.merchantId, branchId);
   });
 
   routes.get('/merchant/wallet', async (request) => {
@@ -96,6 +114,12 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
   });
 
   routes.get('/public/payment-methods', { public: true }, () => publicPaymentMethods(prisma));
+
+  routes.post('/public/merchant-email-availability', { public: true, throttle: 20 }, async (request) => {
+    const { email } = validate<{ email: string }>(emailAvailabilitySchema, request.body);
+    const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() }, select: { id: true } });
+    return { available: !existing };
+  });
 
   routes.post('/public/merchant-registration', { public: true, throttle: 5 }, async (request) => {
     const body = validate<{
@@ -153,6 +177,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
             registrationPromo: promo?.valid ? promo.code : null,
             acceptedPaymentMethods: paymentMethods,
             status: 'PENDING_APPROVAL',
+            businessSetupCompleted: false,
             createdById: owner.id,
             categories: body.categoryId ? { create: { categoryId: body.categoryId } } : undefined,
             branches: { create: { name: { en: body.city, ar: body.city }, line1: body.city, city: body.city, latitude: '26.228500', longitude: '50.586000' } },
@@ -185,10 +210,19 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     const { gross } = await marketing.promos.planPrice(body.planId, body.billingInterval);
     const promo = body.promoCode?.trim() ? await marketing.promos.quote({ code: body.promoCode, planId: body.planId, interval: body.billingInterval }) : null;
     const referral = body.referralCode?.trim() ? await marketing.referrals.validate(body.referralCode) : null;
+    const discount = promo?.valid ? promo.discount : '0.000';
+    const net = promo?.valid ? promo.payable : gross;
+    const rows = await prisma.platformSetting.findMany({ where: { key: { in: ['serviceFee', 'taxCharge'] } } });
+    const charges = platformPlanCharges(new Map(rows.map((row) => [row.key, row.value])));
+    const priced = priceWithCharges(net, charges);
     return {
       gross,
-      discount: promo?.valid ? promo.discount : '0.000',
-      payable: promo?.valid ? promo.payable : gross,
+      discount,
+      serviceFee: priced.serviceFee,
+      serviceFeeLabel: charges.serviceFee.label,
+      tax: priced.tax,
+      taxLabel: charges.tax.label,
+      payable: priced.payable,
       promo: promo ? (promo.valid ? { valid: true, code: promo.code } : { valid: false, reason: promo.reason }) : null,
       referral: referral ? (referral.valid ? { valid: true, code: referral.code, staffName: referral.staffName } : { valid: false, reason: referral.reason }) : null,
     };
@@ -289,17 +323,48 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
 
   routes.get('/admin/merchants/:id', { permissions: ['merchant.view'] }, (request) => merchantDetail(param(request, 'id')));
 
-  routes.get('/merchant/profile', (request) => {
+  routes.get('/merchant/profile', async (request) => {
     const user = request.user!;
     if (!user.merchantId) throw badRequest('Merchant account required');
-    return merchantDetail(user.merchantId);
+    const detail = await merchantDetail(user.merchantId);
+    // Bank details are only for the people who manage the business.
+    return user.permissions.includes('merchant.profile.manage') ? detail : { ...detail, bankAccounts: [] };
   });
 
-  routes.patch('/merchant/profile', async (request) => {
+  routes.patch('/merchant/profile', { permissions: ['merchant.profile.manage'] }, async (request) => {
     const user = request.user!;
     const body = request.body as Record<string, unknown>;
     const merchantId = scopedMerchantId(user, typeof body.merchantId === 'string' ? body.merchantId : undefined);
     if (!merchantId) throw badRequest('Merchant required');
+    const deliveryKeys = ['delivery', 'freeDeliveryEnabled', 'freeDeliveryKm', 'baseDeliveryKm', 'baseDeliveryFee', 'beyondFreeDeliveryFee', 'beyondDeliveryFeeMode', 'maxDeliveryKm'];
+    if (deliveryKeys.some((key) => Object.prototype.hasOwnProperty.call(body, key))) {
+      const current = await prisma.merchant.findUniqueOrThrow({
+        where: { id: merchantId },
+        select: { deliveryEnabled: true, freeDeliveryEnabled: true, baseDeliveryKm: true, baseDeliveryFee: true, maxDeliveryKm: true },
+      });
+      const deliveryEnabled = typeof body.delivery === 'boolean' ? body.delivery : current.deliveryEnabled;
+      const freeDeliveryEnabled = typeof body.freeDeliveryEnabled === 'boolean' ? body.freeDeliveryEnabled : current.freeDeliveryEnabled;
+      const baseDeliveryKm = Number(body.baseDeliveryKm ?? current.baseDeliveryKm);
+      const baseDeliveryFee = Number(body.baseDeliveryFee ?? current.baseDeliveryFee);
+      const maxDeliveryKm = Number(body.maxDeliveryKm ?? current.maxDeliveryKm);
+      // Stores priced through detailed delivery pricing do not also need the basic delivery fields.
+      const detailed = deliveryEnabled && detailedDeliveryPricing({ deliverySettings: await prisma.deliverySetting.findMany({ where: { merchantId, active: true }, select: { maxRadiusKm: true, serviceAreaId: true, active: true } }) });
+      if (deliveryEnabled && !detailed && (!Number.isFinite(maxDeliveryKm) || maxDeliveryKm <= 0)) throw badRequest('Enter a valid maximum delivery area');
+      if (deliveryEnabled && !detailed && !freeDeliveryEnabled && (!Number.isFinite(baseDeliveryKm) || baseDeliveryKm <= 0 || !Number.isFinite(baseDeliveryFee) || baseDeliveryFee <= 0)) {
+        throw badRequest('Enter a base delivery distance and price');
+      }
+    }
+    const acceptedPaymentMethods = Array.isArray(body.paymentMethods)
+      ? await paymentMethodsForRegistration(prisma, body.paymentMethods.filter((code): code is string => typeof code === 'string'))
+      : undefined;
+    let orderCharges: ReturnType<typeof normalizeOrderCharges> | undefined;
+    if (body.orderCharges !== undefined) {
+      try {
+        orderCharges = normalizeOrderCharges(body.orderCharges);
+      } catch (error) {
+        throw badRequest(error instanceof Error ? error.message : 'Enter a valid service fee and tax');
+      }
+    }
     const merchant = await prisma.merchant.update({
       where: { id: merchantId },
       data: {
@@ -311,12 +376,18 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
         minimumOrder: body.minimumOrder !== undefined && body.minimumOrder !== '' ? String(body.minimumOrder) : undefined,
         freeDeliveryEnabled: typeof body.freeDeliveryEnabled === 'boolean' ? body.freeDeliveryEnabled : undefined,
         freeDeliveryKm: decimalSetting(body.freeDeliveryKm),
+        baseDeliveryKm: decimalSetting(body.baseDeliveryKm),
+        baseDeliveryFee: decimalSetting(body.baseDeliveryFee),
         beyondFreeDeliveryFee: decimalSetting(body.beyondFreeDeliveryFee),
+        beyondDeliveryFeeMode: body.beyondDeliveryFeeMode === 'FIXED' || body.beyondDeliveryFeeMode === 'PER_KM' ? body.beyondDeliveryFeeMode : undefined,
         maxDeliveryKm: decimalSetting(body.maxDeliveryKm),
-        preparationMinutes: body.preparationMinutes ? Number(body.preparationMinutes) : undefined,
+        preparationMinutes: preparationSetting(body.preparationMinutes),
         deliveryEnabled: typeof body.delivery === 'boolean' ? body.delivery : undefined,
         takeawayEnabled: typeof body.takeaway === 'boolean' ? body.takeaway : undefined,
         dineInEnabled: typeof body.dineIn === 'boolean' ? body.dineIn : undefined,
+        inventoryMethod: body.inventoryMethod === 'DAILY' || body.inventoryMethod === 'STOCK' ? body.inventoryMethod : undefined,
+        acceptedPaymentMethods,
+        orderCharges,
         availability: body.availability === 'OPEN' || body.availability === 'CLOSED' || body.availability === 'BUSY' ? body.availability : undefined,
         temporaryClosedUntil: body.availability === 'CLOSED' ? new Date(Date.now() + 86_400_000) : body.availability === 'OPEN' || body.availability === 'BUSY' ? null : undefined,
         logoUrl: typeof body.logoUrl === 'string' ? body.logoUrl || null : undefined,
@@ -324,6 +395,9 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
         updatedById: user.id,
       },
     });
+    if (body.availability === 'OPEN' || body.availability === 'CLOSED' || body.availability === 'BUSY') {
+      platform.forgetMerchantDashboard(merchantId);
+    }
     if (typeof body.address === 'string' || (body.latitude != null && body.longitude != null && body.latitude !== '' && body.longitude !== '')) {
       const branchId = typeof body.branchId === 'string' ? body.branchId : undefined;
       const branch = branchId
@@ -345,7 +419,87 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     return merchant;
   });
 
-  routes.post('/merchant/closures', (request) => {
+  routes.post('/merchant/business-setup', { permissions: ['merchant.profile.manage'] }, async (request) => {
+    const user = request.user!;
+    if (!user.merchantId) throw badRequest('Merchant account required');
+    const body = request.body as {
+      delivery?: boolean;
+      takeaway?: boolean;
+      dineIn?: boolean;
+      freeDeliveryEnabled?: boolean;
+      freeDeliveryKm?: string;
+      baseDeliveryKm?: string;
+      baseDeliveryFee?: string;
+      beyondFreeDeliveryFee?: string;
+      beyondDeliveryFeeMode?: 'PER_KM' | 'FIXED';
+      maxDeliveryKm?: string;
+      minimumOrder?: string;
+      latitude?: number;
+      longitude?: number;
+      hours?: { dayOfWeek: number; opensAt: string; closesAt: string; closed: boolean }[];
+    };
+    if (![body.delivery, body.takeaway, body.dineIn].some(Boolean)) throw badRequest('Choose at least one available order type');
+    const latitude = Number(body.latitude);
+    const longitude = Number(body.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+      throw badRequest('Choose a valid store location');
+    }
+    const decimal = (value: unknown, label: string, positive = false) => {
+      const number = Number(value);
+      if (!Number.isFinite(number) || number < 0 || (positive && number <= 0)) throw badRequest(`Enter a valid ${label}`);
+      return number.toFixed(3);
+    };
+    // Stores priced through detailed delivery pricing do not also need the basic delivery fields.
+    const detailed = detailedDeliveryPricing({ deliverySettings: await prisma.deliverySetting.findMany({ where: { merchantId: user.merchantId, active: true }, select: { maxRadiusKm: true, serviceAreaId: true, active: true } }) });
+    const basicRequired = Boolean(body.delivery && !detailed);
+    const freeDeliveryKm = decimal(body.freeDeliveryKm, 'free delivery distance');
+    const baseDeliveryKm = decimal(body.baseDeliveryKm, 'base delivery distance', basicRequired && !body.freeDeliveryEnabled);
+    const baseDeliveryFee = decimal(body.baseDeliveryFee, 'base delivery fee', basicRequired && !body.freeDeliveryEnabled);
+    const beyondFreeDeliveryFee = decimal(body.beyondFreeDeliveryFee, 'delivery fee');
+    const beyondDeliveryFeeMode = body.beyondDeliveryFeeMode === 'FIXED' ? 'FIXED' : 'PER_KM';
+    const maxDeliveryKm = decimal(body.maxDeliveryKm, 'maximum delivery area', basicRequired);
+    const minimumOrder = decimal(body.minimumOrder, 'minimum order');
+    const hours = body.hours ?? [];
+    const days = new Set(hours.map((hour) => hour.dayOfWeek));
+    const validTime = /^([01]\d|2[0-3]):[0-5]\d$/;
+    if (hours.length !== 7 || days.size !== 7 || !hours.some((hour) => !hour.closed) || hours.some((hour) =>
+      hour.dayOfWeek < 0 || hour.dayOfWeek > 6 || (!hour.closed && (!validTime.test(hour.opensAt) || !validTime.test(hour.closesAt) || hour.opensAt === hour.closesAt))
+    )) {
+      throw badRequest('Set valid operating hours for every day');
+    }
+    const branch = await prisma.branch.findFirst({ where: { merchantId: user.merchantId }, orderBy: { createdAt: 'asc' } });
+    if (!branch) throw badRequest('Store location is not set up yet');
+    await prisma.$transaction(async (tx) => {
+      await tx.merchant.update({
+        where: { id: user.merchantId! },
+        data: {
+          deliveryEnabled: Boolean(body.delivery),
+          takeawayEnabled: Boolean(body.takeaway),
+          dineInEnabled: Boolean(body.dineIn),
+          freeDeliveryEnabled: Boolean(body.freeDeliveryEnabled),
+          freeDeliveryKm,
+          baseDeliveryKm,
+          baseDeliveryFee,
+          beyondFreeDeliveryFee,
+          beyondDeliveryFeeMode,
+          maxDeliveryKm,
+          minimumOrder,
+          businessSetupCompleted: true,
+          updatedById: user.id,
+        },
+      });
+      await tx.branch.update({
+        where: { id: branch.id },
+        data: { latitude: latitude.toFixed(6), longitude: longitude.toFixed(6), updatedById: user.id },
+      });
+      await tx.operatingHour.deleteMany({ where: { merchantId: user.merchantId! } });
+      await tx.operatingHour.createMany({ data: hours.map((hour) => ({ ...hour, merchantId: user.merchantId! })) });
+    });
+    await audit.log({ actorId: user.id, action: 'merchant.business_setup.complete', entityType: 'Merchant', entityId: user.merchantId });
+    return merchantDetail(user.merchantId);
+  });
+
+  routes.post('/merchant/closures', { permissions: ['merchant.profile.manage'] }, (request) => {
     const user = request.user!;
     const body = validate<{ reason: string; until: string }>(closureSchema, request.body);
     if (!user.merchantId) throw badRequest('Merchant account required');
@@ -355,7 +509,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     });
   });
 
-  routes.post('/merchant/branches', async (request) => {
+  routes.post('/merchant/branches', { permissions: ['merchant.profile.manage'] }, async (request) => {
     const user = request.user!;
     const body = validate<{ name: { en: string; ar: string }; line1: string; city: string; latitude: string; longitude: string; phone?: string; managerId?: string }>(branchSchema, request.body);
     if (!user.merchantId) throw badRequest('Merchant account required');
@@ -366,7 +520,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     });
   });
 
-  routes.patch('/merchant/branches/:id', async (request) => {
+  routes.patch('/merchant/branches/:id', { permissions: ['merchant.profile.manage'] }, async (request) => {
     const user = request.user!;
     const body = request.body as { managerId?: string | null };
     if (!user.merchantId) throw badRequest('Merchant account required');
@@ -380,7 +534,77 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     });
   });
 
-  routes.post('/merchant/hours', async (request) => {
+  routes.get('/merchant/delivery-settings', async (request) => {
+    const merchantId = request.user!.merchantId;
+    if (!merchantId) throw badRequest('Merchant account required');
+    const [merchant, settings, zones] = await Promise.all([
+      prisma.merchant.findUniqueOrThrow({ where: { id: merchantId }, select: { deliveryEnabled: true, branches: { select: { id: true, name: true, city: true, active: true }, orderBy: { createdAt: 'asc' } } } }),
+      prisma.deliverySetting.findMany({ where: { merchantId, active: true }, orderBy: { createdAt: 'asc' } }),
+      prisma.serviceArea.findMany({ where: { active: true }, select: { id: true, name: true, city: true }, orderBy: { city: 'asc' } }),
+    ]);
+    return { storeDeliveryEnabled: merchant.deliveryEnabled, branches: merchant.branches, zones, settings: settings.map(presentDeliverySetting) };
+  });
+
+  routes.post('/merchant/delivery-settings/preview', { permissions: ['merchant.profile.manage'] }, (request) => {
+    if (!request.user!.merchantId) throw badRequest('Merchant account required');
+    return previewDeliverySetting(validate<DeliveryPreviewInput>(deliveryPreviewSchema, request.body));
+  });
+
+  routes.post('/merchant/delivery-settings', { permissions: ['merchant.profile.manage'] }, async (request) => {
+    const user = request.user!;
+    const merchantId = user.merchantId;
+    if (!merchantId) throw badRequest('Merchant account required');
+    const body = validate<DeliverySettingInput>(deliverySettingSchema, request.body);
+    const branchId = body.branchId ?? null;
+    const serviceAreaId = body.serviceAreaId ?? null;
+    if (branchId && !(await prisma.branch.findFirst({ where: { id: branchId, merchantId }, select: { id: true } }))) throw badRequest('Branch not found');
+    // Service areas are platform zones; any active one can carry a store-specific price.
+    if (serviceAreaId && !(await prisma.serviceArea.findFirst({ where: { id: serviceAreaId, active: true }, select: { id: true } }))) throw badRequest('Delivery zone not found');
+    const existing = await prisma.deliverySetting.findFirst({ where: { merchantId, branchId, serviceAreaId, active: true }, select: { id: true } });
+    if (existing) throw new HttpError(409, { message: 'Delivery pricing already exists for this branch or zone', id: existing.id, statusCode: 409 });
+    const created = await prisma.deliverySetting.create({
+      data: { merchantId, branchId, serviceAreaId, ...deliverySettingData(body), version: 1, updatedById: user.id },
+    });
+    const view = presentDeliverySetting(created);
+    await audit.log({ actorId: user.id, action: 'delivery_setting.create', entityType: 'DeliverySetting', entityId: created.id, metadata: { merchantId, after: view } });
+    return view;
+  });
+
+  routes.patch('/merchant/delivery-settings/:id', { permissions: ['merchant.profile.manage'] }, async (request) => {
+    const user = request.user!;
+    const merchantId = user.merchantId;
+    if (!merchantId) throw badRequest('Merchant account required');
+    const body = validate<DeliverySettingUpdateInput>(deliverySettingUpdateSchema, request.body);
+    const current = await prisma.deliverySetting.findFirst({ where: { id: param(request, 'id'), merchantId, active: true } });
+    if (!current) throw notFound('Delivery pricing not found');
+    if (body.version !== undefined && body.version !== current.version) throw new HttpError(409, { message: 'Someone else changed this delivery pricing. Reload and try again.', statusCode: 409 });
+    const { version: _version, ...fields } = body;
+    const saved = await prisma.deliverySetting.updateMany({
+      where: { id: current.id, version: current.version },
+      data: { ...deliverySettingData(fields), version: { increment: 1 }, updatedById: user.id },
+    });
+    if (!saved.count) throw new HttpError(409, { message: 'Someone else changed this delivery pricing. Reload and try again.', statusCode: 409 });
+    const updated = await prisma.deliverySetting.findUniqueOrThrow({ where: { id: current.id } });
+    const view = presentDeliverySetting(updated);
+    await audit.log({ actorId: user.id, action: 'delivery_setting.update', entityType: 'DeliverySetting', entityId: current.id, metadata: { merchantId, before: presentDeliverySetting(current), after: view } });
+    return view;
+  });
+
+  routes.delete('/merchant/delivery-settings/:id', { permissions: ['merchant.profile.manage'] }, async (request) => {
+    const user = request.user!;
+    const merchantId = user.merchantId;
+    if (!merchantId) throw badRequest('Merchant account required');
+    const current = await prisma.deliverySetting.findFirst({ where: { id: param(request, 'id'), merchantId, active: true } });
+    if (!current) throw notFound('Delivery pricing not found');
+    const updated = await prisma.deliverySetting.update({
+      where: { id: current.id },
+      data: { active: false, version: { increment: 1 }, updatedById: user.id },
+    });
+    await audit.log({ actorId: user.id, action: 'delivery_setting.deactivate', entityType: 'DeliverySetting', entityId: current.id, metadata: { merchantId, before: presentDeliverySetting(current) } });
+    return presentDeliverySetting(updated);
+  });
+
+  routes.post('/merchant/hours', { permissions: ['merchant.profile.manage'] }, async (request) => {
     const user = request.user!;
     const body = validate<{ hours: { dayOfWeek: number; opensAt: string; closesAt: string; closed: boolean }[] }>(hoursSchema, request.body);
     if (!user.merchantId) throw badRequest('Merchant account required');
@@ -389,10 +613,11 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     return { ok: true };
   });
 
-  routes.post('/merchant/bank', (request) => {
+  routes.post('/merchant/bank', { permissions: ['merchant.profile.manage'] }, (request) => {
     const user = request.user!;
     const body = validate<{ bankName: string; accountName: string; iban: string }>(bankSchema, request.body);
     if (!user.merchantId) throw badRequest('Merchant account required');
+    if (!user.roles.includes('MERCHANT_OWNER')) throw forbidden('Only the store owner can do this');
     return prisma.bankAccount.create({
       data: { merchantId: user.merchantId, bankName: body.bankName, accountName: body.accountName, ibanCipher: crypto.encrypt(body.iban) },
     });
@@ -432,7 +657,23 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     return platform.entitlementUsage(user.merchantId);
   });
 
-  routes.get('/merchant/invoices', async (request) => {
+  routes.post('/merchant/subscription/renew', async (request) => {
+    const user = request.user!;
+    if (!user.merchantId) throw badRequest('Merchant account required');
+    if (!user.roles.includes('MERCHANT_OWNER')) throw forbidden('Only the store owner can do this');
+    const body = validate<{ planId: string; billingInterval: 'MONTHLY' | 'ANNUAL'; autoRenew: boolean; paymentMethod?: 'CARD' | 'BENEFIT' | 'BANK' }>(merchantRenewalSchema, request.body);
+    return platform.renewSubscription(user.merchantId, user.id, body);
+  });
+
+  routes.post('/merchant/subscription/auto-renew', async (request) => {
+    const user = request.user!;
+    if (!user.merchantId) throw badRequest('Merchant account required');
+    if (!user.roles.includes('MERCHANT_OWNER')) throw forbidden('Only the store owner can do this');
+    const body = validate<{ autoRenew: boolean }>(merchantAutoRenewSchema, request.body);
+    return platform.setAutoRenew(user.merchantId, body.autoRenew, user.id);
+  });
+
+  routes.get('/merchant/invoices', { permissions: ['payment.view'] }, async (request) => {
     const user = request.user!;
     if (!user.merchantId) throw badRequest('Merchant account required');
     const rows = await prisma.invoice.findMany({
@@ -533,51 +774,155 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     return { ok: true };
   });
 
-  routes.get('/catalog/categories', (request) =>
-    prisma.productCategory.findMany({
-      where: { merchantId: request.user!.merchantId ?? undefined, deletedAt: null },
+  routes.get('/catalog/categories', async (request) => {
+    const merchantId = request.user!.merchantId;
+    if (!merchantId) throw badRequest('Merchant account required');
+    const rows = await prisma.productCategory.findMany({
+      where: { merchantId, deletedAt: null },
+      include: { catalogCategory: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-    }),
-  );
+    });
+    return rows.map((row) => ({
+      ...row,
+      name: row.catalogCategory?.name ?? row.name,
+      icon: row.catalogCategory?.icon ?? null,
+      reviewStatus: row.catalogCategory?.status ?? 'APPROVED',
+      catalogCategoryId: row.catalogCategoryId,
+      catalogCategory: undefined,
+    }));
+  });
 
-  routes.post('/catalog/categories', (request) => {
+  routes.get('/catalog/category-options', async (request) => {
+    if (!request.user!.merchantId) throw badRequest('Merchant account required');
+    const query = typeof request.query.q === 'string' ? categoryNameKey(request.query.q) : '';
+    if (query.length < 1) return [];
+    const rows = await prisma.catalogCategory.findMany({
+      where: {
+        status: { in: ['APPROVED', 'PENDING'] },
+        mergedIntoId: null,
+        OR: [
+          { normalizedName: { contains: query, mode: 'insensitive' } },
+          { aliases: { has: query } },
+          { name: { path: ['ar'], string_contains: query } },
+        ],
+      },
+      orderBy: [{ status: 'asc' }, { normalizedName: 'asc' }],
+      take: 10,
+    });
+    return rows.map((row) => ({ id: row.id, name: loc(row.name), icon: row.icon, status: row.status }));
+  });
+
+  routes.post('/catalog/categories', { permissions: ['catalog.manage'] }, async (request) => {
     const user = request.user!;
     const body = validate<{ name: { en: string; ar: string }; sortOrder?: number }>(categorySchema, request.body);
     if (!user.merchantId) throw badRequest('Merchant account required');
-    return prisma.productCategory.create({ data: { merchantId: user.merchantId, name: body.name, sortOrder: body.sortOrder ?? 0 } });
+    return prisma.$transaction((tx) =>
+      resolveMerchantCategory(tx, {
+        merchantId: user.merchantId!,
+        name: body.name,
+        sortOrder: body.sortOrder ?? 0,
+      }),
+    );
+  });
+
+  routes.patch('/catalog/categories/:id', { permissions: ['catalog.manage'] }, async (request) => {
+    const user = request.user!;
+    if (!user.merchantId) throw badRequest('Merchant account required');
+    const id = param(request, 'id');
+    const body = validate<{ name: { en: string; ar: string } }>(categorySchema.pick({ name: true }), request.body);
+    return prisma.$transaction((tx) =>
+      replaceMerchantCategory(tx, { merchantId: user.merchantId!, localCategoryId: id, name: body.name }),
+    );
+  });
+
+  routes.delete('/catalog/categories/:id', { permissions: ['catalog.manage'] }, async (request) => {
+    const user = request.user!;
+    if (!user.merchantId) throw badRequest('Merchant account required');
+    const id = param(request, 'id');
+    const existing = await prisma.productCategory.findFirst({ where: { id, merchantId: user.merchantId, deletedAt: null } });
+    if (!existing) throw badRequest('Category not found');
+    const used = await prisma.product.count({ where: { categoryId: id, merchantId: user.merchantId, deletedAt: null } });
+    if (used) throw badRequest('Move products out of this category before deleting it');
+    await prisma.productCategory.update({ where: { id }, data: { deletedAt: new Date() } });
+    return { ok: true };
   });
 
   routes.get('/catalog/products', (request) => products(request.user!));
 
-  routes.post('/catalog/products', async (request) => {
+  routes.get('/catalog/product-options', async (request) => {
+    if (!request.user!.merchantId) throw badRequest('Merchant account required');
+    const query = typeof request.query.q === 'string' ? categoryNameKey(request.query.q) : '';
+    if (query.length < 1) return [];
+    const rows = await prisma.catalogProduct.findMany({
+      where: {
+        status: { in: ['APPROVED', 'PENDING'] },
+        mergedIntoId: null,
+        OR: [
+          { normalizedName: { contains: query, mode: 'insensitive' } },
+          { aliases: { has: query } },
+          { name: { path: ['ar'], string_contains: query } },
+        ],
+      },
+      orderBy: [{ status: 'asc' }, { normalizedName: 'asc' }],
+      take: 10,
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      name: loc(row.name),
+      description: loc(row.description),
+      imageUrl: row.imageUrl,
+      status: row.status,
+    }));
+  });
+
+  routes.post('/catalog/products', { permissions: ['catalog.manage'] }, async (request) => {
     const user = request.user!;
     const body = validate<{ categoryId: string; name: { en: string; ar: string }; description: { en: string; ar: string }; price: string; compareAtPrice?: string | null; imageUrl?: string | null; available?: boolean; stockQuantity?: number; lowStockThreshold?: number; variants?: { name: { en: string; ar: string }; price: string; available?: boolean }[]; addonGroupIds?: string[]; approvalStatus?: 'DRAFT' | 'PENDING' | 'APPROVED' }>(productSchema, request.body);
     if (!user.merchantId) throw badRequest('Merchant account required');
     await platform.assertMerchantLimit(user.merchantId, 'productLimit');
+    const category = await prisma.productCategory.findFirst({
+      where: { id: body.categoryId, merchantId: user.merchantId, deletedAt: null },
+    });
+    if (!category) throw badRequest('Category not found');
     const branch = await prisma.branch.findFirst({ where: { merchantId: user.merchantId } });
     if (!branch) throw badRequest('Create a branch first');
-    const product = await prisma.product.create({
-      data: {
-        merchantId: user.merchantId,
-        categoryId: body.categoryId,
-        slug: slugify(body.name.en),
+    const product = await prisma.$transaction(async (tx) => {
+      const central = await resolveCatalogProduct(tx, {
+        merchantId: user.merchantId!,
         name: body.name,
         description: body.description,
-        price: body.price,
-        compareAtPrice: body.compareAtPrice,
         imageUrl: body.imageUrl,
-        available: body.available ?? true,
-        approvalStatus: body.approvalStatus ?? 'PENDING',
-        createdById: user.id,
-        variants: { create: (body.variants ?? []).map((variant) => ({ merchantId: user.merchantId!, name: variant.name, price: variant.price, available: variant.available ?? true })) },
-        addonGroups: { create: (body.addonGroupIds ?? []).map((addonGroupId) => ({ addonGroupId })) },
-        inventory: { create: { merchantId: user.merchantId, branchId: branch.id, quantity: body.stockQuantity ?? 20, lowStockThreshold: body.lowStockThreshold ?? 5 } },
-      },
+      });
+      const alreadyAdded = await tx.product.findFirst({
+        where: { merchantId: user.merchantId!, catalogProductId: central.id, deletedAt: null },
+      });
+      if (alreadyAdded) throw badRequest('This product is already in your store');
+      const centralName = loc(central.name);
+      const centralDescription = loc(central.description);
+      return tx.product.create({
+        data: {
+          merchantId: user.merchantId!,
+          catalogProductId: central.id,
+          categoryId: body.categoryId,
+          slug: slugify(centralName.en),
+          name: centralName,
+          description: centralDescription,
+          price: body.price,
+          compareAtPrice: body.compareAtPrice,
+          imageUrl: body.imageUrl || central.imageUrl,
+          available: body.available ?? true,
+          approvalStatus: body.approvalStatus ?? 'PENDING',
+          createdById: user.id,
+          variants: { create: (body.variants ?? []).map((variant) => ({ merchantId: user.merchantId!, name: variant.name, price: variant.price, available: variant.available ?? true })) },
+          addonGroups: { create: (body.addonGroupIds ?? []).map((addonGroupId) => ({ addonGroupId })) },
+          inventory: { create: { merchantId: user.merchantId!, branchId: branch.id, quantity: body.stockQuantity ?? 20, lowStockThreshold: body.lowStockThreshold ?? 5 } },
+        },
+      });
     });
     return product;
   });
 
-  routes.patch('/catalog/products/:id', async (request) => {
+  routes.patch('/catalog/products/:id', { permissions: ['catalog.manage'] }, async (request) => {
     const user = request.user!;
     const id = param(request, 'id');
     const body = validate<{ categoryId?: string; name?: { en: string; ar: string }; description?: { en: string; ar: string }; price?: string; compareAtPrice?: string | null; imageUrl?: string | null; available?: boolean; approvalStatus?: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED'; stockQuantity?: number }>(productUpdateSchema, request.body);
@@ -588,12 +933,21 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
       const category = await prisma.productCategory.findFirst({ where: { id: body.categoryId, merchantId: user.merchantId, deletedAt: null } });
       if (!category) throw badRequest('Category not found');
     }
+    const central = body.name && body.description
+      ? await prisma.$transaction((tx) => resolveCatalogProduct(tx, {
+          merchantId: user.merchantId!,
+          name: body.name!,
+          description: body.description!,
+          imageUrl: body.imageUrl,
+        }))
+      : null;
     await prisma.product.update({
       where: { id },
       data: {
+        catalogProductId: central?.id,
         categoryId: body.categoryId,
-        name: body.name,
-        description: body.description,
+        name: central ? loc(central.name) : body.name,
+        description: central ? loc(central.description) : body.description,
         price: body.price,
         compareAtPrice: body.compareAtPrice,
         imageUrl: body.imageUrl,
@@ -618,7 +972,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     return { ok: true };
   });
 
-  routes.post('/catalog/offers', async (request) => {
+  routes.post('/catalog/offers', { permissions: ['catalog.manage'] }, async (request) => {
     const user = request.user!;
     const body = validate<{ title: { en: string; ar: string }; productId?: string }>(offerSchema, request.body);
     if (!user.merchantId) throw badRequest('Merchant account required');
@@ -641,18 +995,206 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     return offer;
   });
 
-  routes.get('/catalog/products/export', async (request, response) => {
+  routes.post('/catalog/products/import', { permissions: ['catalog.manage'] }, async (request) => {
+    const user = request.user!;
+    if (!user.merchantId) throw badRequest('Merchant account required');
+    const rows = (request.body as { rows?: unknown }).rows;
+    return importCatalogProducts(prisma, platform, { id: user.id, merchantId: user.merchantId }, rows as unknown[]);
+  });
+
+  routes.get('/catalog/products/export', { permissions: ['catalog.manage'] }, async (request, response) => {
     const rows = await products(request.user!);
-    const csv = ['name,price,stock,status', ...rows.map((row) => `"${row.name.en}",${row.price},${row.stock},${row.approvalStatus}`)].join('\n');
-    response.setHeader('Content-Type', 'text/csv');
-    response.send(csv);
+    const header = 'name,name_ar,description,description_ar,category,price,stock,status';
+    const lines = rows.map((row) => [row.name.en, row.name.ar, row.description.en, row.description.ar, row.category.en, row.price, row.stock, catalogStatus(row)].map(csvCell).join(','));
+    response.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    response.setHeader('Content-Disposition', 'attachment; filename="products.csv"');
+    response.send(`\uFEFF${[header, ...lines].join('\r\n')}\r\n`);
   });
 
   routes.post('/admin/products/:id/approve', { permissions: ['catalog.moderate'] }, (request) =>
     prisma.product.update({ where: { id: param(request, 'id') }, data: { approvalStatus: 'APPROVED' } }),
   );
 
-  routes.post('/orders/:id/transition', (request) => commerce.transition(request.user!, param(request, 'id'), request.body as OrderStatusChange));
+  routes.get('/admin/catalog/categories', { permissions: ['catalog.moderate'] }, async () => {
+    const rows = await prisma.catalogCategory.findMany({
+      include: {
+        mergedInto: { select: { id: true, name: true } },
+        _count: { select: { merchantCategories: true } },
+      },
+      orderBy: [{ status: 'desc' }, { createdAt: 'desc' }],
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      name: loc(row.name),
+      normalizedName: row.normalizedName,
+      icon: row.icon,
+      status: row.status,
+      reviewNote: row.reviewNote,
+      submittedByMerchantId: row.submittedByMerchantId,
+      stores: row._count.merchantCategories,
+      mergedInto: row.mergedInto ? { id: row.mergedInto.id, name: loc(row.mergedInto.name) } : null,
+      createdAt: row.createdAt,
+    }));
+  });
+
+  routes.patch('/admin/catalog/categories/:id', { permissions: ['catalog.moderate'] }, async (request) => {
+    const user = request.user!;
+    const id = param(request, 'id');
+    const body = request.body as {
+      name?: { en?: string; ar?: string };
+      icon?: string | null;
+      status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+      reviewNote?: string | null;
+    };
+    const existing = await prisma.catalogCategory.findUnique({ where: { id } });
+    if (!existing) throw notFound('Category not found');
+    const currentName = loc(existing.name);
+    const name = body.name
+      ? { en: body.name.en?.trim() || currentName.en, ar: body.name.ar?.trim() || currentName.ar }
+      : undefined;
+    const normalizedName = name ? categoryNameKey(name.en || name.ar) : undefined;
+    if (normalizedName && normalizedName !== existing.normalizedName) {
+      const duplicate = await prisma.catalogCategory.findFirst({
+        where: {
+          id: { not: id },
+          OR: [{ normalizedName }, { aliases: { has: normalizedName } }],
+        },
+      });
+      if (duplicate) throw badRequest('This category already exists. Merge into the existing category instead.');
+    }
+    const aliases = name
+      ? [...new Set([
+          ...existing.aliases,
+          existing.normalizedName,
+          categoryNameKey(name.en),
+          categoryNameKey(name.ar),
+        ].filter(Boolean))]
+      : undefined;
+    const updated = await prisma.catalogCategory.update({
+      where: { id },
+      data: {
+        name,
+        normalizedName,
+        aliases,
+        icon: body.icon === undefined ? undefined : body.icon?.trim() || null,
+        status: body.status,
+        reviewNote: body.reviewNote === undefined ? undefined : body.reviewNote?.trim() || null,
+        reviewedById: body.status && body.status !== 'PENDING' ? user.id : undefined,
+      },
+    });
+    if (name) {
+      await prisma.productCategory.updateMany({ where: { catalogCategoryId: id }, data: { name } });
+    }
+    return updated;
+  });
+
+  routes.post('/admin/catalog/categories/:id/merge', { permissions: ['catalog.moderate'] }, async (request) => {
+    const user = request.user!;
+    const body = request.body as { targetId?: string; note?: string };
+    if (!body.targetId) throw badRequest('Choose a replacement category');
+    return mergeCatalogCategory(prisma, {
+      sourceId: param(request, 'id'),
+      targetId: body.targetId,
+      actorId: user.id,
+      note: body.note,
+    });
+  });
+
+  routes.get('/admin/catalog/products', { permissions: ['catalog.moderate'] }, async () => {
+    const rows = await prisma.catalogProduct.findMany({
+      include: {
+        mergedInto: { select: { id: true, name: true } },
+        _count: { select: { merchantProducts: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      name: loc(row.name),
+      description: loc(row.description),
+      normalizedName: row.normalizedName,
+      imageUrl: row.imageUrl,
+      status: row.status,
+      reviewNote: row.reviewNote,
+      submittedByMerchantId: row.submittedByMerchantId,
+      stores: row._count.merchantProducts,
+      mergedInto: row.mergedInto ? { id: row.mergedInto.id, name: loc(row.mergedInto.name) } : null,
+      createdAt: row.createdAt,
+    }));
+  });
+
+  routes.patch('/admin/catalog/products/:id', { permissions: ['catalog.moderate'] }, async (request) => {
+    const user = request.user!;
+    const id = param(request, 'id');
+    const body = request.body as {
+      name?: { en?: string; ar?: string };
+      description?: { en?: string; ar?: string };
+      imageUrl?: string | null;
+      status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+      reviewNote?: string | null;
+    };
+    const existing = await prisma.catalogProduct.findUnique({ where: { id } });
+    if (!existing) throw notFound('Product not found');
+    const currentName = loc(existing.name);
+    const currentDescription = loc(existing.description);
+    const name = body.name ? { en: body.name.en?.trim() || currentName.en, ar: body.name.ar?.trim() || currentName.ar } : undefined;
+    const description = body.description
+      ? { en: body.description.en?.trim() || currentDescription.en, ar: body.description.ar?.trim() || currentDescription.ar }
+      : undefined;
+    const normalizedName = name ? categoryNameKey(name.en || name.ar) : undefined;
+    if (normalizedName && normalizedName !== existing.normalizedName) {
+      const duplicate = await prisma.catalogProduct.findFirst({
+        where: { id: { not: id }, OR: [{ normalizedName }, { aliases: { has: normalizedName } }] },
+      });
+      if (duplicate) throw badRequest('This product already exists. Merge into the existing product instead.');
+    }
+    const aliases = name
+      ? [...new Set([...existing.aliases, existing.normalizedName, categoryNameKey(name.en), categoryNameKey(name.ar)].filter(Boolean))]
+      : undefined;
+    const updated = await prisma.catalogProduct.update({
+      where: { id },
+      data: {
+        name,
+        description,
+        normalizedName,
+        aliases,
+        imageUrl: body.imageUrl === undefined ? undefined : body.imageUrl?.trim() || null,
+        status: body.status,
+        reviewNote: body.reviewNote === undefined ? undefined : body.reviewNote?.trim() || null,
+        reviewedById: body.status && body.status !== 'PENDING' ? user.id : undefined,
+      },
+    });
+    await prisma.product.updateMany({
+      where: { catalogProductId: id },
+      data: { name, description },
+    });
+    if (body.imageUrl !== undefined) {
+      const nextImage = body.imageUrl?.trim() || null;
+      await prisma.product.updateMany({
+        where: { catalogProductId: id, OR: [{ imageUrl: null }, { imageUrl: existing.imageUrl }] },
+        data: { imageUrl: nextImage },
+      });
+    }
+    return updated;
+  });
+
+  routes.post('/admin/catalog/products/:id/merge', { permissions: ['catalog.moderate'] }, async (request) => {
+    const user = request.user!;
+    const body = request.body as { targetId?: string; note?: string };
+    if (!body.targetId) throw badRequest('Choose a replacement product');
+    return mergeCatalogProduct(prisma, {
+      sourceId: param(request, 'id'),
+      targetId: body.targetId,
+      actorId: user.id,
+      note: body.note,
+    });
+  });
+
+  routes.post('/orders/:id/transition', async (request) => {
+    const view = await commerce.transition(request.user!, param(request, 'id'), request.body as OrderStatusChange);
+    if (request.user?.merchantId) platform.forgetMerchantDashboard(request.user.merchantId);
+    return view;
+  });
 
   routes.get('/complaints', { permissions: ['complaint.view'] }, async (request) => {
     const user = request.user!;
@@ -765,38 +1307,66 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     return refund;
   });
 
-  // Merchant promo codes (customer discounts). Platform subscription promo codes live under /marketing/promos.
-  routes.get('/promos', { permissions: ['promo.manage'] }, (request) => {
-    if (!request.user?.merchantId) throw badRequest('Subscription promo codes are managed under Marketing');
-    return prisma.promoCode.findMany({ where: { deletedAt: null, merchantId: request.user.merchantId, purpose: 'ORDER' }, include: { redemptions: true } });
+  // Merchant promo codes discount the customer's cart for this store only.
+  // Platform subscription promo codes live under /marketing/promos.
+  routes.get('/promos', { permissions: ['promo.manage'] }, async (request) => {
+    const merchantId = request.user?.merchantId;
+    if (!merchantId) throw badRequest('Subscription promo codes are managed under Marketing');
+    const rows = await prisma.promoCode.findMany({
+      where: { deletedAt: null, merchantId, purpose: 'ORDER' },
+      include: { _count: { select: { redemptions: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map(presentMerchantPromo);
   });
 
   routes.post('/promos', { permissions: ['promo.manage'] }, async (request) => {
     const user = request.user!;
     if (!user.merchantId) throw badRequest('Subscription promo codes are managed under Marketing');
     await platform.assertOptionalFeature(user.merchantId, 'merchantPromoCodes', 'Merchant promo codes');
-    const body = validate<Record<string, unknown>>(promoSchema, request.body);
-    return prisma.promoCode.create({
-      data: {
-        code: String(body.code).toUpperCase(),
-        description: body.description as object,
-        scope: body.scope as 'GLOBAL' | 'MERCHANT',
-        merchantId: (body.merchantId as string | null) ?? user.merchantId,
-        discountType: body.discountType as 'FIXED' | 'PERCENTAGE',
-        discountValue: String(body.discountValue),
-        maxDiscount: body.maxDiscount ? String(body.maxDiscount) : null,
-        minimumOrder: body.minimumOrder ? String(body.minimumOrder) : null,
-        usageLimit: (body.usageLimit as number | null) ?? null,
-        perCustomerLimit: (body.perCustomerLimit as number | null) ?? null,
-        startsAt: new Date(String(body.startsAt)),
-        endsAt: new Date(String(body.endsAt)),
-        firstOrderOnly: Boolean(body.firstOrderOnly),
-        budget: body.budget ? String(body.budget) : null,
-        categoryIds: body.categoryIds as object | undefined,
-        merchantIds: body.merchantIds as object | undefined,
-        createdById: user.id,
-      },
+    const body = validate<MerchantPromoInput>(merchantPromoSchema, request.body);
+    try {
+      const created = await prisma.promoCode.create({
+        data: {
+          code: body.code.toUpperCase(),
+          description: { en: body.description, ar: body.descriptionAr?.trim() || body.description },
+          scope: 'MERCHANT',
+          merchantId: user.merchantId,
+          purpose: 'ORDER',
+          discountType: body.discountType,
+          discountValue: body.discountValue,
+          minimumOrder: body.minimumOrder ?? null,
+          usageLimit: body.usageLimit ?? null,
+          perCustomerLimit: body.perCustomerLimit ?? null,
+          startsAt: new Date(body.startsAt),
+          endsAt: new Date(body.endsAt),
+          firstOrderOnly: Boolean(body.firstOrderOnly),
+          createdById: user.id,
+        },
+        include: { _count: { select: { redemptions: true } } },
+      });
+      await audit.log({ actorId: user.id, action: 'promo.create', entityType: 'PromoCode', entityId: created.id, metadata: { code: created.code } });
+      return presentMerchantPromo(created);
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') throw badRequest('This promo code is already in use');
+      throw error;
+    }
+  });
+
+  routes.post('/promos/:id/active', { permissions: ['promo.manage'] }, async (request) => {
+    const user = request.user!;
+    if (!user.merchantId) throw badRequest('Subscription promo codes are managed under Marketing');
+    const body = validate<{ active: boolean }>(merchantPromoActiveSchema, request.body);
+    const existing = await prisma.promoCode.findFirst({ where: { id: param(request, 'id'), merchantId: user.merchantId, purpose: 'ORDER', deletedAt: null } });
+    if (!existing) throw notFound('Promo code not found');
+    if (body.active) await platform.assertOptionalFeature(user.merchantId, 'merchantPromoCodes', 'Merchant promo codes');
+    const updated = await prisma.promoCode.update({
+      where: { id: existing.id },
+      data: { active: body.active },
+      include: { _count: { select: { redemptions: true } } },
     });
+    await audit.log({ actorId: user.id, action: 'promo.active', entityType: 'PromoCode', entityId: updated.id, metadata: { active: body.active } });
+    return presentMerchantPromo(updated);
   });
 
   routes.get('/reports/overview', { permissions: ['report.export'] }, (request) => {
@@ -845,17 +1415,28 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 200, include: { actor: true } }),
   );
 
-  routes.get('/operations/live', { permissions: ['dispatch.manage'] }, () =>
-    commerce.listOrders({ status: { in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'ASSIGNED_TO_DRIVER', 'OUT_FOR_DELIVERY'] } }),
+  routes.get('/operations/live', { permissions: ['dispatch.manage'] }, (request) =>
+    commerce.listOrders({
+      status: { in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'ASSIGNED_TO_DRIVER', 'OUT_FOR_DELIVERY'] },
+      ...(request.user!.merchantId ? { merchantId: request.user!.merchantId } : {}),
+    }),
   );
 
-  routes.post('/operations/dispatch', { permissions: ['dispatch.manage'] }, (request) => {
+  routes.post('/operations/dispatch', { permissions: ['dispatch.manage'] }, async (request) => {
     const body = validate<{ orderId: string; driverId: string }>(dispatchSchema, request.body);
+    const merchantId = request.user!.merchantId;
+    if (merchantId) {
+      const driver = await prisma.driverProfile.findFirst({ where: { id: body.driverId, merchantId, active: true } });
+      if (!driver) throw badRequest('This rider does not work for your store');
+    }
     return commerce.transition(request.user!, body.orderId, { status: 'ASSIGNED_TO_DRIVER', driverId: body.driverId, note: 'Manually assigned' });
   });
 
-  routes.get('/operations/drivers', { permissions: ['dispatch.manage'] }, () =>
-    prisma.driverProfile.findMany({ where: { active: true }, include: { user: true } }),
+  routes.get('/operations/drivers', { permissions: ['dispatch.manage'] }, (request) =>
+    prisma.driverProfile.findMany({
+      where: { active: true, ...(request.user!.merchantId ? { merchantId: request.user!.merchantId } : {}) },
+      include: { user: { select: { id: true, firstName: true, lastName: true, phone: true, email: true, status: true } } },
+    }),
   );
 
   routes.get('/operations/incidents', { permissions: ['order.view'] }, () =>
@@ -876,7 +1457,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     return prisma.shiftNote.create({ data: { note: body.note, authorId: request.user!.id } });
   });
 
-  routes.get('/merchant/tables', async (request) => {
+  routes.get('/merchant/tables', { permissions: ['order.view'] }, async (request) => {
     const rows = await prisma.diningTable.findMany({
       where: { merchantId: request.user!.merchantId ?? undefined, deletedAt: null },
       include: {
@@ -916,14 +1497,14 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     });
   });
 
-  routes.post('/merchant/floors', (request) => {
+  routes.post('/merchant/floors', { permissions: ['table.manage'] }, (request) => {
     const user = request.user!;
     const body = validate<{ name: { en: string; ar: string } }>(floorSchema, request.body);
     if (!user.merchantId) throw badRequest('Merchant account required');
     return prisma.floor.create({ data: { merchantId: user.merchantId, name: body.name } });
   });
 
-  routes.post('/merchant/tables', async (request) => {
+  routes.post('/merchant/tables', { permissions: ['table.manage'] }, async (request) => {
     const user = request.user!;
     const body = validate<{ floorId: string; name: string; number: string; capacity: number; active?: boolean }>(tableSchema, request.body);
     if (!user.merchantId) throw badRequest('Merchant account required');
@@ -941,7 +1522,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     return prisma.diningTable.findUnique({ where: { id: table.id }, include: { qrCodes: true } });
   });
 
-  routes.patch('/merchant/tables/:id', async (request) => {
+  routes.patch('/merchant/tables/:id', { permissions: ['table.manage'] }, async (request) => {
     const user = request.user!;
     const id = param(request, 'id');
     const body = validate<{ floorId?: string; name?: string; number?: string; capacity?: number; active?: boolean }>(tableUpdateSchema, request.body);
@@ -971,7 +1552,10 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
   });
 
   routes.post('/merchant/tables/:id/status', (request) => {
-    const body = request.body as { status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'INACTIVE' };
+    const user = request.user!;
+    // Floor staff seat and clear tables; only managers add or edit them.
+    if (!user.permissions.includes('table.manage') && !user.permissions.includes('order.update')) throw forbidden('Missing permission');
+    const body = validate<{ status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'INACTIVE' }>(tableStatusSchema, request.body);
     return prisma.diningTable.updateMany({ where: { id: param(request, 'id'), merchantId: request.user!.merchantId ?? undefined }, data: { status: body.status } });
   });
 
@@ -989,13 +1573,6 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     const created = await requestCustomerWithdrawal(prisma, user.id, body.amount);
     await audit.log({ actorId: user.id, action: 'customer.withdrawal.request', entityType: 'CustomerWithdrawal', entityId: created.id, metadata: { amount: created.amount } });
     return created;
-  });
-
-  routes.post('/customers/me/addresses', async (request) => {
-    const body = validate<{ label: string; line1: string; line2?: string; city: string; latitude: string; longitude: string; instructions?: string; isDefault?: boolean }>(addressSchema, request.body);
-    const customer = await prisma.customer.findUnique({ where: { userId: request.user!.id } });
-    if (!customer) throw badRequest('Customer profile missing');
-    return prisma.address.create({ data: { ...body, customerId: customer.id } });
   });
 
   routes.post('/customers/me/favourites/:merchantId', async (request) => {
@@ -1061,6 +1638,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
   routes.get('/service-areas', { public: true }, () => prisma.serviceArea.findMany({ where: { active: true } }));
 
   async function merchantDetail(id: string) {
+    await platform.expireDueSubscription(id);
     const merchant = await prisma.merchant.findUnique({
       where: { id },
       include: {
@@ -1071,12 +1649,22 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
         subscription: { include: { plan: { include: { entitlements: true } } } },
         categories: { include: { category: true } },
         referral: { include: { marketingUser: { select: { firstName: true, lastName: true } } } },
+        deliverySettings: { where: { active: true }, select: { maxRadiusKm: true, serviceAreaId: true, active: true } },
       },
     });
     if (!merchant) throw badRequest('Merchant not found');
-    const { referral, ...merchantRest } = merchant;
+    const charges = merchantOrderCharges(merchant.orderCharges);
+    const { referral, deliverySettings, ...merchantRest } = merchant;
+    const setupMissing = businessSetupGaps(merchant);
     return {
       ...merchantRest,
+      // Done only when the store finished setup and nothing required is missing now. Older stores
+      // were marked done before every requirement existed, so their data decides.
+      businessSetupCompleted: merchant.businessSetupCompleted && setupMissing.length === 0,
+      /** The store went through setup before; the popup then only asks for what is missing. */
+      businessSetupSaved: merchant.businessSetupCompleted,
+      setupMissing,
+      detailedDeliveryPricing: detailedDeliveryPricing({ deliverySettings }),
       referral: referral
         ? { code: referral.codeUsed, staffName: `${referral.marketingUser.firstName} ${referral.marketingUser.lastName}`.trim() }
         : null,
@@ -1084,9 +1672,13 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
       description: loc(merchant.description),
       minimumOrder: dec(merchant.minimumOrder),
       freeDeliveryKm: dec(merchant.freeDeliveryKm),
+      baseDeliveryKm: dec(merchant.baseDeliveryKm),
+      baseDeliveryFee: dec(merchant.baseDeliveryFee),
       beyondFreeDeliveryFee: dec(merchant.beyondFreeDeliveryFee),
+      beyondDeliveryFeeMode: merchant.beyondDeliveryFeeMode,
       maxDeliveryKm: dec(merchant.maxDeliveryKm),
-      bankAccounts: merchant.bankAccounts.map((account) => ({ ...account, iban: mask(crypto.decrypt(account.ibanCipher)) })),
+      orderCharges: { serviceFee: charges.serviceFee, taxCharge: charges.tax },
+      bankAccounts: merchant.bankAccounts.map(({ ibanCipher, ...account }) => ({ ...account, iban: mask(crypto.decrypt(ibanCipher)) })),
       subscription: merchant.subscription ? { ...merchant.subscription, plan: platform.presentPlan(merchant.subscription.plan) } : null,
     };
   }
@@ -1094,16 +1686,18 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
   async function products(user: RequestUser) {
     const rows = await prisma.product.findMany({
       where: { deletedAt: null, ...(user.merchantId ? { merchantId: user.merchantId } : {}) },
-      include: { category: true, variants: true, inventory: true },
+      include: { category: true, catalogProduct: true, variants: true, inventory: true },
       orderBy: { createdAt: 'desc' },
     });
     return rows.map((product) => ({
       id: product.id,
-      name: loc(product.name),
-      description: loc(product.description),
+      name: loc(product.catalogProduct?.name ?? product.name),
+      description: loc(product.catalogProduct?.description ?? product.description),
       price: dec(product.price),
       compareAtPrice: product.compareAtPrice ? dec(product.compareAtPrice) : null,
-      imageUrl: product.imageUrl,
+      imageUrl: product.imageUrl || product.catalogProduct?.imageUrl || null,
+      catalogProductId: product.catalogProductId,
+      reviewStatus: product.catalogProduct?.status ?? 'APPROVED',
       approvalStatus: product.approvalStatus,
       available: product.available,
       stock: product.inventory.reduce((sum, row) => sum + row.quantity, 0),
@@ -1139,6 +1733,17 @@ function mask(iban: string) {
   return `${iban.slice(0, 4)}••••${iban.slice(-4)}`;
 }
 
+function catalogStatus(row: { approvalStatus: string; available: boolean; stock: number }) {
+  if (row.approvalStatus !== 'APPROVED') return 'draft';
+  if (!row.available || row.stock <= 0) return 'out';
+  return 'active';
+}
+
+function csvCell(value: string | number) {
+  const text = String(value ?? '');
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
@@ -1148,4 +1753,44 @@ function decimalSetting(value: unknown) {
   const number = Number(value);
   if (!Number.isFinite(number) || number < 0) return undefined;
   return number.toFixed(3);
+}
+
+/** Whole minutes from 1 to 240. Anything else is refused so a typo cannot push every delivery estimate out by hours. */
+function preparationSetting(value: unknown) {
+  if (value === undefined || value === null || value === '') return undefined;
+  const minutes = Number(value);
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 240) throw badRequest('Preparation time must be between 1 and 240 minutes');
+  return minutes;
+}
+
+function presentMerchantPromo(row: {
+  id: string;
+  code: string;
+  description: unknown;
+  discountType: 'FIXED' | 'PERCENTAGE';
+  discountValue: { toFixed: (digits: number) => string };
+  minimumOrder: { toFixed: (digits: number) => string } | null;
+  usageLimit: number | null;
+  perCustomerLimit: number | null;
+  startsAt: Date;
+  endsAt: Date;
+  firstOrderOnly: boolean;
+  active: boolean;
+  _count: { redemptions: number };
+}) {
+  return {
+    id: row.id,
+    code: row.code,
+    description: loc(row.description),
+    discountType: row.discountType,
+    discountValue: dec(row.discountValue),
+    minimumOrder: row.minimumOrder ? dec(row.minimumOrder) : null,
+    usageLimit: row.usageLimit,
+    perCustomerLimit: row.perCustomerLimit,
+    usedCount: row._count.redemptions,
+    startsAt: row.startsAt.toISOString(),
+    endsAt: row.endsAt.toISOString(),
+    firstOrderOnly: row.firstOrderOnly,
+    active: row.active,
+  };
 }

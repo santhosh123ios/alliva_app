@@ -4,7 +4,7 @@ import { useIsFetching, useIsMutating, QueryClient, QueryClientProvider } from '
 import { useState } from 'react';
 import { useNavigation } from 'react-router';
 
-export const api = createApiClient();
+export const api = createApiClient('', 'customer');
 
 function AppProgress() {
   const navigation = useNavigation();

@@ -15,10 +15,21 @@ export type SettingsData = {
   templates?: { id: string; key: string; channel: string; subject?: unknown }[];
 };
 
+type ChargeMode = 'PERCENTAGE' | 'FIXED';
+
+type ChargeDraft = {
+  enabled: boolean;
+  mode: ChargeMode;
+  amount: string;
+  labelEn: string;
+  labelAr: string;
+};
+
 type Draft = {
   currency: string;
   timezone: string;
-  taxPercent: string;
+  serviceFee: ChargeDraft;
+  taxCharge: ChargeDraft;
   supportPhone: string;
   maintenance: boolean;
   termsEn: string;
@@ -36,7 +47,7 @@ const tabs: { id: Tab; icon: typeof Settings }[] = [
   { id: 'integrations', icon: Link2 },
 ];
 
-const generalKeys = ['currency', 'timezone', 'taxPercent', 'supportPhone', 'termsEn', 'termsAr', 'privacyEn', 'privacyAr'] as const;
+const generalKeys = ['currency', 'timezone', 'serviceFee', 'taxCharge', 'supportPhone', 'termsEn', 'termsAr', 'privacyEn', 'privacyAr'] as const;
 const paymentKeys = ['paymentMethods'] as const;
 const securityKeys = ['maintenance'] as const;
 
@@ -90,15 +101,18 @@ export function PlatformSettings({ data }: { data: SettingsData }) {
   }
 
   function saveGeneral() {
-    const tax = Number(draft.taxPercent);
-    if (!draft.currency.trim() || !draft.timezone.trim() || !Number.isFinite(tax) || tax < 0 || tax > 100) {
+    if (!draft.currency.trim() || !draft.timezone.trim() || !validCharge(draft.serviceFee) || !validCharge(draft.taxCharge)) {
       setError(t('invalidGeneral'));
       return;
     }
+    const serviceFee = storedCharge(draft.serviceFee);
+    const taxCharge = storedCharge(draft.taxCharge);
     return save({
       currency: draft.currency.trim(),
       timezone: draft.timezone.trim(),
-      taxRate: (tax / 100).toFixed(3),
+      serviceFee,
+      taxCharge,
+      taxRate: taxCharge.mode === 'PERCENTAGE' ? taxCharge.amount : '0',
       supportPhone: draft.supportPhone.trim(),
       terms: { en: draft.termsEn, ar: draft.termsAr },
       privacy: { en: draft.privacyEn, ar: draft.privacyAr },
@@ -212,10 +226,11 @@ function GeneralForm({ draft, update }: { draft: Draft; update: <K extends keyof
         <div className="grid gap-4 md:grid-cols-2">
           <Field label={t('currency')} value={draft.currency} onChange={(value) => update('currency', value)} />
           <Field label={t('timezone')} value={draft.timezone} onChange={(value) => update('timezone', value)} />
-          <Affix label={t('tax')} value={draft.taxPercent} suffix="%" onChange={(value) => update('taxPercent', value)} />
           <Field label={t('supportPhone')} value={draft.supportPhone} onChange={(value) => update('supportPhone', value)} />
         </div>
       </Panel>
+      <ChargeFields title={t('serviceFee')} hint={t('chargeHint')} charge={draft.serviceFee} onChange={(charge) => update('serviceFee', charge)} />
+      <ChargeFields title={t('taxCharge')} hint={t('chargeHint')} charge={draft.taxCharge} onChange={(charge) => update('taxCharge', charge)} />
       <Panel title={t('legal')}>
         <div className="grid gap-4 md:grid-cols-2">
           <Area label={t('termsEn')} value={draft.termsEn} onChange={(value) => update('termsEn', value)} />
@@ -225,6 +240,33 @@ function GeneralForm({ draft, update }: { draft: Draft; update: <K extends keyof
         </div>
       </Panel>
     </>
+  );
+}
+
+function ChargeFields({ title, hint, charge, onChange }: { title: string; hint: string; charge: ChargeDraft; onChange: (charge: ChargeDraft) => void }) {
+  const t = useTranslations('settingsPage');
+  const patch = (next: Partial<ChargeDraft>) => onChange({ ...charge, ...next });
+  return (
+    <Panel title={title}>
+      <Toggle checked={charge.enabled} onChange={(enabled) => patch({ enabled })} label={charge.enabled ? t('enabled') : t('disabled')} />
+      <p className="mt-2 ps-14 text-xs text-muted-foreground">{hint}</p>
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <Field label={t('labelEn')} value={charge.labelEn} onChange={(labelEn) => patch({ labelEn })} />
+        <Field label={t('labelAr')} value={charge.labelAr} dir="rtl" onChange={(labelAr) => patch({ labelAr })} />
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('chargeType')}</span>
+          <select
+            value={charge.mode}
+            onChange={(event) => patch({ mode: event.target.value === 'FIXED' ? 'FIXED' : 'PERCENTAGE' })}
+            className="h-10 w-full rounded-lg border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="PERCENTAGE">{t('percentage')}</option>
+            <option value="FIXED">{t('fixedPrice')}</option>
+          </select>
+        </label>
+        <Affix label={t('amount')} value={charge.amount} suffix={charge.mode === 'PERCENTAGE' ? '%' : 'BHD'} onChange={(amount) => patch({ amount })} />
+      </div>
+    </Panel>
   );
 }
 
@@ -367,7 +409,8 @@ function draftFrom(values: SettingRow[]): Draft {
   return {
     currency: text(read('currency'), 'BHD'),
     timezone: text(read('timezone'), 'Asia/Bahrain'),
-    taxPercent: taxField(read('taxRate')),
+    serviceFee: chargeDraft(read('serviceFee'), { enabled: false, mode: 'PERCENTAGE', amount: '0', labelEn: 'Service fee', labelAr: 'رسوم الخدمة' }),
+    taxCharge: chargeDraft(read('taxCharge'), { enabled: false, mode: 'PERCENTAGE', amount: '0', labelEn: 'Tax', labelAr: 'الضريبة' }),
     supportPhone: text(read('supportPhone'), ''),
     maintenance: flag(read('maintenanceMode'), false),
     termsEn: terms.en,
@@ -394,11 +437,48 @@ function flag(value: unknown, fallback: boolean) {
   return typeof value === 'boolean' ? value : fallback;
 }
 
-function taxField(value: unknown) {
+function chargeDraft(value: unknown, fallback: ChargeDraft): ChargeDraft {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return fallback;
+  const row = value as { enabled?: unknown; mode?: unknown; amount?: unknown; label?: unknown };
+  const mode: ChargeMode = row.mode === 'FIXED' ? 'FIXED' : 'PERCENTAGE';
+  const label = localized(row.label);
+  const stored = text(row.amount, '0');
+  return {
+    enabled: flag(row.enabled, fallback.enabled),
+    mode,
+    amount: mode === 'PERCENTAGE' ? percentFromRate(stored) : moneyAmount(stored),
+    labelEn: label.en || fallback.labelEn,
+    labelAr: label.ar || fallback.labelAr,
+  };
+}
+
+function validCharge(charge: ChargeDraft) {
+  const amount = Number(charge.amount);
+  if (!charge.labelEn.trim() || !charge.labelAr.trim()) return false;
+  if (!Number.isFinite(amount) || amount < 0) return false;
+  return charge.mode === 'FIXED' || amount <= 100;
+}
+
+function storedCharge(charge: ChargeDraft) {
+  const amount = Number(charge.amount);
+  return {
+    enabled: charge.enabled,
+    mode: charge.mode,
+    amount: charge.mode === 'PERCENTAGE' ? (amount / 100).toFixed(5) : amount.toFixed(3),
+    label: { en: charge.labelEn.trim(), ar: charge.labelAr.trim() },
+  };
+}
+
+function percentFromRate(value: string) {
   const number = Number(value);
-  if (!Number.isFinite(number)) return '10';
+  if (!Number.isFinite(number)) return '0';
   const percent = number <= 1 ? number * 100 : number;
   return String(Math.round(percent * 1000) / 1000);
+}
+
+function moneyAmount(value: string) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(3) : '0.000';
 }
 
 function textOf(value: unknown) {

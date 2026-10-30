@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bike, ChefHat, ChevronDown, ChevronRight, CirclePause, ClipboardList, CreditCard, Crown, Lock, MoreHorizontal, Plus, Search, Send, Settings, Users, type LucideIcon } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useSearchParams } from 'react-router';
 
 export type StaffRow = {
   id: string;
@@ -62,6 +63,11 @@ export function StaffPage({ rows }: { rows: StaffRow[] }) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [rolesOpen, setRolesOpen] = useState(false);
   const [notice, setNotice] = useState('');
+  const [params] = useSearchParams();
+
+  useEffect(() => {
+    if (params.get('invite') === '1') setInviteOpen(true);
+  }, [params]);
 
   useEffect(() => {
     let active = true;

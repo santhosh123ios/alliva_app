@@ -1,6 +1,7 @@
 import { api } from '@/components/providers';
+import { AddressForm } from '@/components/address-form';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
-import { areas, usePlace } from '@/lib/place';
+import { useAreaPoint } from '@/lib/location';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import {
   Button,
@@ -74,8 +75,7 @@ export default function ProfilePage() {
   const locale = useLocale() as 'en' | 'ar';
   const router = useRouter();
   const client = useQueryClient();
-  const areaId = usePlace((state) => state.area);
-  const area = areas.find((item) => item.id === areaId) ?? areas[0]!;
+  const area = useAreaPoint();
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.me(), retry: false });
   const signedIn = me.data?.kind === 'CUSTOMER';
   const customer = useQuery({
@@ -726,29 +726,15 @@ function signedPoints(amount: string, locale: 'en' | 'ar') {
 
 function AddressesPanel({ addresses }: { addresses: NonNullable<CustomerProfile['addresses']> }) {
   const t = useTranslations();
-  const locale = useLocale() as 'en' | 'ar';
   const client = useQueryClient();
-  const areaId = usePlace((state) => state.area);
-  const [label, setLabel] = useState('');
-  const [line1, setLine1] = useState('');
-  const [cityId, setCityId] = useState(areaId);
-  const save = useMutation({
-    mutationFn: () => {
-      const city = areas.find((item) => item.id === cityId) ?? areas[0]!;
-      return api.addAddress({
-        label: label.trim() || 'Home',
-        line1: line1.trim(),
-        city: city.en,
-        latitude: city.lat,
-        longitude: city.lng,
-      });
-    },
+  const [adding, setAdding] = useState(false);
+  const remove = useMutation({
+    mutationFn: (id: string) => api.deleteAddress(id),
     onSuccess: async () => {
-      setLine1('');
-      toast.success(t('customer.account.addressSaved'));
-      await client.invalidateQueries({ queryKey: ['customer'] });
+      toast.success(t('customer.account.addressRemoved'));
+      await Promise.all([client.invalidateQueries({ queryKey: ['customer'] }), client.invalidateQueries({ queryKey: ['addresses'] })]);
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: () => toast.error(t('customer.checkoutErrors.generic')),
   });
   return (
     <div className="space-y-4">
@@ -757,11 +743,19 @@ function AddressesPanel({ addresses }: { addresses: NonNullable<CustomerProfile[
           {addresses.map((address) => (
             <li key={address.id} className="flex items-start gap-3 rounded-2xl border border-[#ecece8] bg-white p-4">
               <IconBadge icon={MapPin} tone="soft" />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="font-semibold">{address.label}</p>
                 <p className="text-sm text-[#6f6f6a]">{address.line1}</p>
                 <p className="text-sm text-[#6f6f6a]">{address.city}</p>
               </div>
+              <button
+                type="button"
+                className="text-sm font-semibold text-[#B42318] disabled:opacity-50"
+                disabled={remove.isPending && remove.variables === address.id}
+                onClick={() => remove.mutate(address.id)}
+              >
+                {t('customer.remove')}
+              </button>
             </li>
           ))}
         </ul>
@@ -770,39 +764,23 @@ function AddressesPanel({ addresses }: { addresses: NonNullable<CustomerProfile[
           {t('customer.account.noAddresses')}
         </p>
       )}
-      <form
-        className="space-y-3 rounded-2xl border border-[#ecece8] bg-white p-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!line1.trim()) {
-            toast.error(t('customer.account.checkForm'));
-            return;
-          }
-          save.mutate();
-        }}
-      >
-        <h2 className="text-base">{t('customer.account.newAddress')}</h2>
-        <Label htmlFor="address-label">{t('customer.account.addressLabel')}</Label>
-        <Input id="address-label" value={label} placeholder="Home" onChange={(event) => setLabel(event.target.value)} />
-        <Label htmlFor="address-line">{t('customer.account.addressLine')}</Label>
-        <Input id="address-line" value={line1} onChange={(event) => setLine1(event.target.value)} />
-        <Label htmlFor="address-city">{t('customer.account.city')}</Label>
-        <select
-          id="address-city"
-          value={cityId}
-          onChange={(event) => setCityId(event.target.value)}
-          className="flex h-12 w-full rounded-xl border border-input bg-white px-3 text-sm"
-        >
-          {areas.map((item) => (
-            <option key={item.id} value={item.id}>
-              {locale === 'ar' ? item.ar : item.en}
-            </option>
-          ))}
-        </select>
-        <Button type="submit" variant="yellow" loading={save.isPending}>
-          {t('customer.account.saveAddress')}
+      {adding ? (
+        <div className="rounded-2xl border border-[#ecece8] bg-white p-4">
+          <h2 className="mb-3 text-base">{t('customer.account.newAddress')}</h2>
+          <AddressForm
+            onCancel={() => setAdding(false)}
+            onSaved={async () => {
+              setAdding(false);
+              toast.success(t('customer.account.addressSaved'));
+              await Promise.all([client.invalidateQueries({ queryKey: ['customer'] }), client.invalidateQueries({ queryKey: ['addresses'] })]);
+            }}
+          />
+        </div>
+      ) : (
+        <Button type="button" variant="yellow" onClick={() => setAdding(true)}>
+          {t('customer.account.newAddress')}
         </Button>
-      </form>
+      )}
     </div>
   );
 }

@@ -1,19 +1,26 @@
+import { createHash } from 'crypto';
 import type { FulfillmentType, OrderStatus } from '@alliva/types';
 import { isOfflinePaymentMethod, type PaymentMethodCode } from '@alliva/validation';
 import { money, moneyString } from '../domain/money';
-import { priceOrder, type PromoFacts } from '../domain/pricing';
-import { assertTransition } from '../domain/order-machine';
+import { orderPromoForMerchant, priceOrder, type PromoFacts } from '../domain/pricing';
+import { assertTransition, riderOnly } from '../domain/order-machine';
+import { handoffCode, handoffToken } from '../domain/dispatch';
 import { assertFeatureAllowed, assertWithinLimit, commissionPercent, readEntitlement, suggestionMode } from '../domain/entitlements';
-import { suggestedMerchants } from '../domain/subscriptions';
+import { subscriptionIsLive, subscriptionShouldExpire, suggestedMerchants } from '../domain/subscriptions';
 import { buildCaptureLedger, buildRefundLedger } from '../domain/ledger';
 import { isOpenAt } from '../domain/hours';
-import { badRequest, notFound } from '../common/errors';
+import { badRequest, checkoutError, forbidden, notFound, type CheckoutErrorCode } from '../common/errors';
 import { dec, loc } from '../common/crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlatformService } from './platform.service';
 import { BenefitGateway, MockPushProvider, PaypalGateway, TapGateway } from '../providers/mock.providers';
 import { OrdersGateway } from './orders.gateway';
 import { storePaymentChoices } from './payment-methods';
+import { deliveryFeeForDistance } from '../domain/delivery-pricing';
+import { merchantOrderCharges } from '../domain/charges';
+import { planCartMerge, mergeLineKey } from '../domain/cart-merge';
+import { haversineKm, parsePoint, type Point } from '../domain/geo';
+import { branchPoint, deliveryInclude, deliverySnapshot, presentBranchQuote, type BranchQuote, type DeliveryContext, type DeliveryService } from './delivery.service';
 
 type CartRecord = NonNullable<Awaited<ReturnType<CommerceService['loadCartRecord']>>>;
 
@@ -28,6 +35,7 @@ export class CommerceService {
     private readonly push: MockPushProvider,
     private readonly gateway: OrdersGateway,
     private readonly platform: PlatformService,
+    private readonly delivery: DeliveryService,
   ) {}
 
   async ensureGuest(tokenHash: string | null, create: () => Promise<{ id: string; token: string }>) {
@@ -50,9 +58,13 @@ export class CommerceService {
     const visible = entry && mode
       ? suggestedMerchants({ mode, current: { id: entry.id, businessType: entry.businessType }, candidates: catalog }).map((merchant) => merchant.id)
       : null;
-    const merchants = await this.merchantCards(visible ? { id: { in: visible } } : { status: 'ACTIVE', deletedAt: null });
+    const point = parsePoint(input.lat, input.lng);
+    const context = point ? await this.delivery.context(point) : null;
+    const merchants = await this.merchantCards(visible ? { id: { in: visible } } : { status: 'ACTIVE', deletedAt: null }, point && context ? { point, context } : undefined);
     const listed = visible ? [...merchants].sort((a, b) => visible.indexOf(a.id) - visible.indexOf(b.id)) : merchants;
-    const nearby = this.sortNearby(listed, input.lat, input.lng);
+    // With a location, stores that cannot deliver there drop out. A store opened from its own QR or link always stays.
+    const reachable = point ? listed.filter((merchant) => merchant.id === entry?.id || deliverableFrom(merchant)) : listed;
+    const nearby = point ? sortNearby(reachable) : reachable;
     const entryCard = entry ? nearby.find((merchant) => merchant.id === entry.id) : undefined;
     const ordered = entryCard ? [entryCard, ...nearby.filter((merchant) => merchant.id !== entryCard.id)] : nearby;
     const scoped = visible ? { merchantId: { in: visible } } : {};
@@ -104,26 +116,36 @@ export class CommerceService {
             take: 8,
           })
         : [];
-    const recent = visibleProducts.filter((product) => recentIds.some((row) => row.productId === product.id));
+    const unavailableIds = new Set(sorted.filter((merchant) => merchant.temporarilyUnavailable).map((merchant) => merchant.id));
+    const unavailableSlugs = new Set(sorted.filter((merchant) => merchant.temporarilyUnavailable).map((merchant) => merchant.slug));
+    const orderableProducts = visibleProducts.filter((product) => !unavailableIds.has(product.merchantId));
+    const recent = orderableProducts.filter((product) => recentIds.some((row) => row.productId === product.id));
     return {
       exclusiveMerchant: mode === 'CURRENT_STORE_ONLY' ? sorted[0] ?? null : null,
       categories: categories.map((category) => ({ id: category.id, slug: category.slug, name: loc(category.name) })),
+      located: Boolean(point),
       merchants: sorted,
+      openMerchants: sorted.filter((merchant) => merchant.isOpen && !merchant.temporarilyUnavailable),
+      closedMerchants: sorted.filter((merchant) => !merchant.isOpen || merchant.temporarilyUnavailable),
       featured: sorted.slice(0, 4),
-      offers: offers.map((offer) => ({
-        id: offer.id,
-        title: loc(offer.title),
-        merchantSlug: offer.merchant.slug,
-        merchantName: loc(offer.merchant.name),
-      })),
-      banners: banners.map((banner) => ({
-        id: banner.id,
-        title: loc(banner.title),
-        imageUrl: banner.imageUrl,
-        merchantSlug: banner.merchant.slug,
-      })),
-      topProducts: [...visibleProducts].sort((a, b) => Number(b.rating) - Number(a.rating) || b.reviewCount - a.reviewCount).slice(0, 8),
-      recommended: visibleProducts.slice(0, 8),
+      offers: offers
+        .filter((offer) => !unavailableSlugs.has(offer.merchant.slug))
+        .map((offer) => ({
+          id: offer.id,
+          title: loc(offer.title),
+          merchantSlug: offer.merchant.slug,
+          merchantName: loc(offer.merchant.name),
+        })),
+      banners: banners
+        .filter((banner) => !unavailableSlugs.has(banner.merchant.slug))
+        .map((banner) => ({
+          id: banner.id,
+          title: loc(banner.title),
+          imageUrl: banner.imageUrl,
+          merchantSlug: banner.merchant.slug,
+        })),
+      topProducts: [...orderableProducts].sort((a, b) => Number(b.rating) - Number(a.rating) || b.reviewCount - a.reviewCount).slice(0, 8),
+      recommended: orderableProducts.slice(0, 8),
       recentlyViewed: recent,
       freeDelivery: sorted.filter((merchant) => merchant.freeDelivery || Number(merchant.deliveryFee) === 0),
     };
@@ -168,11 +190,13 @@ export class CommerceService {
         closesAt: hour.closesAt,
         closed: hour.closed,
       })),
-      categories: merchant.productCategories.map((category) => ({
-        id: category.id,
-        name: loc(category.name),
-        products: category.products.map((product) => this.toProductCard(product, merchant)),
-      })),
+      categories: card?.temporarilyUnavailable
+        ? []
+        : merchant.productCategories.map((category) => ({
+            id: category.id,
+            name: loc(category.name),
+            products: category.products.map((product) => this.toProductCard(product, merchant)),
+          })),
       reviews: merchant.reviews.map((review) => ({
         id: review.id,
         rating: review.rating,
@@ -180,7 +204,7 @@ export class CommerceService {
         author: review.author.firstName,
         createdAt: review.createdAt.toISOString(),
       })),
-      offers: offers.map((offer) => ({ id: offer.id, title: loc(offer.title) })),
+      offers: card?.temporarilyUnavailable ? [] : offers.map((offer) => ({ id: offer.id, title: loc(offer.title) })),
     };
   }
 
@@ -196,7 +220,8 @@ export class CommerceService {
       },
     });
     if (!product || product.approvalStatus !== 'APPROVED') throw notFound('Product not found');
-    if (viewer?.customerId || viewer?.guestId) {
+    const live = await this.storeIsOpen(product.merchantId);
+    if (live && (viewer?.customerId || viewer?.guestId)) {
       await this.prisma.recentlyViewed.create({
         data: { productId: product.id, customerId: viewer.customerId, guestId: viewer.guestId },
       });
@@ -205,6 +230,7 @@ export class CommerceService {
     const gallery = [product.imageUrl, ...product.images.map((image) => image.url)].filter((url): url is string => Boolean(url));
     return {
       ...card,
+      temporarilyUnavailable: !live,
       images: [...new Set(gallery)],
       variants: product.variants.map((variant) => ({
         id: variant.id,
@@ -236,19 +262,29 @@ export class CommerceService {
         addressId: null,
         tableId: null,
         paymentMethods: [],
+        delivery: null,
+        version: '',
       };
     }
-    return this.presentCart(cart);
+    const collapsed = await this.collapseDuplicateLines(cart);
+    return this.presentCart(collapsed ? (await this.loadCartRecord(owner)) ?? cart : cart);
   }
 
-  async addItem(owner: { customerId?: string | null; guestId?: string | null }, input: { productId: string; variantId?: string | null; addonIds?: string[]; quantity: number; notes?: string }) {
+  async addItem(owner: { customerId?: string | null; guestId?: string | null }, input: { productId: string; variantId?: string | null; addonIds?: string[]; quantity: number; notes?: string; replace?: boolean }) {
     const product = await this.prisma.product.findFirst({ where: { id: input.productId, deletedAt: null, available: true } });
     if (!product) throw notFound('Product not found');
+    if (!(await this.storeIsOpen(product.merchantId))) throw badRequest('This store is temporarily unavailable');
     let cart = await this.loadCartRecord(owner);
-    if (cart && cart.merchantId && cart.merchantId !== product.merchantId && cart.items.length) {
-      throw badRequest('Your cart already contains another merchant. Clear it before switching.');
-    }
-    if (!cart) {
+    if (cart?.merchantId && cart.merchantId !== product.merchantId) {
+      if (cart.items.length && !input.replace) {
+        throw badRequest('Your cart already contains another merchant. Clear it before switching.');
+      }
+      if (cart.items.length) await this.prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+      await this.prisma.cart.update({
+        where: { id: cart.id },
+        data: { merchantId: product.merchantId, promoCodeId: null, notes: null, tableId: null, branchId: null, scheduledFor: null },
+      });
+    } else if (!cart) {
       cart = await this.prisma.cart.create({
         data: { customerId: owner.customerId, guestId: owner.guestId, merchantId: product.merchantId },
         include: cartInclude,
@@ -256,16 +292,31 @@ export class CommerceService {
     } else if (!cart.merchantId) {
       await this.prisma.cart.update({ where: { id: cart.id }, data: { merchantId: product.merchantId } });
     }
-    const item = await this.prisma.cartItem.create({
-      data: {
-        cartId: cart.id,
-        productId: product.id,
-        variantId: input.variantId,
-        quantity: input.quantity,
-        notes: input.notes,
-        addons: { create: (input.addonIds ?? []).map((addonId) => ({ addonId })) },
-      },
-    });
+    const switched = Boolean(cart.merchantId && cart.merchantId !== product.merchantId);
+    const lines = switched ? [] : cart.items;
+    const addonIds = [...new Set(input.addonIds ?? [])].sort();
+    const notes = input.notes?.trim() || null;
+    const variantId = input.variantId || null;
+    const matches = lines.filter((item) => sameCartLine(item, { productId: product.id, variantId, notes, addonIds }));
+    if (matches.length) {
+      const [keep, ...duplicates] = matches;
+      await this.prisma.cartItem.update({
+        where: { id: keep!.id },
+        data: { quantity: matches.reduce((sum, item) => sum + item.quantity, 0) + input.quantity },
+      });
+      if (duplicates.length) await this.prisma.cartItem.deleteMany({ where: { id: { in: duplicates.map((item) => item.id) } } });
+    } else {
+      await this.prisma.cartItem.create({
+        data: {
+          cartId: cart.id,
+          productId: product.id,
+          variantId,
+          quantity: input.quantity,
+          notes,
+          addons: { create: addonIds.map((addonId) => ({ addonId })) },
+        },
+      });
+    }
     return this.cartFor(owner);
   }
 
@@ -301,8 +352,16 @@ export class CommerceService {
 
   async applyPromo(owner: { customerId?: string | null; guestId?: string | null }, code: string) {
     const cart = await this.requireCart(owner);
-    const promo = await this.prisma.promoCode.findFirst({ where: { code: code.toUpperCase(), active: true, deletedAt: null, purpose: 'ORDER' } });
-    if (!promo) throw badRequest('Promo code is not valid');
+    if (!cart.merchantId) throw badRequest('Promo code is not valid for this store');
+    const promo = await this.prisma.promoCode.findFirst({
+      where: { code: code.trim().toUpperCase(), active: true, deletedAt: null, purpose: 'ORDER', merchantId: cart.merchantId },
+    });
+    if (!promo || !orderPromoForMerchant(promo, cart.merchantId)) throw badRequest('Promo code is not valid for this store');
+    try {
+      await this.price({ ...cart, promoCode: promo, promoCodeId: promo.id }, owner.customerId ?? cart.customerId);
+    } catch (error) {
+      throw badRequest(error instanceof Error ? error.message : 'Promo code is not valid');
+    }
     await this.prisma.cart.update({ where: { id: cart.id }, data: { promoCodeId: promo.id } });
     return this.cartFor(owner);
   }
@@ -313,37 +372,128 @@ export class CommerceService {
     return this.cartFor(owner);
   }
 
-  async checkout(owner: { customerId: string; userId: string; roles: string[] }, input: { paymentMethod: PaymentMethodCode; fulfillmentType: FulfillmentType; addressId?: string | null; tableId?: string | null; scheduledFor?: string | null; notes?: string | null; promoCode?: string | null; idempotencyKey: string }) {
-    if (input.promoCode) await this.applyPromo({ customerId: owner.customerId }, input.promoCode);
-    await this.setContext({ customerId: owner.customerId }, input);
+  /**
+   * Re-check everything the customer cannot be trusted to send: address ownership, coordinates, store and branch status,
+   * products, prices, delivery range and charge, payment method and the final total.
+   * Returns every problem found so the checkout screen can show them together; `checkout` refuses on the first one.
+   */
+  async validateCheckout(customerId: string, input: CheckoutRequest) {
+    const cart = await this.loadCartRecord({ customerId });
+    if (!cart || !cart.merchantId || !cart.items.length) throw checkoutError('CART_EMPTY', 'Your cart is empty');
+    const problems: { code: CheckoutErrorCode; message: string }[] = [];
+    const fail = (code: CheckoutErrorCode, message: string) => {
+      if (!problems.some((problem) => problem.code === code)) problems.push({ code, message });
+    };
+    const version = cartVersion(cart);
+    if (input.cartVersion && input.cartVersion !== version) fail('CART_CHANGED', 'Your cart changed. Review it before placing the order.');
+
+    const merchant = await this.prisma.merchant.findUniqueOrThrow({ where: { id: cart.merchantId }, include: { ...deliveryInclude, hours: true } });
+    const live = merchant.status === 'ACTIVE' && !merchant.deletedAt && (await this.storeIsOpen(merchant.id));
+    if (!live) fail('STORE_UNAVAILABLE', 'This store is not accepting orders right now');
+    const paused = merchant.availability !== 'OPEN' || Boolean(merchant.temporaryClosedUntil && merchant.temporaryClosedUntil > new Date());
+    const open = !paused && isOpenAt(merchant.hours, new Date());
+    if (live && !open && !input.scheduledFor) fail('MERCHANT_CLOSED', 'This store is closed right now');
+
+    const fulfillment = input.fulfillmentType;
+    const offered = { DELIVERY: merchant.deliveryEnabled, TAKEAWAY: merchant.takeawayEnabled, DINE_IN: merchant.dineInEnabled }[fulfillment];
+    if (!offered) fail(fulfillment === 'DELIVERY' ? 'DELIVERY_DISABLED' : 'FULFILLMENT_UNAVAILABLE', fulfillment === 'DELIVERY' ? 'This store does not deliver right now' : 'This store does not offer that order type');
+    if (fulfillment === 'DINE_IN' && !input.tableId) fail('FULFILLMENT_UNAVAILABLE', 'A table is required for dine-in');
+
+    let address: Awaited<ReturnType<typeof this.prisma.address.findFirst>> = null;
+    let point: Point | null = null;
+    if (fulfillment === 'DELIVERY') {
+      if (!input.addressId) fail('ADDRESS_REQUIRED', 'Please add a delivery address to continue.');
+      else {
+        address = await this.prisma.address.findFirst({ where: { id: input.addressId, customerId, deletedAt: null } });
+        point = address ? parsePoint(address.latitude.toString(), address.longitude.toString()) : null;
+        if (!address || !point) fail('ADDRESS_INVALID', 'This address is no longer available. Choose another one.');
+      }
+    }
+
+    const working = { ...cart, fulfillmentType: fulfillment, addressId: address?.id ?? null };
+    let priced: Awaited<ReturnType<CommerceService['price']>> | null = null;
+    try {
+      priced = await this.price(working, customerId, point);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (/promo/i.test(message)) fail('PROMO_INVALID', message);
+      else if (/unavailable/i.test(message)) fail('PRODUCT_UNAVAILABLE', 'An item in your cart is no longer available');
+      else fail('DELIVERY_QUOTE_FAILED', 'We could not calculate this order. Try again.');
+    }
+
+    const delivery = priced?.delivery ?? null;
+    if (fulfillment === 'DELIVERY' && point && priced) {
+      const reason = delivery?.result.reason ?? (delivery ? null : 'QUOTE_FAILED');
+      if (reason === 'OUT_OF_RANGE') fail('ADDRESS_OUT_OF_RANGE', 'This address is outside the store’s delivery range');
+      else if (reason === 'DELIVERY_DISABLED' || reason === 'BRANCH_INACTIVE') fail('DELIVERY_DISABLED', 'This store does not deliver to this address right now');
+      else if (reason === 'CONFIG_MISSING') fail('DELIVERY_CONFIG_MISSING', 'This store has not finished setting up delivery');
+      else if (reason === 'INVALID_COORDINATES') fail('ADDRESS_INVALID', 'This address is missing its map location');
+      else if (reason) fail('DELIVERY_QUOTE_FAILED', 'We could not calculate the delivery charge. Try again.');
+    }
+
+    const paymentMethods = await storePaymentChoices(this.prisma, merchant.id);
+    if (input.paymentMethod && !paymentMethods.some((method) => method.code === input.paymentMethod)) {
+      fail('PAYMENT_METHOD_UNAVAILABLE', 'This store does not accept that payment method');
+    }
+    if (priced && input.expectedTotal && money(input.expectedTotal).cmp(priced.pricing.total) !== 0 && !problems.length) {
+      fail('TOTAL_CHANGED', 'The order total changed. Check the new total before placing the order.');
+    }
+
+    const branch = delivery?.result.branch ?? merchant.branches.find((row) => row.id === cart.branchId && row.active) ?? merchant.branches.find((row) => row.active) ?? null;
+    if (!branch) fail('STORE_UNAVAILABLE', 'This store is not accepting orders right now');
+    const card = (await this.merchantCards({ id: merchant.id }))[0] ?? null;
+    return {
+      cartVersion: version,
+      merchant: card,
+      branch: branch ? { id: branch.id, name: loc(branch.name), address: `${branch.line1}, ${branch.city}`, latitude: branchPoint(branch).latitude.toFixed(6), longitude: branchPoint(branch).longitude.toFixed(6) } : null,
+      fulfillmentType: fulfillment,
+      address: address ? presentAddress(address) : null,
+      delivery: delivery ? presentBranchQuote(delivery.result) : null,
+      items: priced?.lines.map((line) => ({ id: line.id, productId: line.productId, name: line.name, variantName: line.variantName, quantity: line.quantity, unitPrice: line.unitPrice, lineTotal: line.lineTotal, addons: line.addons, notes: line.notes, imageUrl: line.imageUrl })) ?? [],
+      pricing: priced
+        ? { ...priced.pricing, promoCode: cart.promoCode && orderPromoForMerchant(cart.promoCode, cart.merchantId) ? cart.promoCode.code : null }
+        : null,
+      paymentMethods,
+      problems,
+      canPlace: problems.length === 0,
+      // Internal: used by checkout, stripped before the response leaves the API.
+      internal: { cart, merchant, priced, branch, address, point, delivery },
+    };
+  }
+
+  async checkout(owner: { customerId: string; userId: string; roles: string[] }, input: CheckoutRequest & { idempotencyKey: string }) {
     const existing = await this.prisma.payment.findUnique({ where: { idempotencyKey: input.idempotencyKey }, include: { order: true } });
     if (existing?.order) return this.presentOrder(existing.order.id);
-    const cart = await this.requireCart({ customerId: owner.customerId });
-    if (!cart.merchantId || !cart.items.length) throw badRequest('Your cart is empty');
-    const priced = await this.price(cart, owner.customerId);
-    const merchant = await this.prisma.merchant.findUniqueOrThrow({ where: { id: cart.merchantId }, include: { branches: true, subscription: { include: { plan: { include: { entitlements: true } } } } } });
-    if (merchant.status !== 'ACTIVE') throw badRequest('This merchant is not accepting orders');
-    if (input.fulfillmentType === 'DELIVERY' && !merchant.deliveryEnabled) throw badRequest('Delivery is unavailable');
-    if (input.fulfillmentType === 'TAKEAWAY' && !merchant.takeawayEnabled) throw badRequest('Takeaway is unavailable');
-    if (input.fulfillmentType === 'DINE_IN' && !merchant.dineInEnabled) throw badRequest('Dine-in is unavailable');
-    if (input.fulfillmentType === 'DELIVERY' && !input.addressId) throw badRequest('Choose a delivery address');
-    if (input.fulfillmentType === 'DINE_IN' && !input.tableId) throw badRequest('A table is required for dine-in');
+    if (input.promoCode) {
+      try {
+        await this.applyPromo({ customerId: owner.customerId }, input.promoCode);
+      } catch (error) {
+        throw checkoutError('PROMO_INVALID', error instanceof Error ? error.message : 'Promo code is not valid');
+      }
+    }
+    await this.setContext({ customerId: owner.customerId }, input);
+    const checked = await this.validateCheckout(owner.customerId, input);
+    const first = checked.problems[0];
+    if (first) throw checkoutError(first.code, first.message, first.code === 'TOTAL_CHANGED' ? { total: checked.pricing?.total } : {});
+    const { cart, merchant, branch, address, point, delivery } = checked.internal;
+    const priced = checked.internal.priced!;
+    if (!branch) throw checkoutError('STORE_UNAVAILABLE', 'This store is not accepting orders right now');
     const rows = await this.platform.entitlementUsage(merchant.id);
-    if (!rows.length) throw badRequest('An active subscription is required');
+    if (!rows.length) throw checkoutError('STORE_UNAVAILABLE', 'This store is not accepting orders right now');
     if (input.fulfillmentType === 'DELIVERY') assertFeatureAllowed(readEntitlement(rows, 'deliveryOrdering'), 'Delivery ordering');
     if (input.fulfillmentType === 'TAKEAWAY') assertFeatureAllowed(readEntitlement(rows, 'takeawayOrdering'), 'Takeaway ordering');
     if (input.fulfillmentType === 'DINE_IN') assertFeatureAllowed(readEntitlement(rows, 'tableOrdering'), 'Table ordering');
     if (!isOfflinePaymentMethod(input.paymentMethod)) assertFeatureAllowed(readEntitlement(rows, 'paymentIntegration'), 'Online payment');
-    const paymentChoices = await storePaymentChoices(this.prisma, merchant.id);
-    if (!paymentChoices.some((method) => method.code === input.paymentMethod)) throw badRequest('This store does not accept that payment method');
     const orderUsage = rows.find((row) => row.key === 'monthlyOrderLimit');
     assertWithinLimit(orderUsage?.value, orderUsage?.usage ?? 0, 1, 'monthly order limit');
     const percent = commissionPercent(readEntitlement(rows, 'merchantCommissionPercent'));
     const food = money(priced.pricing.subtotal).minus(priced.pricing.discount);
     const commission = food.mul(percent).div(100);
-    const branch = merchant.branches[0];
-    if (!branch) throw badRequest('Merchant has no branch');
-    const address = input.addressId ? await this.prisma.address.findFirst({ where: { id: input.addressId, customerId: owner.customerId } }) : null;
+    const promoCodeId = cart.promoCode && orderPromoForMerchant(cart.promoCode, cart.merchantId) ? cart.promoCodeId : null;
+    // `charge` is the branch quote; `finalCharge` is what the customer paid after platform-wide free-delivery rules.
+    const deliveryQuote = input.fulfillmentType === 'DELIVERY' && delivery && point
+      ? { ...deliverySnapshot(delivery.result, point), finalCharge: priced.pricing.deliveryFee, finalTax: priced.pricing.deliveryTax, waivedByPlatform: priced.pricing.deliveryFeeSaved }
+      : undefined;
     const order = await this.prisma.$transaction(async (tx) => {
       const count = await tx.order.count();
       const created = await tx.order.create({
@@ -354,7 +504,8 @@ export class CommerceService {
           branchId: branch.id,
           fulfillmentType: input.fulfillmentType,
           status: 'PENDING',
-          addressSnapshot: address ? { line1: address.line1, city: address.city, latitude: dec(address.latitude), longitude: dec(address.longitude) } : undefined,
+          addressSnapshot: address && input.fulfillmentType === 'DELIVERY' ? addressSnapshot(address) : undefined,
+          deliveryQuote,
           tableId: input.tableId,
           scheduledFor: input.scheduledFor ? new Date(input.scheduledFor) : null,
           notes: input.notes,
@@ -362,12 +513,14 @@ export class CommerceService {
           discount: priced.pricing.discount,
           deliveryFee: priced.pricing.deliveryFee,
           deliveryFeeSaved: priced.pricing.deliveryFeeSaved,
+          serviceFee: priced.pricing.serviceFee,
           tax: priced.pricing.tax,
           total: priced.pricing.total,
-          promoCodeId: cart.promoCodeId,
+          promoCodeId,
           commissionPercent: percent,
           platformCommission: moneyString(commission),
           merchantNet: moneyString(food.minus(commission)),
+          preparationMinutes: merchant.preparationMinutes,
           createdById: owner.userId,
           items: {
             create: priced.lines.map((line) => ({
@@ -391,12 +544,12 @@ export class CommerceService {
           data: { quantity: { decrement: line.quantity } },
         });
       }
-      if (cart.promoCodeId && money(priced.pricing.discount).gt(0)) {
-        await tx.promoRedemption.create({ data: { promoCodeId: cart.promoCodeId, customerId: owner.customerId, orderId: created.id, amount: priced.pricing.discount } });
-        await tx.promoCode.update({ where: { id: cart.promoCodeId }, data: { budgetSpent: { increment: priced.pricing.discount } } });
+      if (promoCodeId && money(priced.pricing.discount).gt(0)) {
+        await tx.promoRedemption.create({ data: { promoCodeId, customerId: owner.customerId, orderId: created.id, amount: priced.pricing.discount } });
+        await tx.promoCode.update({ where: { id: promoCodeId }, data: { budgetSpent: { increment: priced.pricing.discount } } });
       }
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
-      await tx.cart.update({ where: { id: cart.id }, data: { promoCodeId: null, merchantId: null } });
+      await tx.cart.update({ where: { id: cart.id }, data: { promoCodeId: null, merchantId: null, branchId: null } });
       return created;
     });
     await this.capturePayment(order.id, input.paymentMethod, input.idempotencyKey, owner.userId);
@@ -407,10 +560,108 @@ export class CommerceService {
     return this.publish(order.id);
   }
 
+  /** Delivery quote for the current cart, a saved address or a map point. */
+  async deliveryQuote(owner: { customerId?: string | null; guestId?: string | null }, input: { addressId?: string | null; latitude?: unknown; longitude?: unknown; merchantId?: string | null; branchId?: string | null }) {
+    let point = parsePoint(input.latitude, input.longitude);
+    if (!point && input.addressId) {
+      if (!owner.customerId) throw checkoutError('AUTH_REQUIRED', 'Sign in to use a saved address');
+      const address = await this.prisma.address.findFirst({ where: { id: input.addressId, customerId: owner.customerId, deletedAt: null } });
+      if (!address) throw checkoutError('ADDRESS_INVALID', 'This address is no longer available');
+      point = parsePoint(address.latitude.toString(), address.longitude.toString());
+    }
+    const cart = await this.loadCartRecord(owner);
+    if (!point && cart) point = await this.cartDeliveryPoint(cart);
+    if (!point) throw checkoutError('ADDRESS_INVALID', 'Choose a delivery location first');
+    const merchantId = input.merchantId ?? cart?.merchantId;
+    if (!merchantId) throw notFound('Choose a store first');
+    const merchant = await this.prisma.merchant.findFirst({ where: { id: merchantId, deletedAt: null, status: 'ACTIVE' }, include: deliveryInclude });
+    if (!merchant) throw notFound('Store not found');
+    let orderAmount: string | null = null;
+    if (cart && cart.merchantId === merchant.id && cart.items.length) {
+      const food = await this.price({ ...cart, fulfillmentType: 'TAKEAWAY' }, owner.customerId ?? cart.customerId).catch(() => null);
+      if (food) orderAmount = moneyString(money(food.pricing.subtotal).minus(food.pricing.discount));
+    }
+    const result = await this.delivery.checkoutQuote(merchant, point, { orderAmount, branchId: input.branchId });
+    return presentBranchQuote(result);
+  }
+
+  /** Stores near a point, split into those open now and those closed. */
+  async nearby(input: { lat?: string; lng?: string; customerId?: string | null; guestId?: string | null; exclusiveSlug?: string | null }) {
+    const home = await this.home(input);
+    return { located: home.located, merchants: home.openMerchants, closedMerchants: home.closedMerchants };
+  }
+
+  /** Remember where a guest is shopping from, so carts can price delivery before sign-in. */
+  async setGuestLocation(guestId: string, input: { latitude: unknown; longitude: unknown; label?: string | null; source?: string | null }) {
+    const point = parsePoint(input.latitude, input.longitude);
+    if (!point) throw badRequest('Choose a valid location');
+    await this.prisma.guest.update({
+      where: { id: guestId },
+      data: {
+        latitude: point.latitude.toFixed(6),
+        longitude: point.longitude.toFixed(6),
+        locationLabel: input.label?.slice(0, 200) || null,
+        locationSource: input.source?.slice(0, 20) || null,
+        locationUpdatedAt: new Date(),
+      },
+    });
+    return { latitude: point.latitude.toFixed(6), longitude: point.longitude.toFixed(6), label: input.label ?? null };
+  }
+
+  /**
+   * Move a guest's cart onto the customer who just signed in. Runs in one transaction, keeps variants, add-ons and notes,
+   * and never stores the same line twice. Safe to call more than once: a merged guest is skipped.
+   */
+  async mergeGuestCart(guestId: string, customerId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const guest = await tx.guest.findUnique({ where: { id: guestId } });
+      if (!guest || guest.mergedIntoCustomerId) return;
+      const [guestCart, customerCart] = await Promise.all([
+        tx.cart.findUnique({ where: { guestId }, include: cartInclude }),
+        tx.cart.findUnique({ where: { customerId }, include: cartInclude }),
+      ]);
+      const asMerge = (cart: NonNullable<typeof guestCart>) => ({
+        id: cart.id,
+        merchantId: cart.merchantId,
+        items: cart.items.map((item) => ({ id: item.id, productId: item.productId, variantId: item.variantId, notes: item.notes, quantity: item.quantity, addonIds: item.addons.map((addon) => addon.addonId) })),
+      });
+      const plan = planCartMerge(guestCart ? asMerge(guestCart) : null, customerCart ? asMerge(customerCart) : null);
+      if (plan.kind === 'ADOPT_GUEST' && guestCart) {
+        if (plan.dropCustomerCartId) await tx.cart.delete({ where: { id: plan.dropCustomerCartId } });
+        await tx.cart.update({ where: { id: guestCart.id }, data: { guestId: null, customerId, addressId: null } });
+      } else if (plan.kind === 'COMBINE' && guestCart && customerCart) {
+        for (const update of plan.updates) await tx.cartItem.update({ where: { id: update.id }, data: { quantity: update.quantity } });
+        for (const copy of plan.copies) {
+          await tx.cartItem.create({
+            data: {
+              cartId: customerCart.id,
+              productId: copy.productId,
+              variantId: copy.variantId,
+              quantity: copy.quantity,
+              notes: copy.notes,
+              addons: { create: [...new Set(copy.addonIds)].map((addonId) => ({ addonId })) },
+            },
+          });
+        }
+        await tx.cart.update({
+          where: { id: customerCart.id },
+          data: {
+            notes: guestCart.notes ?? customerCart.notes,
+            promoCodeId: guestCart.promoCodeId ?? customerCart.promoCodeId,
+            fulfillmentType: guestCart.fulfillmentType ?? customerCart.fulfillmentType,
+          },
+        });
+        await tx.cart.delete({ where: { id: guestCart.id } });
+      }
+      await tx.recentlyViewed.updateMany({ where: { guestId }, data: { customerId, guestId: null } });
+      await tx.guest.update({ where: { id: guestId }, data: { mergedIntoCustomerId: customerId } });
+    });
+  }
+
   async capturePayment(orderId: string, method: PaymentMethodCode, idempotencyKey: string, actorId?: string) {
     const order = await this.prisma.order.findUniqueOrThrow({ where: { id: orderId } });
     const offline = isOfflinePaymentMethod(method);
-    const provider = method === 'BANK_TRANSFER' ? 'BANK_TRANSFER' : method === 'PAYPAL' ? 'PAYPAL' : method === 'TAP_PAY' ? 'TAP' : 'BENEFIT';
+    const provider = method === 'CASH' ? 'CASH' : method === 'BANK_TRANSFER' ? 'BANK_TRANSFER' : method === 'PAYPAL' ? 'PAYPAL' : method === 'TAP_PAY' ? 'TAP' : 'BENEFIT';
     const gatewayRate = offline ? '0' : '0.025';
     let externalId: string | null = null;
     // A bank transfer is settled outside a gateway, so the payment stays pending until the money is confirmed.
@@ -436,6 +687,11 @@ export class CommerceService {
         createdById: actorId,
       },
     });
+    if (method === 'CASH') {
+      await this.prisma.cashCollection.create({
+        data: { orderId: order.id, merchantId: order.merchantId, amount: dec(order.total) },
+      });
+    }
     if (status === 'CAPTURED') await this.postLedger(order.id, gatewayRate, false);
     return payment;
   }
@@ -447,6 +703,7 @@ export class CommerceService {
       total: dec(order.total),
       foodAfterDiscount: moneyString(food),
       tax: dec(order.tax),
+      serviceFee: dec(order.serviceFee),
       deliveryFee: dec(order.deliveryFee),
       commissionRate: money(dec(order.commissionPercent)).div(100).toFixed(6),
       gatewayRate,
@@ -465,16 +722,24 @@ export class CommerceService {
   }
 
   async transition(actor: { id: string; roles: string[]; merchantId: string | null }, orderId: string, input: { status: OrderStatus; note?: string; preparationMinutes?: number; driverId?: string; cancellationReason?: string }) {
-    const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { dispatch: true } });
+    const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { dispatch: { include: { driver: { select: { userId: true } } } } } });
     if (!order) throw notFound('Order not found');
     if (actor.merchantId && actor.merchantId !== order.merchantId) throw badRequest('Cross-merchant access is not allowed');
     assertTransition({ from: order.status, to: input.status, fulfillment: order.fulfillmentType, roles: actor.roles });
     if (input.status === 'CANCELLED' && !input.cancellationReason && !input.note) {
       throw badRequest('A cancellation reason is required');
     }
+    if (riderOnly(actor.roles)) {
+      if (order.dispatch?.driver.userId !== actor.id) throw forbidden('This order is not assigned to you');
+      if (input.status === 'OUT_FOR_DELIVERY' && !order.dispatch.pickupVerifiedAt) throw badRequest('Verify the pickup before starting the delivery');
+    }
+    const handoff = input.status === 'READY_FOR_PICKUP' && order.fulfillmentType === 'DELIVERY' && !order.handoffToken
+      ? { handoffCode: handoffCode(), handoffToken: handoffToken() }
+      : {};
     const updated = await this.prisma.order.update({
       where: { id: order.id },
       data: {
+        ...handoff,
         status: input.status,
         preparationMinutes: input.preparationMinutes ?? order.preparationMinutes,
         estimatedReadyAt: input.preparationMinutes ? new Date(Date.now() + input.preparationMinutes * 60000) : order.estimatedReadyAt,
@@ -486,18 +751,28 @@ export class CommerceService {
     if (input.status === 'ASSIGNED_TO_DRIVER' && input.driverId) {
       await this.prisma.dispatchAssignment.upsert({
         where: { orderId: order.id },
-        update: { driverId: input.driverId, assignedById: actor.id },
+        update: {
+          driverId: input.driverId,
+          assignedById: actor.id,
+          assignedAt: new Date(),
+          ...(order.dispatch?.driverId !== input.driverId ? { pickupVerifiedAt: null, pickupMethod: null } : {}),
+        },
         create: { orderId: order.id, driverId: input.driverId, merchantId: order.merchantId, assignedById: actor.id },
       });
+      await this.prisma.cashCollection.updateMany({ where: { orderId: order.id }, data: { driverId: input.driverId } });
     }
     if (input.status === 'DELIVERED') {
       const payment = await this.prisma.payment.findFirst({ where: { orderId: order.id } });
       if (payment?.method === 'CASH') {
         await this.prisma.cashCollection.updateMany({ where: { orderId: order.id }, data: { status: 'COLLECTED' } });
+        if (payment.status === 'PENDING') {
+          await this.prisma.payment.update({ where: { id: payment.id }, data: { status: 'CAPTURED' } });
+        }
       }
       const hasDriver = Boolean(order.dispatch || input.driverId);
       const existing = await this.prisma.ledgerEntry.findFirst({ where: { referenceId: order.id, type: 'CUSTOMER_PAYMENT' } });
-      if (!existing && payment?.status === 'CAPTURED') await this.postLedger(order.id, '0.025', hasDriver);
+      const collected = payment?.status === 'CAPTURED' || payment?.method === 'CASH';
+      if (!existing && collected) await this.postLedger(order.id, payment?.method === 'CASH' ? '0' : '0.025', hasDriver);
     }
     if (input.status === 'REFUNDED') await this.refund(actor, order.id, dec(order.total), input.note ?? 'Refund');
     const merchantUsers = await this.prisma.user.findMany({ where: { merchantId: order.merchantId, status: 'ACTIVE' } });
@@ -577,6 +852,7 @@ export class CommerceService {
         discount: dec(order.discount),
         deliveryFee: dec(order.deliveryFee),
         deliveryFeeSaved: dec(order.deliveryFeeSaved),
+        serviceFee: dec(order.serviceFee),
         tax: dec(order.tax),
         total: dec(order.total),
         currency: 'BHD' as const,
@@ -627,6 +903,7 @@ export class CommerceService {
 
   private async presentCart(cart: CartRecord) {
     const priced = await this.price(cart, cart.customerId);
+    const delivery = priced.delivery ? presentBranchQuote(priced.delivery.result) : null;
     const merchant = cart.merchantId ? (await this.merchantCards({ id: cart.merchantId }))[0] ?? null : null;
     return {
       id: cart.id,
@@ -648,16 +925,18 @@ export class CommerceService {
         addons: line.addons,
         notes: line.notes,
       })),
-      pricing: { ...priced.pricing, promoCode: cart.promoCode?.code ?? null },
+      pricing: { ...priced.pricing, promoCode: cart.promoCode && orderPromoForMerchant(cart.promoCode, cart.merchantId) ? cart.promoCode.code : null },
       notes: cart.notes,
       scheduledFor: cart.scheduledFor?.toISOString() ?? null,
       addressId: cart.addressId,
       tableId: cart.tableId,
       paymentMethods: cart.merchantId ? await storePaymentChoices(this.prisma, cart.merchantId) : [],
+      delivery,
+      version: cartVersion(cart),
     };
   }
 
-  private async price(cart: CartRecord, customerId?: string | null) {
+  private async price(cart: CartRecord, customerId?: string | null, deliveryPoint?: Point | null) {
     const rules = await this.platformRules(cart.merchantId);
     const lines = [];
     for (const item of cart.items) {
@@ -695,25 +974,81 @@ export class CommerceService {
       });
     }
     const promo = await this.promoFacts(cart, customerId);
-    const pricing = priceOrder({
+    const fulfillment = cart.fulfillmentType ?? 'DELIVERY';
+    const priceInput = {
       lines: lines.map((line) => ({ unitPrice: line.unitPrice, quantity: line.quantity })),
-      fulfillment: cart.fulfillmentType ?? 'DELIVERY',
-      deliveryFee: rules.deliveryFee,
+      fulfillment,
       freeDeliveryMinimum: rules.freeDeliveryMinimum,
-      taxRate: rules.taxRate,
+      taxRate: '0',
+      serviceFee: rules.serviceFee,
+      tax: rules.tax,
       promo,
+    };
+    // Free-delivery thresholds compare against the food total after discounts, so price the food first.
+    const food = priceOrder({ ...priceInput, deliveryFee: '0' });
+    const delivery = fulfillment === 'DELIVERY' && cart.merchantId
+      ? await this.cartDelivery(cart, moneyString(money(food.subtotal).minus(food.discount)), deliveryPoint)
+      : null;
+    const deliveryFee = delivery
+      ? delivery.result.quote?.available ? delivery.result.quote.charge : '0.000'
+      : await this.unlocatedDeliveryFee(cart, rules.deliveryFee);
+    const pricing = priceOrder({ ...priceInput, deliveryFee, deliveryTax: delivery?.result.quote?.available ? delivery.result.quote.tax : '0' });
+    return {
+      lines,
+      pricing: { ...pricing, serviceFeeLabel: rules.serviceFee.label, taxLabel: rules.tax.label },
+      delivery,
+    };
+  }
+
+  /** Where this cart delivers to: an explicit point, else its saved address, else the guest's chosen location. */
+  private async cartDeliveryPoint(cart: CartRecord, explicit?: Point | null): Promise<Point | null> {
+    if (explicit) return explicit;
+    if (cart.addressId && cart.customerId) {
+      const address = await this.prisma.address.findFirst({ where: { id: cart.addressId, customerId: cart.customerId, deletedAt: null }, select: { latitude: true, longitude: true } });
+      if (address) return parsePoint(address.latitude.toString(), address.longitude.toString());
+    }
+    if (cart.guestId) {
+      const guest = await this.prisma.guest.findUnique({ where: { id: cart.guestId }, select: { latitude: true, longitude: true } });
+      if (guest?.latitude && guest.longitude) return parsePoint(guest.latitude.toString(), guest.longitude.toString());
+    }
+    return null;
+  }
+
+  private async cartDelivery(cart: CartRecord, orderAmount: string, explicit?: Point | null): Promise<{ result: BranchQuote; point: Point } | null> {
+    const point = await this.cartDeliveryPoint(cart, explicit);
+    if (!point || !cart.merchantId) return null;
+    const merchant = await this.prisma.merchant.findUnique({ where: { id: cart.merchantId }, include: deliveryInclude });
+    if (!merchant) return null;
+    const result = await this.delivery.checkoutQuote(merchant, point, { orderAmount });
+    return { result, point };
+  }
+
+  /** Before the customer gives a location, show the store's starting delivery price. */
+  private async unlocatedDeliveryFee(cart: CartRecord, fallbackFee: string) {
+    if (cart.fulfillmentType && cart.fulfillmentType !== 'DELIVERY') return fallbackFee;
+    if (!cart.merchantId) return fallbackFee;
+    const merchant = await this.prisma.merchant.findUnique({
+      where: { id: cart.merchantId },
+      select: { freeDeliveryEnabled: true, freeDeliveryKm: true, baseDeliveryKm: true, baseDeliveryFee: true, beyondFreeDeliveryFee: true, beyondDeliveryFeeMode: true, maxDeliveryKm: true },
     });
-    return { lines, pricing };
+    if (!merchant) return fallbackFee;
+    return deliveryFeeForDistance({
+      freeDeliveryEnabled: merchant.freeDeliveryEnabled,
+      freeDeliveryKm: dec(merchant.freeDeliveryKm),
+      baseDeliveryKm: dec(merchant.baseDeliveryKm),
+      baseDeliveryFee: dec(merchant.baseDeliveryFee),
+      beyondFreeDeliveryFee: dec(merchant.beyondFreeDeliveryFee),
+      beyondDeliveryFeeMode: merchant.beyondDeliveryFeeMode === 'FIXED' ? 'FIXED' : 'PER_KM',
+      maxDeliveryKm: dec(merchant.maxDeliveryKm),
+    }, null, fallbackFee);
   }
 
   private async promoFacts(cart: CartRecord, customerId?: string | null): Promise<PromoFacts | null> {
-    if (!cart.promoCode || cart.promoCode.purpose === 'SUBSCRIPTION') return null;
     const promo = cart.promoCode;
+    if (!promo || !orderPromoForMerchant(promo, cart.merchantId)) return null;
     const usedCount = await this.prisma.promoRedemption.count({ where: { promoCodeId: promo.id } });
     const customerUsed = customerId ? await this.prisma.promoRedemption.count({ where: { promoCodeId: promo.id, customerId } }) : 0;
-    const customerOrderCount = customerId ? await this.prisma.order.count({ where: { customerId, status: { not: 'CANCELLED' } } }) : 0;
-    const merchantIds = (promo.merchantIds as string[] | null) ?? [];
-    const merchantAllowed = !cart.merchantId || promo.merchantId === cart.merchantId || promo.scope === 'GLOBAL' && (merchantIds.length === 0 || merchantIds.includes(cart.merchantId));
+    const customerOrderCount = customerId ? await this.prisma.order.count({ where: { customerId, merchantId: cart.merchantId!, status: { not: 'CANCELLED' } } }) : 0;
     return {
       code: promo.code,
       discountType: promo.discountType,
@@ -730,37 +1065,66 @@ export class CommerceService {
       customerOrderCount,
       budget: promo.budget ? dec(promo.budget) : null,
       budgetSpent: dec(promo.budgetSpent),
-      merchantAllowed,
+      merchantAllowed: true,
       categoryAllowed: true,
       now: new Date(),
     };
   }
 
   private async platformRules(merchantId: string | null) {
-    const settings = await this.prisma.platformSetting.findMany();
-    const map = new Map(settings.map((setting) => [setting.key, setting.value]));
-    const rule = await this.prisma.deliveryPricingRule.findFirst({ where: { active: true, OR: [{ merchantId }, { merchantId: null }] }, orderBy: { merchantId: 'desc' } });
-    const free = await this.prisma.freeDeliveryRule.findFirst({ where: { active: true, OR: [{ merchantId }, { merchantId: null }] }, orderBy: { merchantId: 'desc' } });
+    const [merchant, rule, free] = await Promise.all([
+      merchantId ? this.prisma.merchant.findUnique({ where: { id: merchantId }, select: { orderCharges: true } }) : Promise.resolve(null),
+      this.prisma.deliveryPricingRule.findFirst({ where: { active: true, OR: [{ merchantId }, { merchantId: null }] }, orderBy: { merchantId: 'desc' } }),
+      this.prisma.freeDeliveryRule.findFirst({ where: { active: true, OR: [{ merchantId }, { merchantId: null }] }, orderBy: { merchantId: 'desc' } }),
+    ]);
+    const charges = merchantOrderCharges(merchant?.orderCharges);
     return {
-      taxRate: String(map.get('taxRate') ?? '0.100'),
+      serviceFee: charges.serviceFee,
+      tax: charges.tax,
       deliveryFee: rule ? dec(rule.baseFee) : '0.500',
       freeDeliveryMinimum: free ? dec(free.minimumOrder) : null,
     };
   }
 
-  private async merchantCards(where: Record<string, unknown>) {
+  private async storeIsOpen(merchantId: string) {
+    const subscription = await this.prisma.merchantSubscription.findUnique({ where: { merchantId } });
+    if (subscription && subscriptionShouldExpire(subscription)) {
+      await this.prisma.merchantSubscription.update({ where: { id: subscription.id }, data: { status: 'EXPIRED' } });
+    }
+    return subscriptionIsLive(subscription);
+  }
+
+  private async merchantCards(where: Record<string, unknown>, located?: { point: Point; context: DeliveryContext }) {
     const merchants = await this.prisma.merchant.findMany({
       where,
-      include: { hours: true, branches: true, categories: { include: { category: true } }, subscription: { include: { plan: { include: { entitlements: true } } } } },
+      include: { hours: true, ...deliveryInclude, categories: { include: { category: true } }, subscription: { include: { plan: { include: { entitlements: true } } } } },
     });
+    const due = merchants.flatMap((merchant) =>
+      merchant.subscription && subscriptionShouldExpire(merchant.subscription) ? [merchant.subscription.id] : [],
+    );
+    if (due.length) {
+      await this.prisma.merchantSubscription.updateMany({ where: { id: { in: due } }, data: { status: 'EXPIRED' } });
+    }
     return merchants.map((merchant) => {
       const visibility = merchant.subscription ? safeSuggestion(paidEntitlements(merchant.subscription)) : 'ALL_STORES';
+      const live = subscriptionIsLive(merchant.subscription);
       const fulfillment: FulfillmentType[] = [];
       if (merchant.deliveryEnabled) fulfillment.push('DELIVERY');
       if (merchant.takeawayEnabled) fulfillment.push('TAKEAWAY');
       if (merchant.dineInEnabled) fulfillment.push('DINE_IN');
       const paused = merchant.availability === 'CLOSED' || merchant.availability === 'BUSY' || (merchant.temporaryClosedUntil && merchant.temporaryClosedUntil > new Date());
       const open = paused ? false : isOpenAt(merchant.hours, new Date());
+      const reach = located ? this.delivery.listingQuote(merchant, located.point, located.context) : null;
+      const nearestBranch = reach?.branch ?? merchant.branches.find((branch) => branch.active) ?? merchant.branches[0];
+      const legacyFee = deliveryFeeForDistance({
+        freeDeliveryEnabled: merchant.freeDeliveryEnabled,
+        freeDeliveryKm: dec(merchant.freeDeliveryKm),
+        baseDeliveryKm: dec(merchant.baseDeliveryKm),
+        baseDeliveryFee: dec(merchant.baseDeliveryFee),
+        beyondFreeDeliveryFee: dec(merchant.beyondFreeDeliveryFee),
+        beyondDeliveryFeeMode: merchant.beyondDeliveryFeeMode === 'FIXED' ? 'FIXED' : 'PER_KM',
+        maxDeliveryKm: dec(merchant.maxDeliveryKm),
+      }, null, '0.500');
       return {
         id: merchant.id,
         slug: merchant.slug,
@@ -770,18 +1134,24 @@ export class CommerceService {
         coverUrl: merchant.coverUrl,
         rating: dec(merchant.ratingAverage),
         reviewCount: merchant.ratingCount,
-        deliveryMinutes: merchant.preparationMinutes + 15,
-        deliveryFee: '0.500',
+        deliveryMinutes: reach ? reach.minutes : merchant.preparationMinutes + 15,
+        deliveryFee: reach?.quote?.available ? reach.quote.total : legacyFee,
+        branchId: nearestBranch?.id ?? null,
+        distanceKm: reach?.quote && reach.reason !== 'INVALID_COORDINATES' ? reach.quote.distanceKm : null,
+        deliveryAvailable: reach ? Boolean(reach.quote?.available) : merchant.deliveryEnabled,
+        deliveryUnavailableReason: reach?.reason ?? null,
+        freeDeliveryAbove: reach?.quote?.freeAboveOrder ?? null,
         minimumOrder: dec(merchant.minimumOrder),
-        isOpen: open,
+        isOpen: live && open,
+        temporarilyUnavailable: !live,
         visibility,
         fulfillment,
         categories: merchant.categories.map((link) => loc(link.category.name)),
         categorySlugs: merchant.categories.map((link) => link.category.slug),
         city: merchant.branches.find((branch) => branch.active)?.city ?? merchant.branches[0]?.city ?? null,
-        freeDelivery: merchant.freeDeliveryEnabled,
-        latitude: merchant.branches[0] ? Number(merchant.branches[0].latitude) : null,
-        longitude: merchant.branches[0] ? Number(merchant.branches[0].longitude) : null,
+        freeDelivery: reach?.quote?.available ? reach.quote.free : merchant.freeDeliveryEnabled,
+        latitude: nearestBranch ? Number(nearestBranch.latitude) : null,
+        longitude: nearestBranch ? Number(nearestBranch.longitude) : null,
       };
     });
   }
@@ -810,11 +1180,24 @@ export class CommerceService {
     return products.map((product) => this.toProductCard(product, product.merchant));
   }
 
-  private sortNearby<T extends { latitude: number | null; longitude: number | null }>(rows: T[], lat?: string, lng?: string) {
-    if (!lat || !lng) return rows;
-    const latitude = Number(lat);
-    const longitude = Number(lng);
-    return [...rows].sort((a, b) => distance(latitude, longitude, a.latitude ?? latitude, a.longitude ?? longitude) - distance(latitude, longitude, b.latitude ?? latitude, b.longitude ?? longitude));
+  private async collapseDuplicateLines(cart: CartRecord) {
+    const groups = new Map<string, CartRecord['items']>();
+    for (const item of cart.items) {
+      const key = cartLineKey(item);
+      groups.set(key, [...(groups.get(key) ?? []), item]);
+    }
+    let changed = false;
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+      changed = true;
+      const [keep, ...duplicates] = group;
+      await this.prisma.cartItem.update({
+        where: { id: keep!.id },
+        data: { quantity: group.reduce((sum, item) => sum + item.quantity, 0) },
+      });
+      await this.prisma.cartItem.deleteMany({ where: { id: { in: duplicates.map((item) => item.id) } } });
+    }
+    return changed;
   }
 
   private async loadCartRecord(owner: { customerId?: string | null; guestId?: string | null }) {
@@ -837,6 +1220,26 @@ const cartInclude = {
   promoCode: true,
 } as const;
 
+/** Changes whenever a line, quantity, option or promo in the cart changes. Checkout compares it to spot edits made elsewhere. */
+function cartVersion(cart: { promoCodeId: string | null; items: { id: string; productId: string; variantId: string | null; notes: string | null; quantity: number; addons: { addonId: string }[] }[] }) {
+  const lines = cart.items
+    .map((item) => `${item.id}:${item.quantity}:${mergeLineKey({ productId: item.productId, variantId: item.variantId, notes: item.notes, addonIds: item.addons.map((addon) => addon.addonId) })}`)
+    .sort();
+  return createHash('sha1').update([cart.promoCodeId ?? '', ...lines].join(';')).digest('hex').slice(0, 16);
+}
+
+function cartLineKey(item: { productId: string; variantId: string | null; notes: string | null; addons: { addonId: string }[] }) {
+  const addons = item.addons.map((addon) => addon.addonId).sort().join(',');
+  return [item.productId, item.variantId ?? '', item.notes?.trim() || '', addons].join('|');
+}
+
+function sameCartLine(
+  item: { productId: string; variantId: string | null; notes: string | null; addons: { addonId: string }[] },
+  next: { productId: string; variantId: string | null; notes: string | null; addonIds: string[] },
+) {
+  return cartLineKey(item) === cartLineKey({ ...next, variantId: next.variantId, addons: next.addonIds.map((addonId) => ({ addonId })) });
+}
+
 function routeDistance(branch: { latitude: unknown; longitude: unknown }, snapshot: unknown) {
   if (!snapshot || typeof snapshot !== 'object') return null;
   const row = snapshot as { latitude?: unknown; longitude?: unknown };
@@ -857,8 +1260,94 @@ function formatAddress(value: unknown) {
   return parts.length ? parts.join(', ') : null;
 }
 
+/** Out of range, delivery switched off, or no active branch: the store cannot serve this location. */
+function deliverableFrom(merchant: { deliveryAvailable: boolean; deliveryUnavailableReason: string | null; fulfillment: FulfillmentType[] }) {
+  if (merchant.deliveryAvailable) return true;
+  return merchant.deliveryUnavailableReason === 'INVALID_COORDINATES';
+}
+
+/** Open stores first, then the closest, the quickest and the best rated. */
+export function sortNearby<T extends { isOpen: boolean; temporarilyUnavailable: boolean; distanceKm: string | null; deliveryMinutes: number; rating: string }>(rows: T[]) {
+  const rank = (row: T) => (row.isOpen && !row.temporarilyUnavailable ? 0 : 1);
+  const km = (row: T) => (row.distanceKm === null ? Number.POSITIVE_INFINITY : Number(row.distanceKm));
+  return [...rows].sort((a, b) => rank(a) - rank(b) || km(a) - km(b) || a.deliveryMinutes - b.deliveryMinutes || Number(b.rating) - Number(a.rating));
+}
+
+export type CheckoutRequest = {
+  paymentMethod: PaymentMethodCode;
+  fulfillmentType: FulfillmentType;
+  addressId?: string | null;
+  tableId?: string | null;
+  scheduledFor?: string | null;
+  notes?: string | null;
+  promoCode?: string | null;
+  expectedTotal?: string | null;
+  cartVersion?: string | null;
+};
+
+type AddressRow = {
+  id: string;
+  label: string;
+  line1: string;
+  line2: string | null;
+  city: string;
+  latitude: { toString(): string };
+  longitude: { toString(): string };
+  building: string | null;
+  flat: string | null;
+  road: string | null;
+  block: string | null;
+  area: string | null;
+  landmark: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  instructions: string | null;
+  isDefault: boolean;
+};
+
+export function presentAddress(address: AddressRow) {
+  return {
+    id: address.id,
+    label: address.label,
+    line1: address.line1,
+    line2: address.line2,
+    city: address.city,
+    latitude: Number(address.latitude.toString()).toFixed(6),
+    longitude: Number(address.longitude.toString()).toFixed(6),
+    building: address.building,
+    flat: address.flat,
+    road: address.road,
+    block: address.block,
+    area: address.area,
+    landmark: address.landmark,
+    contactName: address.contactName,
+    contactPhone: address.contactPhone,
+    instructions: address.instructions,
+    isDefault: address.isDefault,
+  };
+}
+
+function addressSnapshot(address: AddressRow) {
+  const view = presentAddress(address);
+  const { id, isDefault: _default, ...rest } = view;
+  return { addressId: id, ...rest };
+}
+
 function emptyPrice() {
-  return { subtotal: '0.000', discount: '0.000', deliveryFee: '0.000', deliveryFeeSaved: '0.000', tax: '0.000', total: '0.000', currency: 'BHD' as const, promoCode: null };
+  return {
+    subtotal: '0.000',
+    discount: '0.000',
+    deliveryFee: '0.000',
+    deliveryFeeSaved: '0.000',
+    serviceFee: '0.000',
+    deliveryTax: '0.000',
+    tax: '0.000',
+    total: '0.000',
+    currency: 'BHD' as const,
+    promoCode: null,
+    serviceFeeLabel: { en: 'Service fee', ar: 'رسوم الخدمة' },
+    taxLabel: { en: 'Tax', ar: 'الضريبة' },
+  };
 }
 
 function paidEntitlements(subscription: { entitlementSnapshot: unknown; plan: { entitlements: { key: string; value: unknown }[] } }) {
