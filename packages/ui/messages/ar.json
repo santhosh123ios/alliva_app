@@ -510,7 +510,10 @@
       "allClosedBody": "المتاجر القريبة منك مغلقة الآن. عد لاحقاً.",
       "closedTitle": "مغلقة الآن",
       "closedBody": "هذه المتاجر توصل إليك لكنها لا تستقبل طلبات الآن.",
-      "deliveryFeeShort": "توصيل {fee}"
+      "deliveryFeeShort": "توصيل {fee}",
+      "savedAddresses": "العناوين المحفوظة",
+      "pickOnMap": "ابحث أو اختر على الخريطة",
+      "manageAddresses": "إدارة العناوين"
     },
     "address": {
       "pinTitle": "حدد المدخل بدقة",

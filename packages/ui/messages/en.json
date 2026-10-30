@@ -510,7 +510,10 @@
       "allClosedBody": "Stores near you are closed right now. Check back later.",
       "closedTitle": "Closed now",
       "closedBody": "These stores deliver to you but aren't taking orders right now.",
-      "deliveryFeeShort": "{fee} delivery"
+      "deliveryFeeShort": "{fee} delivery",
+      "savedAddresses": "Saved addresses",
+      "pickOnMap": "Search or pick on the map",
+      "manageAddresses": "Manage addresses"
     },
     "address": {
       "pinTitle": "Pin the exact entrance",

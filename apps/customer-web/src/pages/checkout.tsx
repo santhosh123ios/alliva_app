@@ -3,7 +3,7 @@ import { api } from '@/components/providers';
 import { useRouter } from '@/i18n/navigation';
 import { cartQueryKey, cartQueryOptions } from '@/lib/cart-cache';
 import { errorCode, errorMessage, problemMessage } from '@/lib/checkout-errors';
-import { useLocationStore } from '@/lib/location';
+import { chooseAddress, useLocationStore } from '@/lib/location';
 import { usePlace, type FulfillmentMode } from '@/lib/place';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { Button, cn, Dialog, DialogContent, DialogDescription, DialogTitle, EmptyState, Skeleton, Spinner, Textarea } from '@alliva/ui';
@@ -28,6 +28,8 @@ export default function CheckoutPage() {
   const e = useTranslations('customer.checkoutErrors');
   const locale = useLocale() as 'en' | 'ar';
   const here = useLocationStore((state) => state.point);
+  const chosenAddressId = useLocationStore((state) => state.addressId);
+  const revision = useLocationStore((state) => state.revision);
   const setPreferredMode = usePlace((state) => state.setFulfillment);
   const preferredMode = usePlace((state) => state.fulfillment);
 
@@ -63,14 +65,31 @@ export default function CheckoutPage() {
   const activeMode: FulfillmentMode = mode ?? (cart.data?.fulfillmentType as FulfillmentMode | null) ?? (offered.includes(preferredMode) ? preferredMode : offered[0] ?? 'DELIVERY');
   const delivering = activeMode === 'DELIVERY';
 
-  // Pick the address once: the saved address nearest to where the customer is now, if it is close enough.
-  // If they are far from every saved address we do not guess; they choose or add one.
+  // A new choice in the header while checkout is open: follow a saved address, or re-pick for a new spot on the map.
+  const seenRevision = useRef(revision);
+  useEffect(() => {
+    if (revision === seenRevision.current) return;
+    seenRevision.current = revision;
+    decided.current = false;
+    setAddressId(null);
+    setAutoPicked(null);
+    setFarFromSaved(false);
+  }, [revision]);
+
+  // Pick the address once: the saved address chosen in the header; otherwise the saved address nearest to
+  // where the customer is now, if it is close enough. If they are far from every saved address we do not guess.
   useEffect(() => {
     if (decided.current || !addresses.data || !cart.data) return;
     const list = addresses.data;
     if (!list.length) {
       decided.current = true;
       if (delivering) setAdding(true);
+      return;
+    }
+    const chosen = chosenAddressId ? list.find((row) => row.id === chosenAddressId) : undefined;
+    if (chosen) {
+      decided.current = true;
+      setAddressId(chosen.id);
       return;
     }
     if (here) {
@@ -92,7 +111,7 @@ export default function CheckoutPage() {
     const fallback = list.find((row) => row.id === cart.data?.addressId) ?? list.find((row) => row.isDefault) ?? list[0]!;
     setAddressId(fallback.id);
     setAutoPicked('default');
-  }, [addresses.data, cart.data, here, nearest.isLoading, nearest.data, delivering]);
+  }, [addresses.data, cart.data, here, chosenAddressId, nearest.isLoading, nearest.data, delivering, revision]);
 
   const ready = customer && Boolean(cart.data?.items.length) && (!delivering || Boolean(addressId));
   const summary = useQuery({
@@ -176,6 +195,7 @@ export default function CheckoutPage() {
     setFarFromSaved(false);
     setAdding(false);
     setPicker(false);
+    chooseAddress(address);
     toast.success(c('addressSaved'));
   };
 
@@ -396,6 +416,7 @@ export default function CheckoutPage() {
                         setAutoPicked(null);
                         setFarFromSaved(false);
                         setPicker(false);
+                        chooseAddress(address);
                       }}
                       className={cn('flex w-full items-start gap-3 rounded-2xl border px-4 py-3 text-start', address.id === addressId ? 'border-[#111] bg-[#fff6d0]' : 'border-[#e6e6e0] bg-white')}
                     >
