@@ -576,14 +576,15 @@ export const riderLocationSchema = z.object({
   longitude: z.number().min(-180).max(180),
 });
 
-/** A rider proves they collected the order: the scanned QR text, or the code printed on the ticket. */
+/** A rider collects an order: the scanned QR text, the code printed on the ticket, or a manual mark on one of their orders. */
 export const pickupVerifySchema = z
   .object({
     qr: z.string().trim().min(1).max(200).optional(),
     code: z.string().trim().min(4).max(12).optional(),
     orderId: z.uuid().optional(),
+    manual: z.boolean().optional(),
   })
-  .refine((value) => Boolean(value.qr || value.code), { message: 'Scan the QR or enter the pickup code' });
+  .refine((value) => Boolean(value.qr || value.code || (value.manual && value.orderId)), { message: 'Scan the QR or enter the pickup code' });
 
 export const riderStatusSchema = z.object({
   status: z.enum(['OUT_FOR_DELIVERY', 'DELIVERED']),

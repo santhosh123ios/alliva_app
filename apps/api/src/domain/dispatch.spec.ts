@@ -1,4 +1,4 @@
-import { dispatchPriority, handoffCode, handoffToken, isColdItem, nearestNeighbourRoute, normalizeHandoffCode, parsePickupQr, PICKUP_QR_PREFIX, planDispatch } from './dispatch';
+import { dispatchPriority, handoffCode, handoffToken, isColdItem, nearestNeighbourRoute, normalizeHandoffCode, optimiseRoute, parsePickupQr, PICKUP_QR_PREFIX, planDispatch } from './dispatch';
 import { riderOnly } from './order-machine';
 
 describe('pickup codes', () => {
@@ -30,6 +30,33 @@ describe('nearestNeighbourRoute', () => {
     expect(route.map((stop) => stop.item)).toEqual(['near', 'far', 'none']);
     expect(route[0]!.legKm).toBeGreaterThan(0);
     expect(route[1]!.cumulativeKm).toBeGreaterThan(route[0]!.cumulativeKm!);
+    expect(route[2]!.legKm).toBeNull();
+  });
+});
+
+describe('optimiseRoute', () => {
+  const origin = { latitude: 0, longitude: 0 };
+  const at = (longitude: number, latitude = 0) => ({ latitude, longitude });
+  const length = (route: { legKm: number | null }[]) => route.reduce((total, stop) => total + (stop.legKm ?? 0), 0);
+
+  it('fixes the zig-zag nearest-next leaves behind', () => {
+    // Nearest-next goes east, back west past the origin, then east again; the best open route sweeps west first.
+    const stops = [
+      { item: 'east1', point: at(0.01) },
+      { item: 'west', point: at(-0.015) },
+      { item: 'east3', point: at(0.04) },
+      { item: 'east4', point: at(0.05) },
+    ];
+    const greedy = nearestNeighbourRoute(origin, stops);
+    const best = optimiseRoute(origin, stops);
+    expect(length(best)).toBeLessThan(length(greedy));
+    expect(best.map((stop) => stop.item)).toEqual(['west', 'east1', 'east3', 'east4']);
+    expect(best.at(-1)!.cumulativeKm).toBeCloseTo(length(best), 0);
+  });
+
+  it('keeps unpinned stops last and leaves short routes alone', () => {
+    const route = optimiseRoute(origin, [{ item: 'none', point: null }, { item: 'a', point: at(0.02) }, { item: 'b', point: at(0.01) }]);
+    expect(route.map((stop) => stop.item)).toEqual(['b', 'a', 'none']);
     expect(route[2]!.legKm).toBeNull();
   });
 });
