@@ -775,6 +775,7 @@
     },
     "alerts": {
       "newOrder": "New order #{number}",
+      "announcement": "A new order received. Please check and accept this order.",
       "enableSound": "Enable sound",
       "mute": "Mute new-order sound",
       "unmute": "Turn on new-order sound",

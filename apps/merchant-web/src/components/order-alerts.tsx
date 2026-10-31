@@ -5,7 +5,7 @@ import { BellOff, BellRing, Play, Volume1, Volume2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { toast } from 'sonner';
-import { useTranslations } from 'use-intl';
+import { useLocale, useTranslations } from 'use-intl';
 
 const MUTE_KEY = 'alliva.merchant.orderSound';
 const VOLUME_KEY = 'alliva.merchant.orderVolume';
@@ -40,11 +40,14 @@ export async function unlock() {
   const ctx = context();
   if (!ctx) return false;
   if (ctx.state !== 'running') await ctx.resume().catch(() => undefined);
+  // Asking once starts the browser loading its voice list, so the first announcement can pick one.
+  if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
   return ctx.state === 'running';
 }
 
 /** Cuts off any alert that is still sounding. */
 function silence() {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();
   playing.forEach((osc) => {
     try {
       osc.stop();
@@ -91,6 +94,44 @@ export function chime(volume: number) {
       playing.push(osc);
     });
   });
+  return true;
+}
+
+/** Picks a voice for `lang`, preferring the higher-quality ones browsers ship next to the robotic defaults. */
+function voiceFor(lang: string) {
+  const prefix = lang.slice(0, 2).toLowerCase();
+  // macOS lists novelty voices (Bubbles, Zarvox, ...) beside the real ones; never announce an order in those.
+  const novelty = /^(albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox)\b/i;
+  const matching = window.speechSynthesis.getVoices().filter((voice) => voice.lang.toLowerCase().startsWith(prefix) && !novelty.test(voice.name));
+  const human = /natural|neural|premium|enhanced|google|siri/i;
+  return matching.find((voice) => human.test(voice.name)) ?? matching.find((voice) => voice.default) ?? matching[0] ?? null;
+}
+
+/**
+ * Speaks `text` in a human voice at `volume` (0–1), falling back to the beep alert when the
+ * browser has no speech engine or no voice for the portal's language.
+ * Returns false when the browser has not allowed audio yet.
+ */
+export function announce(text: string, locale: string, volume: number) {
+  const ctx = context();
+  // The audio context doubles as the autoplay check: speech needs the same user gesture first.
+  if (!ctx || ctx.state !== 'running') return false;
+  if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return chime(volume);
+  const lang = locale === 'ar' ? 'ar-SA' : 'en-US';
+  const voices = window.speechSynthesis.getVoices();
+  const voice = voiceFor(lang);
+  // Voices load lazily; an empty list just means "not listed yet", so let the browser pick by language.
+  if (voices.length && !voice) return chime(volume);
+  silence();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = lang;
+  if (voice) utterance.voice = voice;
+  utterance.volume = volume;
+  utterance.rate = 0.95;
+  utterance.onerror = (event) => {
+    if (event.error !== 'interrupted' && event.error !== 'canceled') chime(volume);
+  };
+  window.speechSynthesis.speak(utterance);
   return true;
 }
 
@@ -164,6 +205,7 @@ export function useOrderUpdates() {
  */
 export function OrderAlerts({ orders }: { orders?: MerchantDashboard['liveOrders'] }) {
   const t = useTranslations('workspace.alerts');
+  const locale = useLocale();
   const client = useQueryClient();
   const [muted, setMuted] = useState(readMuted);
   const [volume, setVolume] = useState(readVolume);
@@ -174,8 +216,10 @@ export function OrderAlerts({ orders }: { orders?: MerchantDashboard['liveOrders
   const seen = useRef<Set<string> | null>(null);
   const arrived = useRef(new Set<string>());
   const volumeRef = useRef(volume);
+  const speech = useRef({ text: t('announcement'), locale });
   const panel = useRef<HTMLDivElement>(null);
   volumeRef.current = volume;
+  speech.current = { text: t('announcement'), locale };
 
   useOrderUpdates();
 
@@ -237,7 +281,7 @@ export function OrderAlerts({ orders }: { orders?: MerchantDashboard['liveOrders
       silence();
       return;
     }
-    const ring = () => setBlocked(!chime(volumeRef.current));
+    const ring = () => setBlocked(!announce(speech.current.text, speech.current.locale, volumeRef.current));
     ring();
     const id = window.setInterval(ring, REPEAT_MS);
     return () => window.clearInterval(id);
@@ -275,7 +319,7 @@ export function OrderAlerts({ orders }: { orders?: MerchantDashboard['liveOrders
   async function test() {
     const ok = await unlock();
     setBlocked(!ok);
-    if (ok) chime(volumeRef.current);
+    if (ok) announce(speech.current.text, speech.current.locale, volumeRef.current);
   }
 
   const percent = Math.round(volume * 100);
