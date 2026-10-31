@@ -7,7 +7,7 @@ import { Bike, ChevronDown, ShoppingBag, StickyNote, UtensilsCrossed } from 'luc
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useTranslations } from 'use-intl';
-import { itemLine, money, stageOf, StagePill, useAge, useFloorBoard, useFloorLocale, useNow, useOrderStep, type Stage } from './shared';
+import { itemLine, tableNo, money, stageOf, StagePill, useAge, useFloorBoard, useFloorLocale, useNow, useOrderStep, type Stage } from './shared';
 
 const SECTIONS: { key: Stage | 'kitchen'; stages: Stage[] }[] = [
   { key: 'new', stages: ['new'] },
@@ -87,9 +87,9 @@ function OrderCard({ order, now, open, onToggle }: { order: FloorOrder; now: num
   return (
     <article id={`order-${order.id}`} className={cn('overflow-hidden rounded-2xl bg-white', open && 'ring-2 ring-[#111111]')}>
       <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-center gap-3 px-4 py-3 text-start">
-        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#F2F2EF] text-sm font-bold">{order.tableNumber ?? <Icon className="size-5" />}</span>
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#F2F2EF] text-sm font-bold">{order.tableNumber ? tableNo(order.tableNumber) : <Icon className="size-5" />}</span>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold">{order.tableNumber ? t('tableNumber', { table: order.tableNumber }) : t(`fulfillment.${order.fulfillmentType}`)}</p>
+          <p className="truncate font-semibold">{order.tableNumber ? t('tableNumber', { table: tableNo(order.tableNumber) }) : t(`fulfillment.${order.fulfillmentType}`)}</p>
           <p className={cn('truncate text-xs', late ? 'font-semibold text-[#B42318]' : 'text-[#696965]')}>
             {t('orders.meta', { number: `\u2066${order.number}\u2069`, items, age: age(order.createdAt, now) })}{late ? ` · ${t('orders.late')}` : ''}
           </p>

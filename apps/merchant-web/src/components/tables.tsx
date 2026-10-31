@@ -1,4 +1,5 @@
 import { api } from '@/components/providers';
+import { tableNo } from '@/lib/table-number';
 import { Link } from '@/i18n/navigation';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, EmptyState, toast } from '@alliva/ui';
@@ -474,7 +475,7 @@ function FloorTable({ table, status, selected, position, locale, onSelect, onPoi
   return (
     <button type="button" onClick={onSelect} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} style={{ left: `${position.x}%`, top: `${position.y}%`, touchAction: 'none' }} className={`absolute grid -translate-x-1/2 -translate-y-1/2 cursor-grab place-items-center border-2 bg-white shadow-[0_5px_16px_rgba(23,23,18,.09)] active:cursor-grabbing ${wide ? 'h-[72px] w-[140px]' : 'h-[72px] w-[108px]'} ${round ? 'rounded-full' : 'rounded-xl'} ${selected ? 'z-10 border-[#F6C915] ring-4 ring-[#F6C915]/25' : 'border-[#E6E5DD]'}`}>
       <span className={`absolute -end-1.5 -top-1.5 size-3.5 rounded-full border-[3px] border-white ${dotTone[status]}`} />
-      <span><strong className="block text-sm">{table.number}</strong><span className="block whitespace-nowrap text-[9px] text-[#74746D]">{t('seats', { count: table.capacity })} · {pickLocalized(table.floor.name, locale)}</span>{table.order ? <span className="mt-0.5 block text-[9px] font-bold text-[#EF3C3C]">#{table.order.number}</span> : null}</span>
+      <span><strong className="block text-sm">{tableNo(table.number)}</strong><span className="block whitespace-nowrap text-[9px] text-[#74746D]">{t('seats', { count: table.capacity })} · {pickLocalized(table.floor.name, locale)}</span>{table.order ? <span className="mt-0.5 block text-[9px] font-bold text-[#EF3C3C]">#{table.order.number}</span> : null}</span>
       <SeatMarkers count={table.capacity} />
     </button>
   );

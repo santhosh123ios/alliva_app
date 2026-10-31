@@ -1,4 +1,5 @@
 import { chime, unlock } from '@/components/order-alerts';
+import { tableNo } from '@/lib/table-number';
 import { api } from '@/components/providers';
 import { formatMoney } from '@alliva/design-tokens';
 import type { FloorBoard, FloorOrder, FloorTable, LocalizedText, OrderStatus, ServiceRequestView } from '@alliva/types';
@@ -6,6 +7,8 @@ import { cn, toast } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
+
+export { tableNo };
 
 export type Locale = 'en' | 'ar';
 export type TableStatus = FloorTable['status'];
@@ -253,8 +256,8 @@ export function useFloorAlerts(board: FloorBoard | undefined) {
     if (seen.current) {
       const freshCalls = board.requests.filter((row) => row.status === 'OPEN' && !seen.current!.calls.has(row.id));
       const freshReady = board.orders.filter((row) => row.status === 'READY_FOR_PICKUP' && !seen.current!.ready.has(row.id));
-      for (const call of freshCalls) toast(t(`call.${call.kind}`, { table: call.table.number }));
-      for (const order of freshReady) toast.success(order.tableNumber ? t('readyTable', { table: order.tableNumber }) : t('ready', { number: order.number.replace(/^#/, '') }));
+      for (const call of freshCalls) toast(t(`call.${call.kind}`, { table: tableNo(call.table.number) }));
+      for (const order of freshReady) toast.success(order.tableNumber ? t('readyTable', { table: tableNo(order.tableNumber) }) : t('ready', { number: order.number.replace(/^#/, '') }));
       if (freshCalls.length || freshReady.length) {
         if (sound) chime(0.7);
         if ('vibrate' in navigator) navigator.vibrate?.(freshCalls.length ? [200, 90, 200, 90, 200] : [160, 80, 160]);

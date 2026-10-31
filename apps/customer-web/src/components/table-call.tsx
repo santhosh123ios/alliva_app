@@ -14,6 +14,11 @@ const KINDS: { kind: ServiceRequestKind; icon: typeof BellRing }[] = [
   { kind: 'HELP', icon: HandHelping },
 ];
 
+/** Some stores typed "Table 2" as the number; the label already says "Table". */
+function tableNo(number: string) {
+  return number.replace(/^\s*(?:table|tbl|طاولة)(?:\s*[-#:.]\s*|\s+|(?=\d))/i, '') || number;
+}
+
 function scannedTable() {
   if (typeof document === 'undefined') return null;
   return document.cookie.split('; ').find((part) => part.startsWith('alliva_table='))?.slice('alliva_table='.length) || null;
@@ -58,12 +63,12 @@ export function TableCall() {
           )}
         >
           <BellRing className={cn('size-4', pending && !onTheWay && 'animate-pulse')} />
-          <span>{onTheWay ? t('onTheWayShort') : pending ? t('waitingShort') : t('button', { table: data.table.number })}</span>
+          <span>{onTheWay ? t('onTheWayShort') : pending ? t('waitingShort') : t('button', { table: tableNo(data.table.number) })}</span>
         </button>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-sm">
-          <DialogTitle>{t('title', { table: data.table.number })}</DialogTitle>
+          <DialogTitle>{t('title', { table: tableNo(data.table.number) })}</DialogTitle>
           <DialogDescription>{t('subtitle')}</DialogDescription>
           <div className="mt-2 grid gap-2">
             {KINDS.map(({ kind, icon: Icon }) => {

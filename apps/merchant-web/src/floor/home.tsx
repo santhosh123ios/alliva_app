@@ -5,7 +5,7 @@ import { cn, ErrorState, Skeleton } from '@alliva/ui';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, BellRing, Check, ChefHat, CircleCheck, HandHelping, Receipt, UserRound, UtensilsCrossed } from 'lucide-react';
 import { useTranslations } from 'use-intl';
-import { itemLine, StagePill, useAge, useAnswerCall, useFloorBoard, useFloorLocale, useNow, useOrderStep } from './shared';
+import { itemLine, tableNo, StagePill, useAge, useAnswerCall, useFloorBoard, useFloorLocale, useNow, useOrderStep } from './shared';
 
 const callIcon = { WAITER: UserRound, BILL: Receipt, HELP: HandHelping } as const;
 
@@ -97,7 +97,7 @@ export function CallRow({ call, now }: { call: ServiceRequestView; now: number }
   return (
     <li className="flex items-center gap-3 px-4 py-3 sm:px-5">
       <span className={cn('relative grid size-11 shrink-0 place-items-center rounded-2xl text-base font-bold', open ? 'bg-[#FDECEA] text-[#B42318]' : 'bg-[#E3F5EA] text-[#168A52]')}>
-        {call.table.number}
+        {tableNo(call.table.number)}
         <span className={cn('absolute -bottom-1 -end-1 grid size-5 place-items-center rounded-full text-white', open ? 'animate-pulse bg-[#B42318]' : 'bg-[#168A52]')}><Icon className="size-3" /></span>
       </span>
       <div className="min-w-0 flex-1">
@@ -111,7 +111,7 @@ export function CallRow({ call, now }: { call: ServiceRequestView; now: number }
           {t('onMyWay')}
         </button>
       ) : null}
-      <button type="button" disabled={answer.isPending} onClick={() => answer.mutate({ id: call.id, status: 'RESOLVED' })} aria-label={t('doneAria', { table: call.table.number })} className="grid size-10 shrink-0 place-items-center rounded-xl border border-[#E6E6E2] text-[#168A52] disabled:opacity-50">
+      <button type="button" disabled={answer.isPending} onClick={() => answer.mutate({ id: call.id, status: 'RESOLVED' })} aria-label={t('doneAria', { table: tableNo(call.table.number) })} className="grid size-10 shrink-0 place-items-center rounded-xl border border-[#E6E6E2] text-[#168A52] disabled:opacity-50">
         <Check className="size-5" />
       </button>
     </li>
@@ -125,9 +125,9 @@ function ReadyRow({ order, now }: { order: FloorOrder; now: number }) {
   const step = useOrderStep();
   return (
     <li className="flex items-center gap-3 px-5 py-3">
-      <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#E3F5EA] text-sm font-bold text-[#168A52]">{order.tableNumber ?? <UtensilsCrossed className="size-5" />}</span>
+      <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#E3F5EA] text-sm font-bold text-[#168A52]">{order.tableNumber ? tableNo(order.tableNumber) : <UtensilsCrossed className="size-5" />}</span>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold">{order.tableNumber ? t('tableNumber', { table: order.tableNumber }) : <>{t(`fulfillment.${order.fulfillmentType}`)} · <bdi>{order.number}</bdi></>}</p>
+        <p className="truncate font-semibold">{order.tableNumber ? t('tableNumber', { table: tableNo(order.tableNumber) }) : <>{t(`fulfillment.${order.fulfillmentType}`)} · <bdi>{order.number}</bdi></>}</p>
         <p className="truncate text-xs text-[#696965]">{order.items.map((item) => `${item.quantity}× ${itemLine(item, locale)}`).join(', ')}</p>
         <p className="text-xs text-[#168A52]">{t('readyFor', { age: age(order.readyAt ?? order.createdAt, now) })}</p>
       </div>
@@ -144,7 +144,7 @@ function MineRow({ order, now }: { order: FloorOrder; now: number }) {
   return (
     <li>
       <Link href={`/floor/orders?open=${order.id}`} className="flex items-center gap-3 px-5 py-3">
-        <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#F2F2EF] text-sm font-bold">{order.tableNumber ?? <UtensilsCrossed className="size-5" />}</span>
+        <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#F2F2EF] text-sm font-bold">{order.tableNumber ? tableNo(order.tableNumber) : <UtensilsCrossed className="size-5" />}</span>
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold"><bdi>{order.number}</bdi></p>
           <p className="truncate text-xs text-[#696965]">{t('placedAgo', { age: age(order.createdAt, now) })}</p>

@@ -11,7 +11,7 @@ import { BellRing, ClipboardList, House, LayoutGrid, ShoppingBag, UserRound, Ute
 import { Suspense } from 'react';
 import { Navigate, Outlet } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
-import { FloorProvider, money, useDraft, useFloorAlerts, useFloorBoard, useFloorLocale } from './shared';
+import { FloorProvider, tableNo, money, useDraft, useFloorAlerts, useFloorBoard, useFloorLocale } from './shared';
 
 const tabs = [
   { href: '/floor', key: 'home', icon: House },
@@ -94,7 +94,7 @@ function FloorChrome() {
             >
               <ShoppingBag className="size-4" />
               <span className="min-w-0 flex-1 truncate">
-                {draft.target?.kind === 'DINE_IN' ? t('draft.forTable', { table: draft.target.tableNumber }) : draft.target ? t('draft.takeaway') : t('draft.noTarget')}
+                {draft.target?.kind === 'DINE_IN' ? t('draft.forTable', { table: tableNo(draft.target.tableNumber) }) : draft.target ? t('draft.takeaway') : t('draft.noTarget')}
                 {' · '}{t('draft.items', { count: draft.count })}
               </span>
               <span className="tabular-nums">{money(draft.subtotal, locale)}</span>

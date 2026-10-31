@@ -10,7 +10,7 @@ import { useSearchParams } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { CallRow } from './home';
 import { placeTables } from './plan';
-import { callsFor, floorKey, itemLine, money, StagePill, tableTone, useAge, useDraft, useFloorBoard, useFloorLocale, useFloorSettings, useNow, useOrderStep, type TableStatus } from './shared';
+import { callsFor, tableNo, floorKey, itemLine, money, StagePill, tableTone, useAge, useDraft, useFloorBoard, useFloorLocale, useFloorSettings, useNow, useOrderStep, type TableStatus } from './shared';
 
 const VIEW_KEY = 'alliva.floor.tablesView';
 const ZONE_TONES = ['bg-[#FFF9DE]/70', 'bg-[#EEF6FF]/70', 'bg-[#EFF9F2]/70', 'bg-[#F7F0FF]/70'];
@@ -154,14 +154,14 @@ function PlanTable({ table, board, position, onOpen }: { table: FloorTable; boar
         tone.fill,
         waiting ? 'border-[#B42318] ring-4 ring-[#B42318]/20' : tone.ring,
       )}
-      aria-label={t('tableAria', { table: table.number, status: t(`status.${table.status}`) })}
+      aria-label={t('tableAria', { table: tableNo(table.number), status: t(`status.${table.status}`) })}
     >
       <span className={cn('absolute -end-1.5 -top-1.5 size-3.5 rounded-full border-[3px] border-white', tone.dot)} />
       {calls.length ? (
         <span className={cn('absolute -start-2 -top-2 grid size-6 place-items-center rounded-full text-white', waiting ? 'animate-pulse bg-[#B42318]' : 'bg-[#168A52]')}><BellRing className="size-3.5" /></span>
       ) : null}
       <span className="text-center leading-tight">
-        <strong className="block text-base">{table.number}</strong>
+        <strong className="block text-base">{tableNo(table.number)}</strong>
         <span className="block text-[10px] text-[#74746D]">{t('seats', { count: table.capacity })}</span>
       </span>
       {lead ? <StagePill status={lead.status} className="absolute -bottom-3 px-2 py-0.5 text-[10px]" /> : null}
@@ -177,7 +177,7 @@ function ListTable({ table, board, onOpen }: { table: FloorTable; board: FloorBo
   return (
     <button type="button" onClick={onOpen} className={cn('relative rounded-2xl border-2 p-3 text-start', tone.fill, waiting ? 'border-[#B42318]' : tone.ring)}>
       <div className="flex items-center gap-2">
-        <strong className="text-xl">{table.number}</strong>
+        <strong className="text-xl">{tableNo(table.number)}</strong>
         {calls.length ? <BellRing className={cn('size-4', waiting ? 'animate-pulse text-[#B42318]' : 'text-[#168A52]')} /> : null}
         <span className={cn('ms-auto text-xs font-semibold', tone.text)}>{t(`status.${table.status}`)}</span>
       </div>
@@ -224,18 +224,18 @@ function TableSheet({ table, board, onClose }: { table: FloorTable; board: Floor
   }, [onClose]);
 
   function takeOrder() {
-    if (draft.target?.kind === 'DINE_IN' && draft.target.tableId !== table.id && draft.count) toast(t('draftMoved', { table: table.number }));
+    if (draft.target?.kind === 'DINE_IN' && draft.target.tableId !== table.id && draft.count) toast(t('draftMoved', { table: tableNo(table.number) }));
     draft.setTarget({ kind: 'DINE_IN', tableId: table.id, tableNumber: table.number });
     router.push('/floor/menu');
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={t('tableNumber', { table: table.number })} onClick={(event) => event.stopPropagation()} className="max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-[#F7F7F5] pb-[max(1rem,env(safe-area-inset-bottom))] sm:rounded-3xl">
+      <div role="dialog" aria-modal="true" aria-label={t('tableNumber', { table: tableNo(table.number) })} onClick={(event) => event.stopPropagation()} className="max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-[#F7F7F5] pb-[max(1rem,env(safe-area-inset-bottom))] sm:rounded-3xl">
         <header className="sticky top-0 z-10 flex items-start gap-3 bg-white px-5 pb-3 pt-4">
-          <span className={cn('grid size-12 shrink-0 place-items-center rounded-2xl border-2 text-lg font-bold', tableTone[table.status].fill, tableTone[table.status].ring)}>{table.number}</span>
+          <span className={cn('grid size-12 shrink-0 place-items-center rounded-2xl border-2 text-lg font-bold', tableTone[table.status].fill, tableTone[table.status].ring)}>{tableNo(table.number)}</span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-semibold">{t('tableNumber', { table: table.number })}</h2>
+            <h2 className="text-lg font-semibold">{t('tableNumber', { table: tableNo(table.number) })}</h2>
             <p className="text-xs text-[#696965]">{t('seats', { count: table.capacity })} · {pickLocalized(table.floor.name, locale)}{table.openedAt ? ` · ${t('seatedFor', { age: age(table.openedAt, now) })}` : ''}</p>
           </div>
           <button type="button" onClick={onClose} aria-label={t('close')} className="grid size-9 place-items-center rounded-full bg-[#F2F2EF]"><X className="size-4" /></button>

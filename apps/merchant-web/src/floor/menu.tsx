@@ -7,7 +7,7 @@ import { ChefHat, LayoutGrid, Minus, Plus, Search, ShoppingBag, StickyNote, X } 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useTranslations } from 'use-intl';
-import { floorKey, money, useDraft, useFloorBoard, useFloorLocale, useFloorMenu, useFloorSettings, type Locale } from './shared';
+import { floorKey, tableNo, money, useDraft, useFloorBoard, useFloorLocale, useFloorMenu, useFloorSettings, type Locale } from './shared';
 
 const text = (value: LocalizedText, locale: Locale) => value[locale] || value.en;
 
@@ -97,11 +97,11 @@ function TargetBar() {
   return (
     <section className="flex items-center gap-3 rounded-2xl bg-white p-3">
       <span className={cn('grid size-11 shrink-0 place-items-center rounded-xl text-base font-bold', target ? 'bg-[#FFC400] text-[#111111]' : 'bg-[#F2F2EF] text-[#8A8A86]')}>
-        {target?.kind === 'DINE_IN' ? target.tableNumber : <ShoppingBag className="size-5" />}
+        {target?.kind === 'DINE_IN' ? tableNo(target.tableNumber) : <ShoppingBag className="size-5" />}
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-xs text-[#696965]">{t('orderingFor')}</p>
-        <p className="truncate font-semibold">{target?.kind === 'DINE_IN' ? t('table', { table: target.tableNumber }) : target ? t('takeaway') : t('noTarget')}</p>
+        <p className="truncate font-semibold">{target?.kind === 'DINE_IN' ? t('table', { table: tableNo(target.tableNumber) }) : target ? t('takeaway') : t('noTarget')}</p>
       </div>
       <Link href="/floor/tables" aria-label={t('pickTable')} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-[#E6E6E2] px-3 text-sm font-semibold"><LayoutGrid className="size-4" /><span className="hidden sm:inline">{t('pickTable')}</span></Link>
       {target?.kind !== 'TAKEAWAY' ? (
@@ -323,7 +323,7 @@ function ReviewSheet({ onClose }: { onClose: () => void }) {
       )}
     >
       <p className="mb-3 rounded-xl bg-[#FFF8DC] px-3 py-2 text-sm font-semibold">
-        {draft.target?.kind === 'DINE_IN' ? t('table', { table: draft.target.tableNumber }) : draft.target ? t('takeaway') : t('noTarget')}
+        {draft.target?.kind === 'DINE_IN' ? t('table', { table: tableNo(draft.target.tableNumber) }) : draft.target ? t('takeaway') : t('noTarget')}
         {table && table.status === 'RESERVED' ? <span className="ms-2 text-xs font-normal text-[#2F6FED]">{t('reservedWarning')}</span> : null}
       </p>
       {draft.lines.length ? (
