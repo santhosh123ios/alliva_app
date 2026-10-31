@@ -913,8 +913,10 @@ export class CommerceService {
     }
     if (input.status === 'DELIVERED') {
       const payment = await this.prisma.payment.findFirst({ where: { orderId: order.id } });
-      if (payment?.method === 'CASH') {
-        await this.prisma.cashCollection.updateMany({ where: { orderId: order.id }, data: { status: 'COLLECTED' } });
+      // A table pays when it leaves, at the till; serving the food is not payment.
+      const paysAtTill = order.fulfillmentType === 'DINE_IN' && Boolean(order.tableId) && !order.billId;
+      if (payment?.method === 'CASH' && !paysAtTill) {
+        await this.prisma.cashCollection.updateMany({ where: { orderId: order.id, status: 'PENDING' }, data: { status: 'COLLECTED' } });
         if (payment.status === 'PENDING') {
           await this.prisma.payment.update({ where: { id: payment.id }, data: { status: 'CAPTURED' } });
         }

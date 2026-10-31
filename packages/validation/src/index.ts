@@ -678,6 +678,19 @@ export const tableLayoutSchema = z.object({
 });
 
 /** An order taken by floor staff for a table or the counter. Prices are worked out on the server. */
+/** Billing settles every unpaid order on a table, or one counter order, in one go. */
+export const billSettleSchema = z
+  .object({
+    orderIds: z.array(z.uuid()).min(1).max(100),
+    method: z.enum(['CASH', 'CARD', 'BENEFIT_PAY']),
+    tendered: moneySchema.optional(),
+    branchId: z.uuid().optional(),
+  })
+  .refine((body) => body.method !== 'CASH' || Boolean(body.tendered), { message: 'Enter the cash received', path: ['tendered'] });
+
+export const cashDrawerOpenSchema = z.object({ openingFloat: moneySchema, branchId: z.uuid().optional() });
+export const cashDrawerCloseSchema = z.object({ countedAmount: moneySchema, note: z.string().trim().max(300).optional() });
+
 export const staffOrderSchema = z
   .object({
     fulfillmentType: z.enum(['DINE_IN', 'TAKEAWAY']),

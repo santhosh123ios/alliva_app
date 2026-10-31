@@ -22,6 +22,11 @@ const FloorTables = lazy(() => import('@/floor/tables'));
 const FloorMenu = lazy(() => import('@/floor/menu'));
 const FloorOrders = lazy(() => import('@/floor/orders'));
 const FloorProfile = lazy(() => import('@/floor/profile'));
+const TillLayout = lazy(() => import('@/till/layout'));
+const TillHome = lazy(() => import('@/till/home'));
+const TillBills = lazy(() => import('@/till/bills'));
+const TillCash = lazy(() => import('@/till/cash'));
+const TillProfile = lazy(() => import('@/till/profile'));
 
 function ShellLayout() {
   return (
@@ -58,6 +63,16 @@ export const router = createBrowserRouter([
           { path: 'menu', element: <FloorMenu /> },
           { path: 'orders', element: <FloorOrders /> },
           { path: 'profile', element: <FloorProfile /> },
+        ],
+      },
+      {
+        path: 'billing',
+        element: <Suspense fallback={<Loading />}><TillLayout /></Suspense>,
+        children: [
+          { index: true, element: <TillHome /> },
+          { path: 'bills', element: <TillBills /> },
+          { path: 'cash', element: <TillCash /> },
+          { path: 'profile', element: <TillProfile /> },
         ],
       },
       { path: 'kitchen', element: <Suspense fallback={<Loading />}><Kitchen /></Suspense> },

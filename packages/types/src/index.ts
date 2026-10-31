@@ -839,6 +839,107 @@ export type FloorMenu = { categories: { id: string; name: LocalizedText; product
 export type TableServiceView = {
   table: { id: string; number: string; name: string };
   requests: ServiceRequestView[];
+  /** What the table has ordered so far and what is still to pay, or the bill just paid. */
+  bill: DinerBill | null;
+};
+
+export type DinerBill = {
+  orders: { number: string; status: OrderStatus; paid: boolean; total: MoneyString; items: { name: LocalizedText; quantity: number; total: MoneyString }[] }[];
+  subtotal: MoneyString;
+  discount: MoneyString;
+  serviceFee: MoneyString;
+  tax: MoneyString;
+  total: MoneyString;
+  paid: MoneyString;
+  due: MoneyString;
+  /** Set once the table has paid at the till. */
+  settled: { number: string; method: BillMethod; settledAt: string } | null;
+};
+
+/** How a bill was paid at the till; ONLINE when every order on it was paid in the app. */
+export type BillMethod = 'CASH' | 'CARD' | 'BENEFIT_PAY' | 'ONLINE';
+
+export type BillLine = { name: LocalizedText; quantity: number; unitPrice: MoneyString; total: MoneyString; addons: LocalizedText[]; notes: string | null };
+
+export type BillOrder = {
+  id: string;
+  number: string;
+  status: OrderStatus;
+  fulfillmentType: FulfillmentType;
+  createdAt: string;
+  /** Paid before the till, in the app. */
+  paid: boolean;
+  method: string | null;
+  subtotal: MoneyString;
+  discount: MoneyString;
+  serviceFee: MoneyString;
+  tax: MoneyString;
+  total: MoneyString;
+  items: BillLine[];
+};
+
+type BillTotals = { subtotal: MoneyString; discount: MoneyString; serviceFee: MoneyString; tax: MoneyString; total: MoneyString };
+
+/** A table, or a counter order, still to pay. */
+export type OpenBill = BillTotals & {
+  key: string;
+  kind: 'TABLE' | 'COUNTER';
+  table: { id: string; number: string; name: string } | null;
+  customerName: string | null;
+  orders: BillOrder[];
+  openedAt: string;
+  prepaid: MoneyString;
+  due: MoneyString;
+  /** Every order has reached the guest. */
+  served: boolean;
+  /** The table pressed "Bring the bill". */
+  requested: boolean;
+};
+
+export type PaidBill = BillTotals & {
+  id: string;
+  number: string;
+  kind: 'TABLE' | 'COUNTER';
+  table: { id: string; number: string; name: string } | null;
+  method: BillMethod;
+  prepaid: MoneyString;
+  collected: MoneyString;
+  tendered: MoneyString | null;
+  change: MoneyString | null;
+  settledAt: string;
+  settledBy: string | null;
+  orders: BillOrder[];
+};
+
+export type CashDrawerView = {
+  id: string;
+  openedAt: string;
+  openedBy: string | null;
+  openingFloat: MoneyString;
+  /** Cash bills taken into this drawer, net of change. */
+  cashSales: MoneyString;
+  bills: number;
+  expected: MoneyString;
+  closedAt: string | null;
+  closedBy: string | null;
+  countedAmount: MoneyString | null;
+  /** Counted less expected: negative is short. */
+  difference: MoneyString | null;
+  note: string | null;
+};
+
+export type BillingBoard = {
+  open: OpenBill[];
+  paid: PaidBill[];
+  requests: ServiceRequestView[];
+  drawer: CashDrawerView | null;
+  today: {
+    bills: number;
+    collected: MoneyString;
+    byMethod: { method: BillMethod; bills: number; amount: MoneyString }[];
+    due: MoneyString;
+  };
+  generatedAt: string;
 };
 
 /** Payment method on an order, or UNPAID when no payment was recorded. */

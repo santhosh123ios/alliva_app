@@ -33,10 +33,16 @@ export function isOrderTaker(user: Pick<AuthUser, 'roles'>) {
   return portalRole(user) === 'ORDER_TAKING_STAFF';
 }
 
+/** Billing staff work the till from the phone and tablet app. */
+export function isBillingStaff(user: Pick<AuthUser, 'roles'>) {
+  return portalRole(user) === 'BILLING_STAFF';
+}
+
 export function landingFor(user: Pick<AuthUser, 'roles'>) {
   if (isRider(user)) return '/rider';
   if (isKitchenOnly(user)) return '/kitchen';
   if (isOrderTaker(user)) return '/floor';
+  if (isBillingStaff(user)) return '/billing';
   return '/dashboard';
 }
 
@@ -51,6 +57,7 @@ const SECTIONS: Record<string, { permission?: string; roles?: PortalRole[] }> = 
   orders: { permission: 'order.view', roles: [...MANAGERS, 'ORDER_TAKING_STAFF', 'BILLING_STAFF'] },
   kitchen: { permission: 'order.update', roles: [...MANAGERS, 'KITCHEN_STAFF'] },
   floor: { permission: 'order.view', roles: [...MANAGERS, 'ORDER_TAKING_STAFF'] },
+  billing: { permission: 'payment.view', roles: [...MANAGERS, 'BILLING_STAFF'] },
   dispatch: { permission: 'dispatch.manage' },
   products: { permission: 'catalog.manage' },
   promos: { permission: 'promo.manage' },

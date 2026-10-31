@@ -1,4 +1,4 @@
-import { serviceRequestUpdateSchema, staffOrderSchema, storeDayQuerySchema, storeReportQuerySchema, tableLayoutSchema } from '@alliva/validation';
+import { billSettleSchema, cashDrawerCloseSchema, cashDrawerOpenSchema, serviceRequestUpdateSchema, staffOrderSchema, storeDayQuerySchema, storeReportQuerySchema, tableLayoutSchema } from '@alliva/validation';
 import type { TableLayout } from '@alliva/types';
 import { badRequest, forbidden } from '../common/errors';
 import type { Request } from 'express';
@@ -8,7 +8,7 @@ import { riderOnly } from '../domain/order-machine';
 import type { Container } from '../container';
 
 /** Store staff screens: the kitchen display, the order taker app, the day's takings and the sales reports. */
-export function storeRoutes({ prisma, jwt, storeOps, floor, commerce }: Container) {
+export function storeRoutes({ prisma, jwt, storeOps, floor, commerce, billing }: Container) {
   const routes = createRoutes({ jwt, prisma }, 'Store');
   const storeId = (user: RequestUser) => {
     if (!user.merchantId) throw forbidden('A store account is required');
@@ -60,6 +60,34 @@ export function storeRoutes({ prisma, jwt, storeOps, floor, commerce }: Containe
 
   routes.put('/merchant/table-layout', { permissions: ['table.manage'] }, (request) =>
     floor.saveLayout(storeId(request.user!), validate<TableLayout>(tableLayoutSchema, request.body)),
+  );
+
+  routes.get('/merchant/billing', { permissions: ['payment.view'] }, async (request) => {
+    const staff = floorStaff(request.user!);
+    const { branchId } = validate<{ branchId?: string }>(storeDayQuerySchema, request.query);
+    return billing.board(staff, await ownBranch(staff.merchantId, branchId));
+  });
+
+  routes.post('/merchant/billing/settle', { permissions: ['bill.settle'], throttle: 60 }, async (request) => {
+    const staff = floorStaff(request.user!);
+    const body = validate<{ orderIds: string[]; method: 'CASH' | 'CARD' | 'BENEFIT_PAY'; tendered?: string; branchId?: string }>(billSettleSchema, request.body);
+    return billing.settle(staff, { ...body, branchId: await ownBranch(staff.merchantId, body.branchId) });
+  });
+
+  routes.get('/merchant/cash-drawers', { permissions: ['payment.view'] }, async (request) => {
+    const staff = floorStaff(request.user!);
+    const { branchId } = validate<{ branchId?: string }>(storeDayQuerySchema, request.query);
+    return billing.drawers(staff, await ownBranch(staff.merchantId, branchId));
+  });
+
+  routes.post('/merchant/cash-drawers', { permissions: ['bill.settle'] }, async (request) => {
+    const staff = floorStaff(request.user!);
+    const body = validate<{ openingFloat: string; branchId?: string }>(cashDrawerOpenSchema, request.body);
+    return billing.openDrawer(staff, { ...body, branchId: await ownBranch(staff.merchantId, body.branchId) });
+  });
+
+  routes.post('/merchant/cash-drawers/:id/close', { permissions: ['bill.settle'] }, (request) =>
+    billing.closeDrawer(floorStaff(request.user!), param(request, 'id'), validate<{ countedAmount: string; note?: string }>(cashDrawerCloseSchema, request.body)),
   );
 
   routes.get('/merchant/takings', { permissions: ['payment.view'] }, async (request) => {

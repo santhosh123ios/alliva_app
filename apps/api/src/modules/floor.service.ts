@@ -5,6 +5,7 @@ import { badRequest, notFound } from '../common/errors';
 import { dec, loc } from '../common/crypto';
 import { startOfDay } from '../domain/store-day';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { BillingService } from './billing.service';
 import type { OrdersGateway } from './orders.gateway';
 
 /** Orders the floor still has to look after: waiting to be accepted, in the kitchen, or ready to serve. */
@@ -19,6 +20,7 @@ export class FloorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: OrdersGateway,
+    private readonly billing: BillingService,
   ) {}
 
   async board(user: { id: string; merchantId: string }, branchId?: string, now = new Date()): Promise<FloorBoard> {
@@ -149,11 +151,14 @@ export class FloorService {
     return { layout };
   }
 
-  /** The diner's table, from the QR cookie, with any call still open there. */
+  /** The diner's table, from the QR cookie, with any call still open there and the bill so far. */
   async tableService(tableId: string | undefined): Promise<TableServiceView> {
     const table = await this.dinerTable(tableId);
-    const requests = await this.prisma.serviceRequest.findMany({ where: { tableId: table.id, status: { in: [...OPEN_CALLS] } }, include: requestInclude, orderBy: { createdAt: 'asc' } });
-    return { table: { id: table.id, number: table.number, name: table.name }, requests: await this.present(requests) };
+    const [requests, bill] = await Promise.all([
+      this.prisma.serviceRequest.findMany({ where: { tableId: table.id, status: { in: [...OPEN_CALLS] } }, include: requestInclude, orderBy: { createdAt: 'asc' } }),
+      this.billing.dinerBill(table.id),
+    ]);
+    return { table: { id: table.id, number: table.number, name: table.name }, requests: await this.present(requests), bill };
   }
 
   /** A diner asks for staff. Asking again for the same thing while it is still open returns the open call. */

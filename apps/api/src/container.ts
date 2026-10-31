@@ -17,6 +17,7 @@ import { RiderService } from './modules/rider.service';
 import { DispatchService } from './modules/dispatch.service';
 import { StoreOpsService } from './modules/store-ops.service';
 import { FloorService } from './modules/floor.service';
+import { BillingService } from './modules/billing.service';
 import { PrismaService } from './prisma/prisma.service';
 import { BenefitGateway, MockPushProvider, PaypalGateway, TapGateway } from './providers/mock.providers';
 import { createEmailProvider } from './providers/resend';
@@ -35,6 +36,7 @@ export function createContainer() {
   const platform = new PlatformService(prisma, audit, crypto, { promo: promos, finance });
   const delivery = new DeliveryService(prisma, createDistanceProvider());
   const commerce = new CommerceService(prisma, new TapGateway(), new BenefitGateway(), new PaypalGateway(), new MockPushProvider(), gateway, platform, delivery);
+  const billing = new BillingService(prisma, gateway, commerce);
   const email = createEmailProvider();
   const referrals = new MarketingReferralService(prisma, audit, marketingSettings);
   const marketing = {
@@ -59,7 +61,8 @@ export function createContainer() {
     rider: new RiderService(prisma, commerce),
     dispatch: new DispatchService(prisma, commerce),
     storeOps: new StoreOpsService(prisma),
-    floor: new FloorService(prisma, gateway),
+    floor: new FloorService(prisma, gateway, billing),
+    billing,
     geocoder: createReverseGeocoder(),
     marketing,
     sms: createOtpProvider(),

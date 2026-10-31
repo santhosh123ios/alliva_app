@@ -84,7 +84,7 @@ export class StoreOpsService {
       }),
       this.prisma.cashDeposit.findMany({ where: { merchantId, OR: [{ status: 'SUBMITTED' }, { reviewedAt: { gte: start, lt: end } }] }, select: { amount: true, status: true, reviewedAt: true } }),
       this.prisma.cashCollection.findMany({
-        where: { merchantId, status: 'COLLECTED', depositId: null, ...(input.branchId ? { order: { branchId: input.branchId } } : {}) },
+        where: { merchantId, status: 'COLLECTED', depositId: null, driverId: { not: null }, ...(input.branchId ? { order: { branchId: input.branchId } } : {}) },
         select: { amount: true, collectedAmount: true },
       }),
     ]);
@@ -98,8 +98,8 @@ export class StoreOpsService {
       const row = methods.get(key) ?? { method: key, orders: 0, amount: money(0), paid: money(0) };
       row.orders += 1;
       row.amount = row.amount.plus(dec(order.total));
-      // Cash is in the till once the order is handed over; card and online once the payment is captured.
-      if ((key === 'CASH' && order.status === 'DELIVERED') || payment?.status === 'CAPTURED') row.paid = row.paid.plus(dec(order.total));
+      // Cash is captured when a counter order is handed over or a bill is settled at the till; card and online when charged.
+      if (payment?.status === 'CAPTURED') row.paid = row.paid.plus(dec(order.total));
       methods.set(key, row);
       const slot = hours[hourOf(order.createdAt)]!;
       slot.orders += 1;

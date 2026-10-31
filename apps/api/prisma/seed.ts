@@ -15,10 +15,10 @@ const permissions = [
   'subscription.manage', 'staff.manage', 'report.export', 'complaint.view', 'complaint.manage',
   'promo.manage', 'marketing.manage', 'settings.manage', 'audit.view', 'dispatch.manage',
   'catalog.manage', 'catalog.moderate', 'finance.view', 'customer.view', 'table.manage',
-  'marketing.portal', 'delivery.app', 'cash.confirm',
+  'marketing.portal', 'delivery.app', 'cash.confirm', 'bill.settle',
 ];
 
-const merchantPerms = ['merchant.profile.manage', 'catalog.manage', 'order.view', 'order.update', 'staff.manage', 'table.manage', 'payment.view', 'report.export', 'refund.request', 'complaint.view', 'promo.manage', 'dispatch.manage', 'cash.confirm'];
+const merchantPerms = ['merchant.profile.manage', 'catalog.manage', 'order.view', 'order.update', 'staff.manage', 'table.manage', 'payment.view', 'report.export', 'refund.request', 'complaint.view', 'promo.manage', 'dispatch.manage', 'cash.confirm', 'bill.settle'];
 
 const roleMap: Record<string, string[]> = {
   SUPER_ADMIN: permissions,
@@ -34,7 +34,7 @@ const roleMap: Record<string, string[]> = {
   MERCHANT_MANAGER: merchantPerms.filter((key) => key !== 'staff.manage'),
   ORDER_TAKING_STAFF: ['order.view', 'order.update'],
   KITCHEN_STAFF: ['order.view', 'order.update'],
-  BILLING_STAFF: ['payment.view', 'order.view', 'cash.confirm'],
+  BILLING_STAFF: ['payment.view', 'order.view', 'cash.confirm', 'bill.settle'],
   DELIVERY_STAFF: ['order.view', 'order.update', 'delivery.app'],
   REPORT_VIEWER: ['order.view', 'payment.view', 'report.export'],
 };

@@ -68,6 +68,8 @@ enum PaymentProvider {
   CASH
   PAYPAL
   BANK_TRANSFER
+  /// The store's own card machine or BenefitPay QR at the till.
+  TERMINAL
 }
 
 enum SettlementStatus {

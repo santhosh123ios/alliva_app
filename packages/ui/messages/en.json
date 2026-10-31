@@ -30,7 +30,8 @@
     "logout": "Log out",
     "kitchen": "Kitchen display",
     "reports": "Reports",
-    "floor": "Floor app"
+    "floor": "Floor app",
+    "till": "Billing app"
   },
   "auth": {
     "signIn": "Sign in",
@@ -638,7 +639,41 @@
       },
       "comingNamed": "{name} is on the way",
       "coming": "Someone is on the way",
-      "waiting": "Sent. Staff will be with you shortly."
+      "waiting": "Sent. Staff will be with you shortly.",
+      "buttonShort": "Call staff",
+      "bill": {
+        "button": "Bill · {amount}",
+        "paidShort": "Paid · thank you",
+        "title": "Table {table} · your bill",
+        "subtitle": "Everything your table has ordered so far.",
+        "paidSubtitle": "Paid · receipt {number}",
+        "paidBy": "Paid by {method}. Thank you!",
+        "methods": {
+          "CASH": "cash",
+          "CARD": "card",
+          "BENEFIT_PAY": "BenefitPay",
+          "ONLINE": "the app"
+        },
+        "ask": "Ask for the bill · {amount}",
+        "asked": "Bill requested. Staff are on the way",
+        "allPaid": "Everything is paid in the app. Enjoy your meal!",
+        "payHint": "Pay at your table or the counter by cash, card or BenefitPay.",
+        "status": {
+          "PENDING": "Received",
+          "ACCEPTED": "Preparing",
+          "PREPARING": "Preparing",
+          "READY_FOR_PICKUP": "On its way",
+          "DELIVERED": "Served"
+        },
+        "paidInApp": "Paid in app",
+        "paid": "Paid",
+        "subtotal": "Subtotal",
+        "discount": "Discount",
+        "serviceFee": "Service fee",
+        "tax": "VAT",
+        "total": "Total",
+        "due": "To pay"
+      }
     }
   },
   "workspace": {
@@ -3172,5 +3207,172 @@
       "logout": "Log out"
     },
     "underMinute": "under a minute"
+  },
+  "till": {
+    "appName": "Billing",
+    "tabs": {
+      "label": "Billing app",
+      "home": "Home",
+      "bills": "Bills",
+      "cash": "Cash",
+      "profile": "Profile"
+    },
+    "asking": "{count, plural, =0 {No tables asking for the bill} one {# table asking for the bill} other {# tables asking for the bill}}",
+    "tableNumber": "Table {table}",
+    "counter": "Counter",
+    "counterNamed": "Counter · {name}",
+    "close": "Close",
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "serviceFee": "Service fee",
+    "tax": "VAT",
+    "total": "Total",
+    "due": "To pay",
+    "methods": {
+      "CASH": "Cash",
+      "CARD": "Card",
+      "BENEFIT_PAY": "BenefitPay",
+      "ONLINE": "Paid in app"
+    },
+    "alerts": {
+      "billRequested": "Table {table} asked for the bill"
+    },
+    "print": {
+      "blocked": "Allow pop-ups to print the bill",
+      "paidOnline": "Paid in app",
+      "paidBy": "Paid by {method}",
+      "tendered": "Cash received",
+      "change": "Change",
+      "due": "To pay",
+      "receipt": "Receipt",
+      "bill": "Bill",
+      "thanks": "Thank you for dining with us",
+      "notReceipt": "This is not a receipt"
+    },
+    "bills": {
+      "loadFailed": "Could not load the bills",
+      "title": "Bills",
+      "tabs": {
+        "open": "Open · {count}",
+        "paid": "Paid · {count}"
+      },
+      "search": "Search table or order number",
+      "clearSearch": "Clear search",
+      "noMatch": "No bill matches that search.",
+      "noneOpen": "No bills to collect right now.",
+      "nonePaid": "No bills paid yet today.",
+      "meta": "{orders, plural, one {# order} other {# orders}} · {items, plural, one {# item} other {# items}} · {age}",
+      "requested": "Asked for the bill",
+      "served": "All served",
+      "eating": "Still being served",
+      "paidOnline": "Paid in app",
+      "partPaid": "Part paid in app",
+      "by": "by {name}",
+      "notServed": "Not served yet",
+      "notAllServed": "Some food has not gone out yet. Check with the guest before taking payment."
+    },
+    "pay": {
+      "printBill": "Print bill",
+      "close": "Close table",
+      "take": "Take payment",
+      "noPermission": "Ask a manager to take payment",
+      "method": "Payment method",
+      "received": "Cash received",
+      "exact": "Exact",
+      "short": "Still short",
+      "change": "Change to give",
+      "cardHint": "Charge {amount} on the card machine, then confirm once it is approved.",
+      "benefitHint": "Show the BenefitPay QR for {amount}, then confirm once the payment comes through.",
+      "back": "Back",
+      "confirm": "Paid {amount}",
+      "printReceipt": "Print receipt",
+      "closedToast": "Table closed",
+      "paidToast": "{amount} collected"
+    },
+    "home": {
+      "loadFailed": "Could not load the till",
+      "morning": "Good morning, {name}",
+      "afternoon": "Good afternoon, {name}",
+      "evening": "Good evening, {name}",
+      "summaryBusy": "{open, plural, one {# bill} other {# bills}} open · {due} still to collect.",
+      "summaryQuiet": "No bills open. Tables show up here as they order.",
+      "stats": {
+        "collected": "Collected today",
+        "bills": "{count, plural, =0 {No bills} one {# bill} other {# bills}}",
+        "due": "Still to collect",
+        "open": "{count, plural, =0 {No open bills} one {# open bill} other {# open bills}}",
+        "asking": "Asking for the bill",
+        "drawer": "Cash drawer",
+        "drawerClosed": "Closed",
+        "drawerOpen": "Expected in drawer",
+        "openDrawer": "Open it to take cash"
+      },
+      "drawerTitle": "The cash drawer is closed",
+      "drawerBody": "Open it with the float so cash bills are counted at the end of the shift.",
+      "askingTitle": "Asking for the bill",
+      "noAsking": "No table is asking for the bill.",
+      "readyTitle": "Ready to pay",
+      "allBills": "All bills",
+      "noReady": "No served table is waiting to pay.",
+      "methodsTitle": "Today by payment method",
+      "noPayments": "Nothing collected yet today."
+    },
+    "cash": {
+      "loadFailed": "Could not load the cash drawer",
+      "title": "Cash",
+      "openedToast": "Drawer open",
+      "closedTitle": "Drawer closed",
+      "closedBody": "Open the drawer at the start of the shift with the cash already in it.",
+      "float": "Opening float",
+      "floatHint": "The change already in the drawer before the first bill.",
+      "open": "Open drawer with {amount}",
+      "closedBalanced": "Drawer closed and balanced",
+      "closedOver": "Drawer closed {amount} over",
+      "closedShort": "Drawer closed {amount} short",
+      "openTitle": "Drawer open",
+      "openedAt": "Opened {time} by {name}",
+      "floatShort": "Float",
+      "cashBills": "{count, plural, =0 {No cash bills} one {# cash bill} other {# cash bills}}",
+      "expected": "Expected",
+      "countAndClose": "Count and close",
+      "countTitle": "Count the drawer",
+      "less": "One less {note} note",
+      "more": "One more {note} note",
+      "noteCount": "Number of {note} notes",
+      "coins": "Coins",
+      "counted": "Counted",
+      "balanced": "Balanced",
+      "over": "{amount} over",
+      "short": "{amount} short",
+      "notePlaceholder": "Note for the manager (optional)",
+      "cancel": "Cancel",
+      "close": "Close drawer",
+      "historyTitle": "Past shifts",
+      "historyLine": "Expected {expected} · counted {counted}",
+      "noHistory": "Closed drawers show up here."
+    },
+    "profile": {
+      "loadFailed": "Could not load your profile",
+      "roles": {
+        "MERCHANT_OWNER": "Store owner",
+        "MERCHANT_MANAGER": "Store manager",
+        "ORDER_TAKING_STAFF": "Order taker",
+        "KITCHEN_STAFF": "Kitchen staff",
+        "BILLING_STAFF": "Billing staff",
+        "DELIVERY_STAFF": "Delivery staff",
+        "REPORT_VIEWER": "Report viewer"
+      },
+      "today": "{bills, plural, =0 {No bills} one {# bill} other {# bills}} settled today · {amount} collected",
+      "store": "Store",
+      "phone": "Phone",
+      "email": "Email",
+      "branch": "Branch",
+      "allBranches": "All branches",
+      "sound": "Alert sound",
+      "soundHint": "Chime when a table asks for the bill",
+      "language": "Language",
+      "workspace": "Open the full workspace",
+      "logout": "Log out"
+    }
   }
 }

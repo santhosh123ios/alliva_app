@@ -37,8 +37,7 @@ import type {
   StorefrontHome,
   SubscriptionBoard,
   StorePaymentMethod,
-  SubscriptionPlanView,
-} from '@alliva/types';
+  SubscriptionPlanView, BillingBoard, CashDrawerView, PaidBill } from '@alliva/types';
 
 export class ApiError extends Error {
   constructor(
@@ -278,6 +277,12 @@ export function createApiClient(baseUrl = '', portal?: AuthPortal) {
     storeReportFile: (kind: 'csv' | 'pdf', params: { from?: string; to?: string; branchId?: string } = {}) => file(`/api/merchant/reports/export.${kind}${query(params)}`),
     floor: (branchId?: string) => request<FloorBoard>(`/api/merchant/floor${query({ branchId })}`),
     floorMenu: () => request<FloorMenu>('/api/merchant/floor/menu'),
+    billing: (branchId?: string) => request<BillingBoard>(`/api/merchant/billing${query({ branchId })}`),
+    settleBill: (body: { orderIds: string[]; method: 'CASH' | 'CARD' | 'BENEFIT_PAY'; tendered?: string; branchId?: string }) =>
+      send<PaidBill>('/api/merchant/billing/settle', 'POST', body),
+    cashDrawers: (branchId?: string) => request<{ drawers: CashDrawerView[] }>(`/api/merchant/cash-drawers${query({ branchId })}`),
+    openCashDrawer: (body: { openingFloat: string; branchId?: string }) => send<CashDrawerView>('/api/merchant/cash-drawers', 'POST', body),
+    closeCashDrawer: (id: string, body: { countedAmount: string; note?: string }) => send<CashDrawerView>(`/api/merchant/cash-drawers/${id}/close`, 'POST', body),
     staffOrder: (body: { fulfillmentType: 'DINE_IN' | 'TAKEAWAY'; tableId?: string | null; branchId?: string; notes?: string; items: { productId: string; variantId?: string | null; addonIds: string[]; quantity: number; notes?: string }[] }) =>
       send<OrderView>('/api/merchant/floor/orders', 'POST', body),
     answerServiceRequest: (id: string, status: 'ACKNOWLEDGED' | 'RESOLVED') => send<ServiceRequestView>(`/api/merchant/service-requests/${id}`, 'POST', { status }),

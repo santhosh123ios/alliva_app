@@ -88,6 +88,8 @@ model Merchant {
   tables         DiningTable[]
   qrCodes        QrCode[]
   serviceRequests ServiceRequest[]
+  bills           Bill[]
+  cashDrawers     CashDrawer[]
   carts          Cart[]
   cashCollections CashCollection[]
   expenses       Expense[]

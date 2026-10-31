@@ -69,6 +69,8 @@ model Order {
   preparationMinutes   Int?
   estimatedReadyAt     DateTime?
   assignedStaffId      String?         @db.Uuid
+  /// The bill this order was paid on at the till. Null until billing settles it.
+  billId               String?         @db.Uuid
   /// Short code the rider types at the store when the QR cannot be scanned. Set when the order is ready.
   handoffCode          String?
   /// Secret carried in the pickup QR. Set when the order is ready.
@@ -81,6 +83,7 @@ model Order {
   merchant             Merchant        @relation(fields: [merchantId], references: [id])
   branch               Branch          @relation(fields: [branchId], references: [id])
   table                DiningTable?    @relation(fields: [tableId], references: [id])
+  bill                 Bill?           @relation(fields: [billId], references: [id])
   promoCode            PromoCode?      @relation(fields: [promoCodeId], references: [id])
   items                OrderItem[]
   events               OrderStatusEvent[]
@@ -96,6 +99,7 @@ model Order {
   @@index([merchantId, status])
   @@index([customerId, createdAt])
   @@index([status, createdAt])
+  @@index([billId])
 }
 
 model OrderItem {
@@ -215,6 +219,7 @@ model DiningTable {
   sessions   TableSession[]
   qrCodes    QrCode[]
   serviceRequests ServiceRequest[]
+  bills      Bill[]
 
   @@unique([merchantId, number])
   @@index([merchantId])
@@ -263,4 +268,56 @@ model ServiceRequest {
 
   @@index([merchantId, status])
   @@index([tableId, status])
+}
+
+/// What a table or a counter customer paid at the till, covering one or more orders.
+model Bill {
+  id           String        @id @default(uuid()) @db.Uuid
+  merchantId   String        @db.Uuid
+  branchId     String?       @db.Uuid
+  /// Store-wide running number, printed on the receipt.
+  number       String
+  tableId      String?       @db.Uuid
+  method       PaymentMethod
+  subtotal     Decimal       @db.Decimal(19, 3)
+  discount     Decimal       @db.Decimal(19, 3)
+  serviceFee   Decimal       @db.Decimal(19, 3)
+  tax          Decimal       @db.Decimal(19, 3)
+  total        Decimal       @db.Decimal(19, 3)
+  /// Part of the total already paid online before the guest came to the till.
+  prepaid      Decimal       @db.Decimal(19, 3)
+  /// What was taken at the till: total less prepaid.
+  collected    Decimal       @db.Decimal(19, 3)
+  tendered     Decimal?      @db.Decimal(19, 3)
+  change       Decimal?      @db.Decimal(19, 3)
+  cashDrawerId String?       @db.Uuid
+  settledById  String        @db.Uuid
+  settledAt    DateTime      @default(now())
+  merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  table        DiningTable?  @relation(fields: [tableId], references: [id])
+  cashDrawer   CashDrawer?   @relation(fields: [cashDrawerId], references: [id])
+  orders       Order[]
+
+  @@unique([merchantId, number])
+  @@index([merchantId, settledAt])
+}
+
+/// The till's cash for one shift: float in, cash bills in, counted at close.
+model CashDrawer {
+  id             String    @id @default(uuid()) @db.Uuid
+  merchantId     String    @db.Uuid
+  branchId       String?   @db.Uuid
+  openingFloat   Decimal   @db.Decimal(19, 3)
+  openedById     String    @db.Uuid
+  openedAt       DateTime  @default(now())
+  /// Float plus cash bills, fixed when the drawer is closed.
+  expectedAmount Decimal?  @db.Decimal(19, 3)
+  countedAmount  Decimal?  @db.Decimal(19, 3)
+  note           String?
+  closedById     String?   @db.Uuid
+  closedAt       DateTime?
+  merchant       Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  bills          Bill[]
+
+  @@index([merchantId, closedAt])
 }
