@@ -1,98 +1,205 @@
 import { api } from '@/components/providers';
-import { Link } from '@/i18n/navigation';
+import { Link, usePathname } from '@/i18n/navigation';
 import { pickLocalized } from '@alliva/design-tokens';
 import type { SubscriptionPlanView } from '@alliva/types';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Check, Heart, Home, LayoutGrid, Mail, MapPin, Play, QrCode, Search, ShoppingBag, Smartphone, Store, Truck, UtensilsCrossed } from 'lucide-react';
+import {
+  ArrowRight,
+  BarChart3,
+  Bike,
+  Check,
+  ChefHat,
+  ClipboardList,
+  Languages,
+  Mail,
+  MapPin,
+  Package,
+  QrCode,
+  Receipt,
+  Route,
+  ShoppingBag,
+  Smartphone,
+  Sparkles,
+  Store,
+  Truck,
+  UtensilsCrossed,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
+
+type T = ReturnType<typeof useTranslations<'landing'>>;
+
+const steps: { key: string; screen: string; icon: LucideIcon }[] = [
+  { key: 'orders', screen: 'dashboard', icon: ClipboardList },
+  { key: 'menu', screen: 'products', icon: Package },
+  { key: 'tables', screen: 'tables', icon: UtensilsCrossed },
+  { key: 'dispatch', screen: 'dispatch', icon: Route },
+  { key: 'reports', screen: 'reports', icon: BarChart3 },
+];
+
+const roles: { key: string; screen: string; icon: LucideIcon }[] = [
+  { key: 'floor', screen: 'floor', icon: Smartphone },
+  { key: 'billing', screen: 'billing', icon: Receipt },
+  { key: 'rider', screen: 'rider', icon: Bike },
+];
+
+const ticker: { key: string; icon: LucideIcon }[] = [
+  { key: 'delivery', icon: Truck },
+  { key: 'pickup', icon: ShoppingBag },
+  { key: 'dineIn', icon: UtensilsCrossed },
+  { key: 'riders', icon: Bike },
+  { key: 'kitchen', icon: ChefHat },
+  { key: 'qr', icon: QrCode },
+  { key: 'payments', icon: Wallet },
+  { key: 'bilingual', icon: Languages },
+];
 
 export default function LandingPage() {
   const t = useTranslations('landing');
   const locale = useLocale() as 'en' | 'ar';
+  const pathname = usePathname();
   const plans = useQuery({ queryKey: ['public-plans'], queryFn: () => api.publicPlans() });
   const list = [...(plans.data ?? [])].sort((a, b) => a.displayOrder - b.displayOrder || Number(a.priceMonthly) - Number(b.priceMonthly));
+  const scrolled = useScrolled(24);
+  const root = useReveal();
+  const screen = (name: string) => `/screens/${locale}/${name}.jpg`;
+
+  useEffect(() => {
+    const html = document.documentElement;
+    html.classList.add('scroll-smooth');
+    return () => html.classList.remove('scroll-smooth');
+  }, []);
 
   return (
-    <div className="h-dvh snap-y snap-mandatory overflow-y-auto scroll-smooth bg-card text-foreground">
-      <header className="fixed inset-x-0 top-0 z-20 h-[72px] bg-card">
-        <div className="mx-auto flex h-full max-w-6xl items-center gap-8 px-5 lg:px-8">
-          <img src="/logo-on-light.png" alt="Alliva" className="h-8 w-auto dark:brightness-0 dark:invert" />
-          <nav className="hidden items-center gap-7 text-sm text-foreground md:flex">
-            <a href="#how" className="hover:text-foreground">{t('how')}</a>
-            <a href="#plans" className="hover:text-foreground">{t('plansNav')}</a>
-            <a href="#how" className="hover:text-foreground">{t('featuresNav')}</a>
+    <div ref={root} className="overflow-x-clip bg-background text-foreground">
+      <header className={`fixed inset-x-0 top-0 z-30 transition-[background-color,box-shadow,border-color] duration-300 ${scrolled ? 'border-b bg-background/80 shadow-xs backdrop-blur-lg' : 'border-b border-transparent'}`}>
+        <div className="mx-auto flex h-[68px] max-w-7xl items-center gap-6 px-5 lg:px-8">
+          <a href="#top" className="shrink-0">
+            <img src="/logo-on-light.png" alt="Alliva" className="h-8 w-auto dark:brightness-0 dark:invert" />
+          </a>
+          <nav className="hidden items-center gap-1 text-sm font-medium text-muted-foreground md:flex">
+            <a href="#features" className="rounded-lg px-3 py-2 transition-colors hover:text-foreground">{t('featuresNav')}</a>
+            <a href="#roles" className="rounded-lg px-3 py-2 transition-colors hover:text-foreground">{t('rolesNav')}</a>
+            <a href="#plans" className="rounded-lg px-3 py-2 transition-colors hover:text-foreground">{t('plansNav')}</a>
           </nav>
-          <Link href="/register" className="ms-auto inline-flex h-10 items-center rounded-lg bg-secondary px-4 text-sm font-semibold text-secondary-foreground">{t('getStarted')}</Link>
+          <div className="ms-auto flex items-center gap-2">
+            <Link href={pathname} locale={locale === 'en' ? 'ar' : 'en'} className="grid h-10 min-w-10 place-items-center rounded-xl px-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              {locale === 'en' ? 'ع' : 'EN'}
+            </Link>
+            <Link href="/login" className="hidden h-10 items-center rounded-xl px-3 text-sm font-semibold transition-colors hover:bg-muted sm:inline-flex">{t('signIn')}</Link>
+            <Link href="/register" className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-secondary px-4 text-sm font-semibold text-secondary-foreground shadow-xs transition-colors hover:bg-[var(--secondary-hover)]">
+              {t('getStarted')}
+            </Link>
+          </div>
         </div>
       </header>
 
-      <section id="how" className="flex h-dvh snap-start snap-always flex-col pt-[72px]">
-        <div className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 items-center gap-8 overflow-hidden px-5 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
-          <div>
-            <h1 className="font-display text-5xl leading-[0.95] tracking-tight sm:text-6xl lg:text-[4.25rem]">
-              <span className="block">{t('headline')}</span>
-              <span className="mt-2 inline-block bg-primary px-2 text-[2rem] leading-[1.2] min-[400px]:whitespace-nowrap min-[400px]:text-[2.35rem] sm:text-5xl lg:text-[3.15rem]">{t('headlineAccent')}</span>
-            </h1>
-            <p className="mt-6 max-w-md text-base text-foreground sm:text-lg">{t('subhead')}</p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <a href="#plans" className="inline-flex h-12 items-center gap-2 rounded-lg bg-secondary px-5 text-sm font-semibold text-secondary-foreground">
-                {t('explore')} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
-              </a>
-              <a href="#how" className="inline-flex h-12 items-center gap-2 rounded-lg border border-border-strong bg-card px-5 text-sm font-semibold">
-                {t('how')} <Play className="h-3.5 w-3.5 fill-current" />
-              </a>
-            </div>
-          </div>
-          <PhoneStage t={t} />
-        </div>
-        <div className="shrink-0 bg-secondary text-secondary-foreground">
-          <div className="mx-auto grid max-w-6xl gap-6 px-5 py-6 md:grid-cols-3 lg:px-8">
-            <Feature icon={Truck} title={t('ownTeam')} body={t('ownTeamBody')} />
-            <Feature icon={Smartphone} title={t('customerApp')} body={t('customerAppBody')} />
-            <Feature icon={Store} title={t('modes')} body={t('modesBody')} />
-          </div>
-        </div>
-      </section>
+      <Hero t={t} screen={screen} />
 
-      <section id="plans" className="flex h-dvh snap-start snap-always flex-col justify-center bg-muted px-5 pt-[72px] lg:px-8">
-        <h2 className="font-display text-center text-4xl tracking-tight sm:text-5xl">{t('plans')}</h2>
-        <p className="mt-3 text-center text-muted-foreground">{t('plansHint')}</p>
-        <div className="mt-8 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-2">
-          {list.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} locale={locale} t={t} />
+      <div className="relative border-y bg-card py-5" aria-label={t('tickerLabel')}>
+        <div className="landing-marquee flex w-max gap-10 pe-10">
+          {[0, 1].map((copy) => (
+            <ul key={copy} aria-hidden={copy === 1 || undefined} className="flex shrink-0 items-center gap-10">
+              {ticker.map((item) => (
+                <li key={item.key} className="flex items-center gap-2.5 whitespace-nowrap text-sm font-semibold text-muted-foreground">
+                  <span className="grid size-8 place-items-center rounded-lg bg-primary-soft text-primary-soft-foreground"><item.icon className="size-4" /></span>
+                  {t(`ticker.${item.key}`)}
+                </li>
+              ))}
+            </ul>
           ))}
         </div>
-        <p className="mx-auto mt-6 flex max-w-xl items-start justify-center gap-3 text-center text-sm text-muted-foreground">
-          <QrCode className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
-          <span className="whitespace-pre-line text-start">{t('footnote')}</span>
-        </p>
+      </div>
+
+      <section className="mx-auto max-w-7xl px-5 py-20 lg:px-8 lg:py-28">
+        <div className="grid gap-4 md:grid-cols-3">
+          <Pillar icon={Truck} title={t('ownTeam')} body={t('ownTeamBody')} delay={0} />
+          <Pillar icon={Smartphone} title={t('customerApp')} body={t('customerAppBody')} delay={90} />
+          <Pillar icon={Store} title={t('modes')} body={t('modesBody')} delay={180} />
+        </div>
       </section>
 
-      <footer id="footer" className="relative flex h-dvh snap-start snap-always flex-col overflow-hidden bg-secondary px-5 pt-[72px] text-secondary-foreground lg:px-8">
-        <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center gap-12">
-          <div className="flex flex-wrap items-center justify-between gap-6 rounded-[28px] bg-primary px-8 py-7 text-primary-foreground">
-            <div>
-              <p className="font-display text-3xl tracking-tight sm:text-4xl">{t('readyTitle')}</p>
-              <p className="mt-1 text-sm sm:text-base">{t('readyBody')}</p>
+      <Features t={t} screen={screen} />
+
+      <section id="roles" className="scroll-mt-16 bg-sidebar py-20 text-white lg:py-28">
+        <div className="mx-auto max-w-7xl px-5 lg:px-8">
+          <SectionHeading eyebrow={t('rolesEyebrow')} title={t('rolesTitle')} body={t('rolesBody')} dark />
+          <div className="mt-14 grid items-end gap-10 lg:grid-cols-[1.35fr_1fr]">
+            <figure data-reveal className="reveal-up">
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-2 shadow-[0_40px_80px_-30px_rgba(0,0,0,0.8)]">
+                <img src={screen('kitchen')} alt={t('roles.kitchen.title')} width={2160} height={1350} loading="lazy" className="w-full rounded-xl" />
+              </div>
+              <figcaption className="mt-5 flex items-start gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"><ChefHat className="size-5" /></span>
+                <span>
+                  <span className="block font-semibold">{t('roles.kitchen.title')}</span>
+                  <span className="block text-sm text-white/60">{t('roles.kitchen.body')}</span>
+                </span>
+              </figcaption>
+            </figure>
+            <div className="grid grid-cols-3 gap-3 sm:gap-5">
+              {roles.map((role, index) => (
+                <figure key={role.key} data-reveal className="reveal-up" style={{ '--reveal-delay': `${index * 120}ms` } as React.CSSProperties}>
+                  <Phone src={screen(role.screen)} alt={t(`roles.${role.key}.title`)} className={index === 1 ? 'lg:-translate-y-8' : ''} />
+                  <figcaption className="mt-4">
+                    <span className="flex items-center gap-1.5 text-sm font-semibold"><role.icon className="size-4 shrink-0 text-primary" />{t(`roles.${role.key}.title`)}</span>
+                    <span className="mt-1 hidden text-xs leading-relaxed text-white/60 sm:block">{t(`roles.${role.key}.body`)}</span>
+                  </figcaption>
+                </figure>
+              ))}
             </div>
-            <a href="#plans" className="inline-flex h-12 items-center gap-2 rounded-full bg-secondary px-5 text-sm font-semibold text-secondary-foreground">
-              {t('explore')} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
-            </a>
           </div>
-          <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        </div>
+      </section>
+
+      <section id="plans" className="scroll-mt-16 bg-muted py-20 lg:py-28">
+        <div className="mx-auto max-w-7xl px-5 lg:px-8">
+          <SectionHeading eyebrow={t('plansEyebrow')} title={t('plans')} body={t('plansHint')} />
+          <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {list.map((plan, index) => (
+              <PlanCard key={plan.id} plan={plan} locale={locale} t={t} delay={index * 90} />
+            ))}
+          </div>
+          <p className="mx-auto mt-10 flex max-w-xl items-start justify-center gap-3 text-sm text-muted-foreground">
+            <QrCode className="mt-0.5 size-5 shrink-0 text-foreground" />
+            <span className="whitespace-pre-line text-start">{t('footnote')}</span>
+          </p>
+        </div>
+      </section>
+
+      <footer id="footer" className="bg-sidebar px-5 pt-20 text-white lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div data-reveal className="reveal-up relative overflow-hidden rounded-[28px] bg-primary px-6 py-10 text-primary-foreground sm:px-12 sm:py-14">
+            <div aria-hidden className="pointer-events-none absolute -end-16 -top-24 size-72 rounded-full bg-white/25 blur-3xl" />
+            <div className="relative flex flex-wrap items-center justify-between gap-6">
+              <div className="max-w-xl">
+                <p className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">{t('readyTitle')}</p>
+                <p className="mt-2 text-base opacity-80">{t('readyBody')}</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link href="/register" className="inline-flex h-12 items-center gap-2 rounded-xl bg-secondary px-5 text-sm font-semibold text-secondary-foreground transition-transform hover:-translate-y-0.5">
+                  {t('getStarted')} <ArrowRight className="size-4 rtl:rotate-180" />
+                </Link>
+                <a href="#plans" className="inline-flex h-12 items-center rounded-xl border border-black/15 px-5 text-sm font-semibold transition-colors hover:bg-black/5">{t('explore')}</a>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-10 py-16 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
             <div>
-              <img src="/logo-on-light.png" alt="Alliva" className="h-10 w-auto brightness-0 invert" />
-              <p className="mt-5 max-w-[220px] text-lg font-semibold leading-snug">{t('footerTag')}</p>
+              <img src="/logo-on-light.png" alt="Alliva" className="h-9 w-auto brightness-0 invert" />
+              <p className="mt-5 max-w-[240px] text-base font-medium leading-snug text-white/80">{t('footerTag')}</p>
               <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm">
-                <MapPin className="h-4 w-4" /> {t('phonePlace')}
+                <MapPin className="size-4" /> {t('place')}
               </p>
             </div>
-            <FooterColumn title={t('exploreLabel')} links={[[t('how'), '#how'], [t('plansNav'), '#plans'], [t('featuresNav'), '#how']]} />
+            <FooterColumn title={t('exploreLabel')} links={[[t('featuresNav'), '#features'], [t('rolesNav'), '#roles'], [t('plansNav'), '#plans']]} />
             <FooterColumn title={t('forMerchants')} links={[[t('registerStore'), '/register'], [t('merchantSignIn'), '/login'], [t('support'), 'mailto:support@alliva.bh']]} />
             <div>
               <p className="text-sm font-semibold">{t('connect')}</p>
-              <a href="mailto:support@alliva.bh" className="mt-4 flex items-center gap-3 text-sm text-white/80">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10"><Mail className="h-4 w-4" /></span>
+              <a href="mailto:support@alliva.bh" className="mt-4 flex items-center gap-3 text-sm text-white/70 transition-colors hover:text-white">
+                <span className="grid size-9 place-items-center rounded-full bg-white/10"><Mail className="size-4" /></span>
                 {t('contactSupport')}
               </a>
               <div className="mt-4 flex gap-3">
@@ -102,16 +209,213 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
-        </div>
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between border-t border-white/10 py-5 text-xs text-white/50">
-          <p>{t('footerRights', { year: new Date().getFullYear() })}</p>
-          <p className="flex items-center gap-4">
-            <span className="text-white/20">|</span>
-            <a href="#footer" className="hover:text-white">{t('privacy')}</a>
-            <a href="#footer" className="hover:text-white">{t('terms')}</a>
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 py-6 text-xs text-white/50">
+            <p>{t('footerRights', { year: new Date().getFullYear() })}</p>
+            <p className="flex items-center gap-4">
+              <a href="#footer" className="hover:text-white">{t('privacy')}</a>
+              <a href="#footer" className="hover:text-white">{t('terms')}</a>
+            </p>
+          </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function Hero({ t, screen }: { t: T; screen: (name: string) => string }) {
+  const frame = useRef<HTMLDivElement>(null);
+  // The product shot starts tilted back and settles flat as the visitor scrolls into it.
+  useEffect(() => {
+    const el = frame.current;
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const progress = Math.min(1, Math.max(0, window.scrollY / (window.innerHeight * 0.55)));
+      el.style.setProperty('--tilt', String(1 - progress));
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  return (
+    <section id="top" className="relative pt-[68px]">
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-0 overflow-hidden">
+        <div className="absolute start-1/2 top-[-18rem] h-[42rem] w-[72rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(255,196,0,0.32),transparent)] rtl:translate-x-1/2" />
+        <div className="absolute inset-0 [background-image:linear-gradient(var(--border)_1px,transparent_1px),linear-gradient(90deg,var(--border)_1px,transparent_1px)] [background-size:56px_56px] [mask-image:radial-gradient(ellipse_at_top,black_20%,transparent_70%)] opacity-60" />
+      </div>
+      <div className="relative mx-auto max-w-7xl px-5 pt-14 text-center sm:pt-20 lg:px-8">
+        <p className="landing-in mx-auto inline-flex items-center gap-2 rounded-full border bg-card/80 px-3.5 py-1.5 text-xs font-semibold text-muted-foreground shadow-xs backdrop-blur">
+          <Sparkles className="size-3.5 text-primary" /> {t('eyebrow')}
+        </p>
+        <h1 className="landing-in mx-auto mt-6 max-w-4xl font-display text-[2.6rem] font-semibold leading-[1.02] tracking-tight sm:text-6xl lg:text-7xl" style={{ '--in-delay': '80ms' } as React.CSSProperties}>
+          {t('headline')}{' '}
+          <span className="relative inline-block whitespace-nowrap">
+            <span aria-hidden className="landing-highlight absolute inset-x-[-0.12em] bottom-[0.06em] top-[0.18em] -z-0 rounded-lg bg-primary" />
+            <span className="relative text-primary-foreground">{t('headlineAccent')}</span>
+          </span>
+        </h1>
+        <p className="landing-in mx-auto mt-6 max-w-2xl text-base text-muted-foreground sm:text-lg" style={{ '--in-delay': '160ms' } as React.CSSProperties}>{t('subhead')}</p>
+        <div className="landing-in mt-9 flex flex-wrap justify-center gap-3" style={{ '--in-delay': '240ms' } as React.CSSProperties}>
+          <Link href="/register" className="group inline-flex h-12 items-center gap-2 rounded-xl bg-secondary px-6 text-sm font-semibold text-secondary-foreground shadow-md transition-[transform,background-color] hover:-translate-y-0.5 hover:bg-[var(--secondary-hover)]">
+            {t('getStarted')} <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5" />
+          </Link>
+          <a href="#plans" className="inline-flex h-12 items-center gap-2 rounded-xl border border-border-strong bg-card px-6 text-sm font-semibold shadow-xs transition-colors hover:bg-muted">
+            {t('explore')}
+          </a>
+        </div>
+      </div>
+
+      <div className="relative mx-auto mt-14 max-w-6xl px-3 pb-6 sm:mt-16 sm:px-5 lg:px-8">
+        <div className="[perspective:1800px]">
+          <div
+            ref={frame}
+            className="landing-in relative origin-top transition-transform duration-200 ease-out [transform:rotateX(calc(var(--tilt,0)*16deg))_scale(calc(1-var(--tilt,0)*0.05))] motion-reduce:[transform:none]"
+            style={{ '--in-delay': '320ms' } as React.CSSProperties}
+          >
+            <BrowserFrame src={screen('dashboard')} alt={t('steps.orders.title')} eager />
+            <div className="absolute -bottom-6 end-[-0.5rem] hidden w-[17%] min-w-[130px] sm:block lg:end-[-2.5rem]">
+              <Phone src={screen('floor-menu')} alt={t('roles.floor.title')} eager />
+            </div>
+          </div>
+        </div>
+        <p className="mt-12 text-center text-xs font-medium text-subtle">{t('realScreens')}</p>
+      </div>
+    </section>
+  );
+}
+
+function Features({ t, screen }: { t: T; screen: (name: string) => string }) {
+  const [active, setActive] = useState(0);
+  const items = useRef<(HTMLLIElement | null)[]>([]);
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) setActive(Number((entry.target as HTMLElement).dataset.step));
+        }
+      },
+      { rootMargin: '-45% 0px -45% 0px' },
+    );
+    items.current.forEach((el) => el && observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <section id="features" className="scroll-mt-16 border-t bg-card py-20 lg:py-28">
+      <div className="mx-auto max-w-7xl px-5 lg:px-8">
+        <SectionHeading eyebrow={t('featuresEyebrow')} title={t('featuresTitle')} body={t('featuresBody')} />
+        <div className="mt-14 grid gap-12 lg:mt-20 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
+          <ol className="space-y-14 lg:space-y-0">
+            {steps.map((step, index) => (
+              <li
+                key={step.key}
+                ref={(el) => {
+                  items.current[index] = el;
+                }}
+                data-step={index}
+                className="lg:flex lg:min-h-[70vh] lg:items-center"
+              >
+                <div data-reveal className={`reveal-up transition-opacity duration-500 ${active === index ? 'lg:opacity-100' : 'lg:opacity-35'}`}>
+                  <span className="flex items-center gap-3">
+                    <span className={`grid size-11 place-items-center rounded-xl transition-colors duration-500 ${active === index ? 'bg-primary text-primary-foreground' : 'bg-primary-soft text-primary-soft-foreground'}`}>
+                      <step.icon className="size-5" />
+                    </span>
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-subtle">{String(index + 1).padStart(2, '0')}</span>
+                  </span>
+                  <h3 className="mt-5 font-display text-2xl font-semibold tracking-tight sm:text-3xl">{t(`steps.${step.key}.title`)}</h3>
+                  <p className="mt-3 max-w-md text-base leading-relaxed text-muted-foreground">{t(`steps.${step.key}.body`)}</p>
+                  <ul className="mt-5 space-y-2.5">
+                    {(t.raw(`steps.${step.key}.points`) as string[]).map((point) => (
+                      <li key={point} className="flex items-start gap-2.5 text-sm font-medium">
+                        <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-success-soft text-success"><Check className="size-3" strokeWidth={3} /></span>
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-8 lg:hidden">
+                    <BrowserFrame src={screen(step.screen)} alt={t(`steps.${step.key}.title`)} />
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <div className="hidden lg:block">
+            <div className="sticky top-[calc(50vh-17rem)]">
+              <div className="relative">
+                <div aria-hidden className="absolute -inset-6 rounded-[2rem] bg-[radial-gradient(closest-side,rgba(255,196,0,0.22),transparent)]" />
+                <div className="relative aspect-[16/10]">
+                  {steps.map((step, index) => (
+                    <div
+                      key={step.key}
+                      aria-hidden={active !== index}
+                      className={`absolute inset-0 transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${active === index ? 'translate-y-0 scale-100 opacity-100' : index < active ? '-translate-y-6 scale-[0.97] opacity-0' : 'translate-y-6 scale-[0.97] opacity-0'}`}
+                    >
+                      <BrowserFrame src={screen(step.screen)} alt={t(`steps.${step.key}.title`)} />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-6 flex justify-center gap-2" aria-hidden>
+                  {steps.map((step, index) => (
+                    <span key={step.key} className={`h-1.5 rounded-full transition-all duration-500 ${active === index ? 'w-8 bg-primary' : 'w-1.5 bg-border-strong'}`} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BrowserFrame({ src, alt, eager = false }: { src: string; alt: string; eager?: boolean }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border bg-card shadow-[0_30px_70px_-25px_rgba(16,24,40,0.35)] ring-1 ring-black/[0.03]">
+      <div className="flex items-center gap-1.5 border-b bg-muted px-4 py-2.5" dir="ltr">
+        <span className="size-2.5 rounded-full bg-[#ff5f57]" />
+        <span className="size-2.5 rounded-full bg-[#febc2e]" />
+        <span className="size-2.5 rounded-full bg-[#28c840]" />
+        <span className="mx-auto hidden h-5 w-56 rounded-md bg-card text-center text-[10px] leading-5 text-subtle sm:block">merchant.alliva.bh</span>
+      </div>
+      <img src={src} alt={alt} width={2160} height={1350} loading={eager ? 'eager' : 'lazy'} decoding="async" className="block w-full" />
+    </div>
+  );
+}
+
+function Phone({ src, alt, className = '', eager = false }: { src: string; alt: string; className?: string; eager?: boolean }) {
+  return (
+    <div className={`rounded-[2rem] bg-[#0b0d11] p-[6%] shadow-[0_30px_60px_-20px_rgba(0,0,0,0.55)] ring-1 ring-white/10 transition-transform duration-500 ${className}`}>
+      <img src={src} alt={alt} width={780} height={1688} loading={eager ? 'eager' : 'lazy'} decoding="async" className="block w-full rounded-[1.5rem]" />
+    </div>
+  );
+}
+
+function SectionHeading({ eyebrow, title, body, dark = false }: { eyebrow: string; title: string; body: string; dark?: boolean }) {
+  return (
+    <div data-reveal className="reveal-up mx-auto max-w-2xl text-center">
+      <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${dark ? 'text-primary' : 'text-primary-soft-foreground'}`}>{eyebrow}</p>
+      <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight sm:text-5xl">{title}</h2>
+      <p className={`mt-4 text-base sm:text-lg ${dark ? 'text-white/65' : 'text-muted-foreground'}`}>{body}</p>
+    </div>
+  );
+}
+
+function Pillar({ icon: Icon, title, body, delay }: { icon: LucideIcon; title: string; body: string; delay: number }) {
+  return (
+    <div data-reveal className="reveal-up group rounded-2xl border bg-card p-6 shadow-xs transition-[box-shadow,transform] hover:-translate-y-1 hover:shadow-md" style={{ '--reveal-delay': `${delay}ms` } as React.CSSProperties}>
+      <span className="grid size-12 place-items-center rounded-xl bg-secondary text-primary transition-transform group-hover:scale-105">
+        <Icon className="size-5" />
+      </span>
+      <p className="mt-5 text-lg font-semibold">{title}</p>
+      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
     </div>
   );
 }
@@ -120,10 +424,10 @@ function FooterColumn({ title, links }: { title: string; links: [string, string]
   return (
     <div>
       <p className="text-sm font-semibold">{title}</p>
-      <ul className="mt-4 space-y-3 text-sm text-white/75">
+      <ul className="mt-4 space-y-3 text-sm text-white/65">
         {links.map(([label, href]) => (
           <li key={label}>
-            {href.startsWith('/') ? <Link href={href} className="hover:text-white">{label}</Link> : <a href={href} className="hover:text-white">{label}</a>}
+            {href.startsWith('/') ? <Link href={href} className="transition-colors hover:text-white">{label}</Link> : <a href={href} className="transition-colors hover:text-white">{label}</a>}
           </li>
         ))}
       </ul>
@@ -133,55 +437,48 @@ function FooterColumn({ title, links }: { title: string; links: [string, string]
 
 function Social({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <span aria-label={label} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">{children}</svg>
+    <span aria-label={label} className="grid size-9 place-items-center rounded-full bg-white/10">
+      <svg viewBox="0 0 24 24" className="size-4" fill="currentColor">{children}</svg>
     </span>
   );
 }
 
-function Feature({ icon: Icon, title, body }: { icon: typeof Truck; title: string; body: string }) {
-  return (
-    <div className="flex items-center gap-4">
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
-        <Icon className="h-5 w-5" />
-      </span>
-      <div>
-        <p className="font-semibold">{title}</p>
-        <p className="text-sm text-white/70">{body}</p>
-      </div>
-    </div>
-  );
-}
-
-function PlanCard({ plan, locale, t }: { plan: SubscriptionPlanView; locale: 'en' | 'ar'; t: ReturnType<typeof useTranslations> }) {
+function PlanCard({ plan, locale, t, delay }: { plan: SubscriptionPlanView; locale: 'en' | 'ar'; t: T; delay: number }) {
   const plansT = useTranslations('plans');
   const name = pickLocalized(plan.name, locale);
   const amount = Number(plan.priceMonthly);
   const price = Number.isFinite(amount) && Math.abs(amount - Math.round(amount)) < 0.001 ? String(Math.round(amount)) : amount.toFixed(3);
   const features = planFeatures(plan, plansT);
   return (
-    <article className={`flex w-[300px] shrink-0 snap-start flex-col rounded-[28px] border p-6 ${plan.recommended ? 'border-primary bg-primary-soft ring-1 ring-primary' : 'border-border bg-card'}`}>
+    <article
+      data-reveal
+      className={`reveal-up relative flex flex-col rounded-3xl border p-7 transition-[box-shadow,transform] hover:-translate-y-1 ${plan.recommended ? 'border-transparent bg-secondary text-secondary-foreground shadow-lg' : 'bg-card shadow-xs hover:shadow-md'}`}
+      style={{ '--reveal-delay': `${delay}ms` } as React.CSSProperties}
+    >
       <div className="flex items-start justify-between gap-3">
-        <h3 className="font-display text-3xl">{name}</h3>
-        {plan.recommended ? <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold">{t('popular')}</span> : null}
+        <h3 className="font-display text-2xl font-semibold">{name}</h3>
+        {plan.recommended ? <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">{t('popular')}</span> : null}
       </div>
-      <p className="mt-5 flex items-end gap-1.5">
-        <span className="mb-2 text-sm font-semibold">{t('currency')}</span>
-        <span className="font-display text-6xl leading-none tracking-tight">{price}</span>
-        <span className="mb-2 text-sm text-muted-foreground">{t('perMonth')}</span>
+      <p className="mt-6 flex items-end gap-1.5">
+        <span className="mb-1.5 text-sm font-semibold">{t('currency')}</span>
+        <span className="font-display text-5xl font-semibold leading-none tracking-tight">{price}</span>
+        <span className="mb-1.5 text-sm opacity-60">{t('perMonth')}</span>
       </p>
-      <p className="mt-4 min-h-12 text-sm leading-6 text-foreground">{pickLocalized(plan.description, locale)}</p>
-      <ul className="mt-5 space-y-3 text-sm">
+      <p className="mt-4 min-h-12 text-sm leading-6 opacity-75">{pickLocalized(plan.description, locale)}</p>
+      <ul className="mt-6 space-y-3 border-t border-current/10 pt-6 text-sm">
         {features.map((feature) => (
           <li key={feature} className="flex items-start gap-2.5">
-            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <Check className="h-3 w-3" strokeWidth={3} />
+            <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+              <Check className="size-3" strokeWidth={3} />
             </span>
             <span>{feature}</span>
           </li>
         ))}
       </ul>
-      <Link href={`/register?plan=${plan.id}&interval=MONTHLY`} className={`mt-auto inline-flex h-12 items-center justify-center rounded-xl text-sm font-semibold ${plan.recommended ? 'bg-secondary text-secondary-foreground' : 'border border-border-strong bg-card'}`}>
+      <Link
+        href={`/register?plan=${plan.id}&interval=MONTHLY`}
+        className={`mt-8 inline-flex h-12 items-center justify-center rounded-xl text-sm font-semibold transition-colors ${plan.recommended ? 'bg-primary text-primary-foreground hover:bg-[var(--primary-hover)]' : 'border border-border-strong hover:bg-muted'}`}
+      >
         {t('get', { name })}
       </Link>
     </article>
@@ -209,63 +506,36 @@ function limitText(value: unknown, t: ReturnType<typeof useTranslations<'plans'>
   return String(value);
 }
 
-function PhoneStage({ t }: { t: ReturnType<typeof useTranslations> }) {
-  return (
-    <div className="relative mx-auto h-[min(540px,100%)] max-h-[460px] w-full max-w-[460px]">
-      <div className="absolute inset-x-8 top-8 bottom-0 rounded-[40px] bg-primary" />
-      <div className="absolute start-1/2 top-4 w-[250px] -translate-x-1/2 rtl:translate-x-1/2">
-        <div className="rounded-[32px] border-[8px] border-foreground bg-card shadow-2xl">
-          <div className="flex items-center justify-between px-4 pt-2 text-[10px] font-semibold">
-            <span>9:41</span>
-            <span className="h-4 w-16 rounded-full bg-secondary" />
-            <span className="w-6" />
-          </div>
-          <div className="flex items-center justify-between px-3 py-2">
-            <img src="/logo-on-light.png" alt="" className="h-4 w-auto" />
-            <ShoppingBag className="h-4 w-4" />
-          </div>
-          <div className="mx-3 flex h-7 items-center gap-1 rounded-full bg-muted px-2 text-[9px] text-subtle">
-            <Search className="h-3 w-3" /> {t('phoneSearch')}
-          </div>
-          <p className="mt-2 flex items-center gap-1 px-3 text-[10px] font-semibold">
-            <MapPin className="h-3 w-3 text-primary" /> {t('phonePlace')}
-          </p>
-          <div className="mx-3 mt-2 rounded-xl bg-primary p-2">
-            <p className="text-[11px] font-bold leading-tight">{t('phoneBanner')}</p>
-            <p className="mt-1 text-[8px]">{t('phoneBannerSub')}</p>
-          </div>
-          <div className="mt-2 flex justify-between px-3 text-[8px] text-muted-foreground">
-            <span className="flex flex-col items-center gap-0.5"><UtensilsCrossed className="h-3 w-3" /> </span>
-            <span className="flex flex-col items-center gap-0.5"><Store className="h-3 w-3" /> </span>
-            <span className="flex flex-col items-center gap-0.5"><ShoppingBag className="h-3 w-3" /> </span>
-            <span className="flex flex-col items-center gap-0.5"><LayoutGrid className="h-3 w-3" /> </span>
-          </div>
-          <div className="mt-2 flex items-center justify-between px-3 text-[10px] font-semibold">
-            <span>{t('phonePopular')}</span>
-            <span className="text-[8px] font-medium text-subtle">{t('phoneSeeAll')}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 px-3 pb-2 pt-1">
-            <MiniCard title="Saffron House" meta="Bahraini · Manama" tone="bg-primary" />
-            <MiniCard title="Pearl Grill" meta="Grill · Muharraq" tone="bg-primary" />
-          </div>
-          <div className="grid grid-cols-4 border-t px-1 py-1.5 text-[7px] text-subtle">
-            <span className="flex flex-col items-center text-foreground"><Home className="h-3 w-3" />{t('phoneHome')}</span>
-            <span className="flex flex-col items-center"><ShoppingBag className="h-3 w-3" />{t('phoneOrders')}</span>
-            <span className="flex flex-col items-center"><Heart className="h-3 w-3" />{t('phoneFavorites')}</span>
-            <span className="flex flex-col items-center"><span className="h-3 w-3 rounded-full border" />{t('phoneAccount')}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+function useScrolled(offset: number) {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > offset);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [offset]);
+  return scrolled;
 }
 
-function MiniCard({ title, meta, tone }: { title: string; meta: string; tone: string }) {
-  return (
-    <div>
-      <div className={`h-14 rounded-lg ${tone}`} />
-      <p className="mt-1 truncate text-[9px] font-semibold">{title}</p>
-      <p className="truncate text-[8px] text-subtle">{meta}</p>
-    </div>
-  );
+/** Marks [data-reveal] children visible once they scroll into view, so CSS can animate them in. */
+function useReveal() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const targets = el.querySelectorAll<HTMLElement>('[data-reveal]:not([data-visible])');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          entry.target.setAttribute('data-visible', '');
+          observer.unobserve(entry.target);
+        }
+      },
+      { rootMargin: '0px 0px -12% 0px', threshold: 0.08 },
+    );
+    targets.forEach((target) => observer.observe(target));
+    return () => observer.disconnect();
+  });
+  return ref;
 }

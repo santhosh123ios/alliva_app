@@ -1379,7 +1379,6 @@
   "landing": {
     "signIn": "Sign in",
     "getStarted": "Get started",
-    "how": "How it works",
     "plansNav": "Plans",
     "featuresNav": "Features",
     "headline": "Your store.",
@@ -1412,16 +1411,6 @@
     "customerAppBody": "Reach more customers in Bahrain.",
     "modes": "Delivery, pickup & dine-in",
     "modesBody": "All ordering modes, one platform.",
-    "phoneSearch": "Search for restaurants or dishes",
-    "phonePlace": "Manama, Bahrain",
-    "phoneBanner": "Great food from local stores",
-    "phoneBannerSub": "Order · Pick up · Dine in · Delivery",
-    "phonePopular": "Popular near you",
-    "phoneSeeAll": "See all",
-    "phoneHome": "Home",
-    "phoneOrders": "Orders",
-    "phoneFavorites": "Favorites",
-    "phoneAccount": "Account",
     "copy": {
       "base": {
         "blurb": "Your store appears alongside other stores.",
@@ -1468,7 +1457,94 @@
           "Standard support"
         ]
       }
-    }
+    },
+    "rolesNav": "Your team",
+    "eyebrow": "Made for restaurants and stores in Bahrain",
+    "realScreens": "Real screens from the Alliva merchant app.",
+    "place": "Manama, Bahrain",
+    "tickerLabel": "What Alliva covers",
+    "ticker": {
+      "delivery": "Delivery",
+      "pickup": "Pickup",
+      "dineIn": "Dine-in",
+      "riders": "Your own riders",
+      "kitchen": "Kitchen display",
+      "qr": "Table QR ordering",
+      "payments": "Online payments",
+      "bilingual": "Arabic & English"
+    },
+    "featuresEyebrow": "One workspace",
+    "featuresTitle": "Everything your store runs on, in one place",
+    "featuresBody": "From the first order of the day to the last report, your team works from the same live screens.",
+    "steps": {
+      "orders": {
+        "title": "Every order on one live board",
+        "body": "Delivery, pickup and dine-in orders land on the same board. Accept, start and hand over with a tap, or drag a card to the next stage.",
+        "points": [
+          "Spoken alerts when a new order arrives",
+          "Drag cards between stages",
+          "Filter by delivery, pickup or dine-in"
+        ]
+      },
+      "menu": {
+        "title": "Your menu, always up to date",
+        "body": "Add products, categories and add-ons, then switch items on or off for the day or track real stock.",
+        "points": [
+          "Daily availability or stock counts",
+          "Bulk upload your catalogue",
+          "Low-stock alerts on the dashboard"
+        ]
+      },
+      "tables": {
+        "title": "Tables and QR ordering",
+        "body": "Lay out your floor, see which tables are free, busy or reserved, and give every table its own QR menu.",
+        "points": [
+          "Drag-and-drop floor plan",
+          "Live table status",
+          "A printable QR code for each table"
+        ]
+      },
+      "dispatch": {
+        "title": "Deliver with your own riders",
+        "body": "See ready orders on a live map, plan the route and assign it to a rider in one step.",
+        "points": [
+          "Suggested routes by distance",
+          "Riders see stops and cash to collect",
+          "Track who has which order"
+        ]
+      },
+      "reports": {
+        "title": "Know what is working",
+        "body": "Sales, busiest hours, top products and payment methods for any period, ready to export.",
+        "points": [
+          "Today, 7 days, 30 days or custom",
+          "Sales by order type and payment",
+          "Export to CSV or PDF"
+        ]
+      }
+    },
+    "rolesEyebrow": "Apps for every role",
+    "rolesTitle": "Your whole team, on the same page",
+    "rolesBody": "Each person signs in and lands on the app built for their job.",
+    "roles": {
+      "kitchen": {
+        "title": "Kitchen display",
+        "body": "Big, clear tickets with timers, notes and one-tap status."
+      },
+      "floor": {
+        "title": "Floor staff",
+        "body": "Take orders at the table and answer guest calls."
+      },
+      "billing": {
+        "title": "Billing",
+        "body": "Close bills, take cash or card and track the drawer."
+      },
+      "rider": {
+        "title": "Riders",
+        "body": "Follow the route, scan pickups and collect cash."
+      }
+    },
+    "plansEyebrow": "Pricing"
   },
   "merchantBusiness": {
     "title": "Your business",
