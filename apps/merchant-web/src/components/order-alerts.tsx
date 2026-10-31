@@ -180,8 +180,10 @@ export function useOrderUpdates() {
       void client.invalidateQueries({ queryKey: ['merchant', 'orders'] });
       void client.invalidateQueries({ queryKey: ['merchant', 'dashboard'] });
       void client.invalidateQueries({ queryKey: ['merchant', 'kitchen'] });
+      void client.invalidateQueries({ queryKey: ['merchant', 'floor'] });
     };
     socket.on('order.updated', refresh);
+    socket.on('service.updated', () => void client.invalidateQueries({ queryKey: ['merchant', 'floor'] }));
     // Catch up on anything missed while the connection was down.
     let connected = false;
     socket.on('connect', () => {

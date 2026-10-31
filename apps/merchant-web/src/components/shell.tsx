@@ -1,13 +1,13 @@
 import { api } from '@/components/providers';
 import { BusinessSetupDialog, type SetupProfile } from '@/components/business-setup';
 import { OrderAlerts } from '@/components/order-alerts';
-import { canOpen, hasPermission, isKitchenOnly, isRider } from '@/lib/roles';
+import { canOpen, hasPermission, isKitchenOnly, isOrderTaker, isRider } from '@/lib/roles';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { pickLocalized } from '@alliva/design-tokens';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, ShellSkeleton, Spinner } from '@alliva/ui';
 import type { AuthUser } from '@alliva/types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BarChart3, Bell, ChefHat, ChevronDown, ChevronRight, Crown, LayoutGrid, Package, Route, Search, Settings, ShoppingCart, Store, Ticket, Users, UtensilsCrossed, Wallet } from 'lucide-react';
+import { BarChart3, Bell, ChefHat, ChevronDown, ChevronRight, Crown, LayoutGrid, Package, Route, Search, Settings, ShoppingCart, Smartphone, Store, Ticket, Users, UtensilsCrossed, Wallet } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -53,6 +53,7 @@ const groups = [
       { href: '/dashboard', label: 'dashboard', icon: LayoutGrid },
       { href: '/orders', label: 'orders', icon: ShoppingCart },
       { href: '/kitchen', label: 'kitchen', icon: ChefHat },
+      { href: '/floor', label: 'floor', icon: Smartphone },
       { href: '/tables', label: 'tables', icon: UtensilsCrossed },
       { href: '/dispatch', label: 'dispatch', icon: Route },
       { href: '/products', label: 'products', icon: Package },
@@ -101,10 +102,12 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   }, [isPublic, me.isError, router]);
   const rider = Boolean(me.data && isRider(me.data));
   const kitchenOnly = Boolean(me.data && isKitchenOnly(me.data));
+  const orderTaker = Boolean(me.data && isOrderTaker(me.data));
   useEffect(() => {
     if (!isPublic && rider) router.replace('/rider');
     else if (!isPublic && kitchenOnly) router.replace('/kitchen');
-  }, [isPublic, rider, kitchenOnly, router]);
+    else if (!isPublic && orderTaker) router.replace('/floor');
+  }, [isPublic, rider, kitchenOnly, orderTaker, router]);
   useEffect(() => {
     if (!profileOpen) return;
     const close = (event: MouseEvent) => {

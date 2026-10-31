@@ -29,7 +29,8 @@
     "business": "Business",
     "logout": "Log out",
     "kitchen": "Kitchen display",
-    "reports": "Reports"
+    "reports": "Reports",
+    "floor": "Floor app"
   },
   "auth": {
     "signIn": "Sign in",
@@ -618,6 +619,26 @@
       "network": "You seem to be offline. Check your connection and try again.",
       "generic": "Something went wrong. Try again.",
       "addressSaveFailed": "We couldn't save this address. Try again."
+    },
+    "tableCall": {
+      "sent": {
+        "WAITER": "A waiter is being called",
+        "BILL": "Your bill is on its way",
+        "HELP": "Staff have been told"
+      },
+      "onTheWayShort": "Staff on the way",
+      "waitingShort": "Staff called",
+      "button": "Table {table} · Call staff",
+      "title": "Table {table}",
+      "subtitle": "Let the staff know what you need.",
+      "kinds": {
+        "WAITER": "Call a waiter",
+        "BILL": "Ask for the bill",
+        "HELP": "I need help"
+      },
+      "comingNamed": "{name} is on the way",
+      "coming": "Someone is on the way",
+      "waiting": "Sent. Staff will be with you shortly."
     }
   },
   "workspace": {
@@ -2955,5 +2976,201 @@
     "noSales": "No sales in this period",
     "loadError": "Could not load the report",
     "hoursMinutes": "{hours}h {minutes}m"
+  },
+  "floor": {
+    "appName": "Floor",
+    "minutes": "{count} min",
+    "hoursMinutes": "{hours}h {minutes}m",
+    "tableNumber": "Table {table}",
+    "readyFor": "Ready for {age}",
+    "placedAgo": "Placed {age} ago",
+    "tabs": {
+      "label": "Floor app",
+      "home": "Home",
+      "tables": "Tables",
+      "menu": "Menu",
+      "orders": "Orders",
+      "profile": "Profile"
+    },
+    "calls": {
+      "badge": "{count, plural, =0 {No calls waiting} one {# call waiting} other {# calls waiting}}",
+      "doneToast": "Call closed",
+      "comingToast": "The table knows you’re coming",
+      "waiting": "Waiting {age}",
+      "comingNamed": "{name} is on the way",
+      "coming": "Someone is on the way",
+      "onMyWay": "On my way",
+      "short": {
+        "WAITER": "Wants a waiter",
+        "BILL": "Wants the bill",
+        "HELP": "Needs help"
+      },
+      "doneAria": "Close the call from table {table}"
+    },
+    "draft": {
+      "forTable": "Table {table}",
+      "takeaway": "Takeaway",
+      "noTarget": "New order",
+      "items": "{count, plural, one {# item} other {# items}}"
+    },
+    "fulfillment": {
+      "DINE_IN": "Dine-in",
+      "TAKEAWAY": "Takeaway",
+      "DELIVERY": "Delivery"
+    },
+    "actions": {
+      "served": "Mark served",
+      "handedOver": "Handed over"
+    },
+    "stage": {
+      "new": "Needs accepting",
+      "toStart": "In the queue",
+      "cooking": "Cooking",
+      "ready": "Ready to serve"
+    },
+    "alerts": {
+      "call": {
+        "WAITER": "Table {table} wants a waiter",
+        "BILL": "Table {table} wants the bill",
+        "HELP": "Table {table} needs help"
+      },
+      "readyTable": "Table {table}’s food is ready",
+      "ready": "Order {number} is ready"
+    },
+    "home": {
+      "loadFailed": "Could not load the floor",
+      "morning": "Good morning, {name}",
+      "afternoon": "Good afternoon, {name}",
+      "evening": "Good evening, {name}",
+      "summaryBusy": "{calls, plural, =0 {No calls} one {# call} other {# calls}} and {ready, plural, =0 {nothing ready} one {# order ready} other {# orders ready}} to serve.",
+      "summaryQuiet": "All quiet. Calls and ready food show up here.",
+      "stats": {
+        "calls": "Calls",
+        "ready": "Ready to serve",
+        "tables": "Tables free",
+        "served": "Served today",
+        "seated": "{count} seated"
+      },
+      "callsTitle": "Tables calling",
+      "noCalls": "No one is calling right now.",
+      "readyTitle": "Ready to serve",
+      "noReady": "Nothing waiting at the pass.",
+      "mineTitle": "My orders in progress",
+      "allOrders": "All orders",
+      "noMine": "You have no orders in the kitchen.",
+      "takeOrder": "Take an order"
+    },
+    "tables": {
+      "loadFailed": "Could not load the tables",
+      "none": "No tables yet",
+      "noneBody": "The store owner adds tables on the Tables page.",
+      "title": "Tables",
+      "plan": "Floor plan",
+      "list": "List",
+      "allZones": "All zones",
+      "status": {
+        "AVAILABLE": "Free",
+        "OCCUPIED": "Seated",
+        "RESERVED": "Reserved",
+        "INACTIVE": "Cleaning"
+      },
+      "seats": "{count, plural, one {# seat} other {# seats}}",
+      "tableAria": "Table {table}, {status}",
+      "tableNumber": "Table {table}",
+      "seatedFor": "seated {age}",
+      "close": "Close",
+      "calls": "Calls",
+      "orders": "Orders at this table",
+      "noOrders": "No orders yet.",
+      "addOrder": "Add to this table",
+      "takeOrder": "Take an order",
+      "clearTable": "Clear table",
+      "draftMoved": "Your open order now goes to table {table}"
+    },
+    "menu": {
+      "added": "Added {name}",
+      "loadFailed": "Could not load the menu",
+      "empty": "The menu is empty",
+      "emptyBody": "Products the store adds show up here.",
+      "search": "Search the menu",
+      "all": "All",
+      "noMatch": "Nothing matches that search.",
+      "review": "Review order · {count, plural, one {# item} other {# items}}",
+      "orderingFor": "Ordering for",
+      "table": "Table {table}",
+      "takeaway": "Takeaway",
+      "noTarget": "Choose a table or takeaway",
+      "pickTable": "Table",
+      "from": "from {price}",
+      "add": "Add {name}",
+      "soldOut": "Sold out",
+      "close": "Close",
+      "less": "One less",
+      "more": "One more",
+      "choose": "Choose {group}",
+      "addFor": "Add · {price}",
+      "size": "Size",
+      "required": "Pick {count}",
+      "optional": "Optional, up to {count}",
+      "note": "Note for the kitchen",
+      "notePlaceholder": "No onions, extra spicy…",
+      "sent": "Order {number} sent to the kitchen",
+      "reviewTitle": "Review order",
+      "subtotal": "Subtotal",
+      "sending": "Sending…",
+      "send": "Send to kitchen",
+      "payNote": "The diner pays at the till. Service and tax are added by the store’s settings.",
+      "reservedWarning": "This table is reserved",
+      "emptyDraft": "No items yet. Add dishes from the menu.",
+      "orderNote": "Order note",
+      "orderNotePlaceholder": "Allergies, birthday, seat numbers…"
+    },
+    "orders": {
+      "loadFailed": "Could not load orders",
+      "title": "Orders",
+      "mine": "Mine",
+      "all": "All",
+      "sections": {
+        "new": "Needs accepting",
+        "kitchen": "In the kitchen",
+        "ready": "Ready"
+      },
+      "empty": {
+        "new": "No new orders.",
+        "kitchen": "Nothing cooking.",
+        "ready": "Nothing waiting to be served."
+      },
+      "meta": "{number} · {items, plural, one {# item} other {# items}} · {age} ago",
+      "late": "running late",
+      "keep": "Keep order",
+      "confirmReject": "Reject order",
+      "acceptIn": "Accept, ready in",
+      "reject": "Reject",
+      "waitingRider": "Waiting for the rider to collect."
+    },
+    "profile": {
+      "loadFailed": "Could not load your profile",
+      "roles": {
+        "MERCHANT_OWNER": "Store owner",
+        "MERCHANT_MANAGER": "Store manager",
+        "ORDER_TAKING_STAFF": "Order taker",
+        "KITCHEN_STAFF": "Kitchen staff",
+        "BILLING_STAFF": "Billing staff",
+        "DELIVERY_STAFF": "Delivery staff",
+        "REPORT_VIEWER": "Report viewer"
+      },
+      "today": "{open, plural, =0 {No orders} one {# order} other {# orders}} in progress · {served} served today at the store",
+      "store": "Store",
+      "phone": "Phone",
+      "email": "Email",
+      "branch": "Branch",
+      "allBranches": "All branches",
+      "sound": "Alert sound",
+      "soundHint": "Chime when a table calls or food is ready",
+      "language": "Language",
+      "workspace": "Open the full workspace",
+      "logout": "Log out"
+    },
+    "underMinute": "under a minute"
   }
 }

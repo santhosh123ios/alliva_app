@@ -760,6 +760,87 @@ export type KitchenTicket = {
 
 export type KitchenBoard = { tickets: KitchenTicket[]; generatedAt: string };
 
+export type ServiceRequestKind = 'WAITER' | 'BILL' | 'HELP';
+export type ServiceRequestStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
+
+export type ServiceRequestView = {
+  id: string;
+  kind: ServiceRequestKind;
+  status: ServiceRequestStatus;
+  table: { id: string; number: string; name: string };
+  createdAt: string;
+  acknowledgedAt: string | null;
+  acknowledgedBy: string | null;
+  resolvedAt: string | null;
+};
+
+export type TableLayout = {
+  positions: Record<string, { x: number; y: number }>;
+  zones: {
+    order: string[];
+    widths: Record<string, number>;
+    heights: Record<string, number>;
+    rects: Record<string, { x: number; y: number; width: number; height: number }>;
+  };
+};
+
+export type FloorOrder = {
+  id: string;
+  number: string;
+  status: OrderStatus;
+  fulfillmentType: FulfillmentType;
+  total: MoneyString;
+  createdAt: string;
+  estimatedReadyAt: string | null;
+  readyAt: string | null;
+  tableId: string | null;
+  tableNumber: string | null;
+  customerName: string;
+  notes: string | null;
+  takenByMe: boolean;
+  items: { name: LocalizedText; quantity: number; notes: string | null; addons: LocalizedText[] }[];
+};
+
+export type FloorTable = {
+  id: string;
+  number: string;
+  name: string;
+  capacity: number;
+  status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'INACTIVE';
+  branchId: string | null;
+  floor: { id: string; name: LocalizedText };
+  openedAt: string | null;
+};
+
+/** Everything the order taker app shows live: tables, calls and the orders still in progress. */
+export type FloorBoard = {
+  layout: TableLayout | null;
+  tables: FloorTable[];
+  requests: ServiceRequestView[];
+  orders: FloorOrder[];
+  servedToday: number;
+  generatedAt: string;
+};
+
+export type FloorMenuProduct = {
+  id: string;
+  name: LocalizedText;
+  description: LocalizedText;
+  price: MoneyString;
+  imageUrl: string | null;
+  available: boolean;
+  variants: { id: string; name: LocalizedText; price: MoneyString; available: boolean }[];
+  addonGroups: { id: string; name: LocalizedText; minSelect: number; maxSelect: number; addons: { id: string; name: LocalizedText; price: MoneyString; available: boolean }[] }[];
+};
+
+export type FloorMenu = { categories: { id: string; name: LocalizedText; products: FloorMenuProduct[] }[] };
+
+/** The diner's table, from the QR they scanned, and any call still open there. */
+export type TableServiceView = {
+  table: { id: string; number: string; name: string };
+  requests: ServiceRequestView[];
+};
+
 /** Payment method on an order, or UNPAID when no payment was recorded. */
 export type TakingsMethod = OrderPaymentMethod | 'UNPAID';
 

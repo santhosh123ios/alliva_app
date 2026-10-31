@@ -567,6 +567,149 @@ export class CommerceService {
     return this.publish(order.id);
   }
 
+  /**
+   * An order floor staff take at a table or the counter. Priced like checkout, booked under the store's walk-in guest,
+   * paid at the till, and sent straight to the kitchen: the person taking it has already accepted it.
+   */
+  async staffOrder(
+    actor: { id: string; merchantId: string },
+    input: { fulfillmentType: 'DINE_IN' | 'TAKEAWAY'; tableId?: string | null; branchId?: string; notes?: string; items: { productId: string; variantId?: string | null; addonIds: string[]; quantity: number; notes?: string }[] },
+  ) {
+    const merchant = await this.prisma.merchant.findUnique({ where: { id: actor.merchantId }, include: { branches: { where: { active: true }, orderBy: { createdAt: 'asc' } } } });
+    if (!merchant || merchant.deletedAt || merchant.status !== 'ACTIVE') throw badRequest('This store is not taking orders right now');
+    const table = input.fulfillmentType === 'DINE_IN' && input.tableId
+      ? await this.prisma.diningTable.findFirst({ where: { id: input.tableId, merchantId: merchant.id, deletedAt: null, active: true } })
+      : null;
+    if (input.fulfillmentType === 'DINE_IN' && !table) throw badRequest('Choose a table for a dine-in order');
+    const branchId = input.branchId ?? table?.branchId ?? null;
+    const branch = (branchId ? merchant.branches.find((row) => row.id === branchId) : null) ?? merchant.branches[0];
+    if (!branch) throw badRequest('This store has no open branch');
+    const rows = await this.platform.entitlementUsage(merchant.id);
+    if (!rows.length) throw badRequest('This store is not taking orders right now');
+    assertFeatureAllowed(readEntitlement(rows, input.fulfillmentType === 'DINE_IN' ? 'tableOrdering' : 'takeawayOrdering'), input.fulfillmentType === 'DINE_IN' ? 'Table ordering' : 'Takeaway ordering');
+    const orderUsage = rows.find((row) => row.key === 'monthlyOrderLimit');
+    assertWithinLimit(orderUsage?.value, orderUsage?.usage ?? 0, 1, 'monthly order limit');
+
+    const products = await this.prisma.product.findMany({ where: { id: { in: [...new Set(input.items.map((item) => item.productId))] }, merchantId: merchant.id, deletedAt: null }, select: { id: true } });
+    if (products.length !== new Set(input.items.map((item) => item.productId)).size) throw badRequest('An item is not on this store’s menu');
+    const customerId = await this.walkInCustomer(merchant.id);
+    // An in-memory cart, so pricing runs exactly as it does at checkout without touching anyone's saved cart.
+    const cart = {
+      id: 'staff',
+      customerId,
+      guestId: null,
+      merchantId: merchant.id,
+      branchId: branch.id,
+      fulfillmentType: input.fulfillmentType,
+      promoCodeId: null,
+      promoCode: null,
+      addressId: null,
+      tableId: table?.id ?? null,
+      scheduledFor: null,
+      notes: input.notes ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      items: input.items.map((item, index) => ({
+        id: `line-${index}`,
+        cartId: 'staff',
+        productId: item.productId,
+        variantId: item.variantId ?? null,
+        quantity: item.quantity,
+        notes: item.notes || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        addons: [...new Set(item.addonIds)].map((addonId) => ({ cartItemId: `line-${index}`, addonId })),
+      })),
+    } as unknown as CartRecord;
+    let priced: Awaited<ReturnType<CommerceService['price']>>;
+    try {
+      priced = await this.price(cart, customerId, null);
+    } catch (error) {
+      throw badRequest(error instanceof Error ? error.message : 'Could not price this order');
+    }
+    const percent = commissionPercent(readEntitlement(rows, 'merchantCommissionPercent'));
+    const food = money(priced.pricing.subtotal).minus(priced.pricing.discount);
+    const commission = food.mul(percent).div(100);
+    const prep = merchant.preparationMinutes;
+    const order = await this.prisma.$transaction(async (tx) => {
+      const count = await tx.order.count();
+      const created = await tx.order.create({
+        data: {
+          number: `ALV-${10001 + count}`,
+          customerId,
+          merchantId: merchant.id,
+          branchId: branch.id,
+          fulfillmentType: input.fulfillmentType,
+          status: 'ACCEPTED',
+          tableId: table?.id ?? null,
+          notes: input.notes || null,
+          subtotal: priced.pricing.subtotal,
+          discount: priced.pricing.discount,
+          deliveryFee: priced.pricing.deliveryFee,
+          deliveryFeeSaved: priced.pricing.deliveryFeeSaved,
+          serviceFee: priced.pricing.serviceFee,
+          tax: priced.pricing.tax,
+          total: priced.pricing.total,
+          commissionPercent: percent,
+          platformCommission: moneyString(commission),
+          merchantNet: moneyString(food.minus(commission)),
+          preparationMinutes: prep,
+          estimatedReadyAt: new Date(Date.now() + prep * 60000),
+          createdById: actor.id,
+          items: {
+            create: priced.lines.map((line) => ({
+              merchantId: merchant.id,
+              productId: line.productId,
+              variantId: line.variantId,
+              name: line.name,
+              quantity: line.quantity,
+              unitPrice: line.unitPrice,
+              lineTotal: line.lineTotal,
+              notes: line.notes,
+              addons: { create: line.addons.map((addon) => ({ addonId: addon.id, name: addon.name, price: addon.price })) },
+            })),
+          },
+          events: {
+            create: [
+              { status: 'PENDING', actorId: actor.id, note: 'Order taken by staff' },
+              { status: 'ACCEPTED', actorId: actor.id, note: null },
+            ],
+          },
+        },
+      });
+      for (const line of priced.lines) {
+        await tx.inventoryItem.updateMany({
+          where: { productId: line.productId, branchId: branch.id, quantity: { gte: line.quantity } },
+          data: { quantity: { decrement: line.quantity } },
+        });
+      }
+      if (table) {
+        await tx.diningTable.update({ where: { id: table.id }, data: { status: 'OCCUPIED' } });
+        const open = await tx.tableSession.findFirst({ where: { tableId: table.id, closedAt: null } });
+        if (!open) await tx.tableSession.create({ data: { tableId: table.id, merchantId: merchant.id } });
+      }
+      return created;
+    });
+    await this.capturePayment(order.id, 'CASH', `staff:${order.id}`, actor.id);
+    return this.publish(order.id);
+  }
+
+  /** The guest every staff-taken order is booked under, made the first time a store needs one. */
+  private async walkInCustomer(merchantId: string) {
+    const merchant = await this.prisma.merchant.findUniqueOrThrow({ where: { id: merchantId }, select: { walkInCustomerId: true } });
+    if (merchant.walkInCustomerId) return merchant.walkInCustomerId;
+    const user = await this.prisma.user.create({
+      // No email, phone or password: nobody can sign in as the walk-in guest.
+      data: { kind: 'CUSTOMER', status: 'SUSPENDED', firstName: 'Walk-in', lastName: 'guest', customer: { create: {} } },
+      include: { customer: true },
+    });
+    const id = user.customer!.id;
+    const claimed = await this.prisma.merchant.updateMany({ where: { id: merchantId, walkInCustomerId: null }, data: { walkInCustomerId: id } });
+    if (claimed.count) return id;
+    // Another request made one first; use theirs.
+    return (await this.prisma.merchant.findUniqueOrThrow({ where: { id: merchantId }, select: { walkInCustomerId: true } })).walkInCustomerId!;
+  }
+
   /** Delivery quote for the current cart, a saved address or a map point. */
   async deliveryQuote(owner: { customerId?: string | null; guestId?: string | null }, input: { addressId?: string | null; latitude?: unknown; longitude?: unknown; merchantId?: string | null; branchId?: string | null }) {
     let point = parsePoint(input.latitude, input.longitude);

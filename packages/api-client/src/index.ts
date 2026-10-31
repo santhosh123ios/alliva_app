@@ -1,4 +1,10 @@
 import type {
+  FloorBoard,
+  FloorMenu,
+  ServiceRequestKind,
+  ServiceRequestView,
+  TableLayout,
+  TableServiceView,
   AdminDashboard,
   KitchenBoard,
   StoreReport,
@@ -270,6 +276,13 @@ export function createApiClient(baseUrl = '', portal?: AuthPortal) {
     takings: (params: { date?: string; branchId?: string } = {}) => request<StoreTakings>(`/api/merchant/takings${query(params)}`),
     storeReport: (params: { from?: string; to?: string; branchId?: string } = {}) => request<StoreReport>(`/api/merchant/reports${query(params)}`),
     storeReportFile: (kind: 'csv' | 'pdf', params: { from?: string; to?: string; branchId?: string } = {}) => file(`/api/merchant/reports/export.${kind}${query(params)}`),
+    floor: (branchId?: string) => request<FloorBoard>(`/api/merchant/floor${query({ branchId })}`),
+    floorMenu: () => request<FloorMenu>('/api/merchant/floor/menu'),
+    staffOrder: (body: { fulfillmentType: 'DINE_IN' | 'TAKEAWAY'; tableId?: string | null; branchId?: string; notes?: string; items: { productId: string; variantId?: string | null; addonIds: string[]; quantity: number; notes?: string }[] }) =>
+      send<OrderView>('/api/merchant/floor/orders', 'POST', body),
+    answerServiceRequest: (id: string, status: 'ACKNOWLEDGED' | 'RESOLVED') => send<ServiceRequestView>(`/api/merchant/service-requests/${id}`, 'POST', { status }),
+    tableLayout: () => request<{ layout: TableLayout | null }>('/api/merchant/table-layout'),
+    saveTableLayout: (layout: TableLayout) => send<{ layout: TableLayout }>('/api/merchant/table-layout', 'PUT', layout),
     setTableStatus: (id: string, status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'INACTIVE') => send(`/api/merchant/tables/${id}/status`, 'POST', { status }),
     decideCashDeposit: (id: string, body: { decision: 'CONFIRMED' | 'REJECTED'; note?: string }) =>
       send<StoreCashDeposits>(`/api/merchant/cash-deposits/${id}/decision`, 'POST', body),
@@ -398,6 +411,8 @@ export function createApiClient(baseUrl = '', portal?: AuthPortal) {
     invoices: () => request<{ id: string; number: string; amount: string; currency: string; status: string; kind: string; issuedAt: string }[]>('/api/merchant/invoices'),
     areas: () => request<Json[]>('/api/service-areas'),
     enterQr: (code: string) => send<Json>(`/api/qr/${code}/enter`, 'POST'),
+    tableService: () => request<TableServiceView>('/api/table-service'),
+    callStaff: (kind: ServiceRequestKind) => send<TableServiceView>('/api/table-service/calls', 'POST', { kind }),
     customer: () => request<Json>('/api/customers/me'),
     customerWallet: () => request<PortalWallet>('/api/customers/me/wallet'),
     requestCustomerWithdrawal: (amount: string) => send<{ id: string; amount: string; status: string }>('/api/customers/me/wallet/withdrawals', 'POST', { amount }),

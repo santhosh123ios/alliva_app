@@ -29,7 +29,8 @@
     "business": "النشاط",
     "logout": "تسجيل الخروج",
     "kitchen": "شاشة المطبخ",
-    "reports": "التقارير"
+    "reports": "التقارير",
+    "floor": "تطبيق الصالة"
   },
   "auth": {
     "signIn": "تسجيل الدخول",
@@ -618,6 +619,26 @@
       "network": "يبدو أنك غير متصل. تحقق من اتصالك وحاول مرة أخرى.",
       "generic": "حدث خطأ ما. حاول مرة أخرى.",
       "addressSaveFailed": "تعذّر حفظ هذا العنوان. حاول مرة أخرى."
+    },
+    "tableCall": {
+      "sent": {
+        "WAITER": "جارٍ استدعاء النادل",
+        "BILL": "الفاتورة في الطريق إليك",
+        "HELP": "تم إبلاغ الموظفين"
+      },
+      "onTheWayShort": "الموظف في الطريق",
+      "waitingShort": "تم النداء",
+      "button": "طاولة {table} · نداء الموظف",
+      "title": "طاولة {table}",
+      "subtitle": "أخبر الموظفين بما تحتاجه.",
+      "kinds": {
+        "WAITER": "استدعاء نادل",
+        "BILL": "طلب الفاتورة",
+        "HELP": "أحتاج مساعدة"
+      },
+      "comingNamed": "{name} في الطريق",
+      "coming": "أحد الموظفين في الطريق",
+      "waiting": "تم الإرسال. سيصل إليك أحد الموظفين قريبًا."
     }
   },
   "workspace": {
@@ -2955,5 +2976,201 @@
     "noSales": "لا مبيعات في هذه الفترة",
     "loadError": "تعذّر تحميل التقرير",
     "hoursMinutes": "{hours} س {minutes} د"
+  },
+  "floor": {
+    "appName": "الصالة",
+    "minutes": "{count} د",
+    "hoursMinutes": "{hours}س {minutes}د",
+    "tableNumber": "طاولة {table}",
+    "readyFor": "جاهز منذ {age}",
+    "placedAgo": "طُلب منذ {age}",
+    "tabs": {
+      "label": "تطبيق الصالة",
+      "home": "الرئيسية",
+      "tables": "الطاولات",
+      "menu": "القائمة",
+      "orders": "الطلبات",
+      "profile": "حسابي"
+    },
+    "calls": {
+      "badge": "{count, plural, =0 {لا توجد نداءات} one {نداء واحد بانتظارك} two {نداءان بانتظارك} few {# نداءات بانتظارك} many {# نداءً بانتظارك} other {# نداء بانتظارك}}",
+      "doneToast": "أُغلق النداء",
+      "comingToast": "تم إبلاغ الطاولة أنك في الطريق",
+      "waiting": "بانتظار منذ {age}",
+      "comingNamed": "{name} في الطريق",
+      "coming": "أحد الموظفين في الطريق",
+      "onMyWay": "أنا قادم",
+      "short": {
+        "WAITER": "تطلب نادلاً",
+        "BILL": "تطلب الفاتورة",
+        "HELP": "تحتاج مساعدة"
+      },
+      "doneAria": "إغلاق نداء طاولة {table}"
+    },
+    "draft": {
+      "forTable": "طاولة {table}",
+      "takeaway": "استلام",
+      "noTarget": "طلب جديد",
+      "items": "{count, plural, one {صنف واحد} two {صنفان} few {# أصناف} many {# صنفًا} other {# صنف}}"
+    },
+    "fulfillment": {
+      "DINE_IN": "داخل المطعم",
+      "TAKEAWAY": "استلام",
+      "DELIVERY": "توصيل"
+    },
+    "actions": {
+      "served": "تم التقديم",
+      "handedOver": "تم التسليم"
+    },
+    "stage": {
+      "new": "بانتظار القبول",
+      "toStart": "في الانتظار",
+      "cooking": "قيد الطهي",
+      "ready": "جاهز للتقديم"
+    },
+    "alerts": {
+      "call": {
+        "WAITER": "طاولة {table} تطلب نادلاً",
+        "BILL": "طاولة {table} تطلب الفاتورة",
+        "HELP": "طاولة {table} تحتاج مساعدة"
+      },
+      "readyTable": "طعام طاولة {table} جاهز",
+      "ready": "الطلب {number} جاهز"
+    },
+    "home": {
+      "loadFailed": "تعذّر تحميل الصالة",
+      "morning": "صباح الخير، {name}",
+      "afternoon": "مساء الخير، {name}",
+      "evening": "مساء الخير، {name}",
+      "summaryBusy": "{calls, plural, =0 {لا نداءات} one {نداء واحد} two {نداءان} few {# نداءات} many {# نداءً} other {# نداء}} و{ready, plural, =0 {لا شيء جاهز} one {طلب واحد جاهز} two {طلبان جاهزان} few {# طلبات جاهزة} many {# طلبًا جاهزًا} other {# طلب جاهز}} للتقديم.",
+      "summaryQuiet": "كل شيء هادئ. تظهر النداءات والطعام الجاهز هنا.",
+      "stats": {
+        "calls": "النداءات",
+        "ready": "جاهز للتقديم",
+        "tables": "طاولات شاغرة",
+        "served": "قُدّم اليوم",
+        "seated": "{count, plural, =0 {لا أحد جالس} one {طاولة مشغولة} two {طاولتان مشغولتان} few {# طاولات مشغولة} many {# طاولة مشغولة} other {# طاولة مشغولة}}"
+      },
+      "callsTitle": "طاولات تنادي",
+      "noCalls": "لا أحد ينادي الآن.",
+      "readyTitle": "جاهز للتقديم",
+      "noReady": "لا شيء بانتظار التقديم.",
+      "mineTitle": "طلباتي قيد التحضير",
+      "allOrders": "كل الطلبات",
+      "noMine": "ليس لديك طلبات في المطبخ.",
+      "takeOrder": "خذ طلبًا"
+    },
+    "tables": {
+      "loadFailed": "تعذّر تحميل الطاولات",
+      "none": "لا توجد طاولات بعد",
+      "noneBody": "يضيف مالك المتجر الطاولات من صفحة الطاولات.",
+      "title": "الطاولات",
+      "plan": "المخطط",
+      "list": "قائمة",
+      "allZones": "كل المناطق",
+      "status": {
+        "AVAILABLE": "شاغرة",
+        "OCCUPIED": "مشغولة",
+        "RESERVED": "محجوزة",
+        "INACTIVE": "تنظيف"
+      },
+      "seats": "{count, plural, one {مقعد واحد} two {مقعدان} few {# مقاعد} many {# مقعدًا} other {# مقعد}}",
+      "tableAria": "طاولة {table}، {status}",
+      "tableNumber": "طاولة {table}",
+      "seatedFor": "مشغولة منذ {age}",
+      "close": "إغلاق",
+      "calls": "النداءات",
+      "orders": "طلبات هذه الطاولة",
+      "noOrders": "لا طلبات بعد.",
+      "addOrder": "إضافة لهذه الطاولة",
+      "takeOrder": "خذ طلبًا",
+      "clearTable": "تفريغ الطاولة",
+      "draftMoved": "طلبك المفتوح سيذهب الآن إلى طاولة {table}"
+    },
+    "menu": {
+      "added": "أُضيف {name}",
+      "loadFailed": "تعذّر تحميل القائمة",
+      "empty": "القائمة فارغة",
+      "emptyBody": "تظهر هنا المنتجات التي يضيفها المتجر.",
+      "search": "ابحث في القائمة",
+      "all": "الكل",
+      "noMatch": "لا نتائج مطابقة.",
+      "review": "مراجعة الطلب · {count, plural, one {صنف واحد} two {صنفان} few {# أصناف} many {# صنفًا} other {# صنف}}",
+      "orderingFor": "الطلب لـ",
+      "table": "طاولة {table}",
+      "takeaway": "استلام",
+      "noTarget": "اختر طاولة أو استلام",
+      "pickTable": "طاولة",
+      "from": "من {price}",
+      "add": "أضف {name}",
+      "soldOut": "نفد",
+      "close": "إغلاق",
+      "less": "إنقاص واحد",
+      "more": "زيادة واحد",
+      "choose": "اختر {group}",
+      "addFor": "أضف · {price}",
+      "size": "الحجم",
+      "required": "اختر {count}",
+      "optional": "اختياري، حتى {count}",
+      "note": "ملاحظة للمطبخ",
+      "notePlaceholder": "بدون بصل، حار جدًا…",
+      "sent": "أُرسل الطلب {number} إلى المطبخ",
+      "reviewTitle": "مراجعة الطلب",
+      "subtotal": "المجموع الفرعي",
+      "sending": "جارٍ الإرسال…",
+      "send": "أرسل إلى المطبخ",
+      "payNote": "يدفع الضيف عند الكاشير. تُضاف الخدمة والضريبة حسب إعدادات المتجر.",
+      "reservedWarning": "هذه الطاولة محجوزة",
+      "emptyDraft": "لا أصناف بعد. أضف أطباقًا من القائمة.",
+      "orderNote": "ملاحظة الطلب",
+      "orderNotePlaceholder": "حساسية، عيد ميلاد، أرقام المقاعد…"
+    },
+    "orders": {
+      "loadFailed": "تعذّر تحميل الطلبات",
+      "title": "الطلبات",
+      "mine": "طلباتي",
+      "all": "الكل",
+      "sections": {
+        "new": "بانتظار القبول",
+        "kitchen": "في المطبخ",
+        "ready": "جاهزة"
+      },
+      "empty": {
+        "new": "لا طلبات جديدة.",
+        "kitchen": "لا شيء قيد الطهي.",
+        "ready": "لا شيء بانتظار التقديم."
+      },
+      "meta": "{number} · {items, plural, one {صنف واحد} two {صنفان} few {# أصناف} many {# صنفًا} other {# صنف}} · منذ {age}",
+      "late": "متأخر",
+      "keep": "إبقاء الطلب",
+      "confirmReject": "رفض الطلب",
+      "acceptIn": "قبول، جاهز خلال",
+      "reject": "رفض",
+      "waitingRider": "بانتظار استلام السائق."
+    },
+    "profile": {
+      "loadFailed": "تعذّر تحميل حسابك",
+      "roles": {
+        "MERCHANT_OWNER": "مالك المتجر",
+        "MERCHANT_MANAGER": "مدير المتجر",
+        "ORDER_TAKING_STAFF": "موظف الطلبات",
+        "KITCHEN_STAFF": "موظف المطبخ",
+        "BILLING_STAFF": "موظف الفوترة",
+        "DELIVERY_STAFF": "موظف التوصيل",
+        "REPORT_VIEWER": "مطّلع على التقارير"
+      },
+      "today": "{open, plural, =0 {لا طلبات} one {طلب واحد} two {طلبان} few {# طلبات} many {# طلبًا} other {# طلب}} قيد التحضير · {served} قُدّم اليوم في المتجر",
+      "store": "المتجر",
+      "phone": "الهاتف",
+      "email": "البريد الإلكتروني",
+      "branch": "الفرع",
+      "allBranches": "كل الفروع",
+      "sound": "صوت التنبيه",
+      "soundHint": "نغمة عند نداء طاولة أو جاهزية الطعام",
+      "language": "اللغة",
+      "workspace": "فتح مساحة العمل الكاملة",
+      "logout": "تسجيل الخروج"
+    },
+    "underMinute": "أقل من دقيقة"
   }
 }

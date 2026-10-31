@@ -3,6 +3,7 @@ import { cartQueryKey, cartQueryOptions, type CartSnapshot } from '@/lib/cart-ca
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { usePlace } from '@/lib/place';
 import { LocationPicker } from '@/components/location-picker';
+import { TableCall } from '@/components/table-call';
 import { chooseAddress, detectLocation, ensureGuest, useLocationStore } from '@/lib/location';
 import { cn } from '@alliva/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -130,6 +131,7 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
       <LocationPicker open={locationOpen} intro={locationIntro} onOpenChange={setLocationOpen} />
       <footer className="pointer-events-none fixed inset-x-0 bottom-0 z-40">
         <div className="pointer-events-auto px-3 pb-[max(0.7rem,env(safe-area-inset-bottom))]">
+          <TableCall />
           <Dock
             tabs={[
               { href: '/', key: 'home', icon: Home },

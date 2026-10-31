@@ -15,8 +15,9 @@ export class OrdersGateway {
   attach(httpServer: HttpServer) {
     this.server = new Server(httpServer, { cors: { origin: true, credentials: true } });
     this.server.on('connection', (client) => {
-      client.on('join', (body: { orderId?: string } | undefined, ack?: (reply: { ok: true }) => void) => {
+      client.on('join', (body: { orderId?: string; tableId?: string } | undefined, ack?: (reply: { ok: true }) => void) => {
         if (body?.orderId) void client.join(`order:${body.orderId}`);
+        if (body?.tableId) void client.join(`table:${body.tableId}`);
         if (typeof ack === 'function') ack({ ok: true });
       });
       void this.handleConnection(client);
@@ -52,5 +53,11 @@ export class OrdersGateway {
     this.server?.to(`order:${order.id}`).emit('order.updated', order);
     this.server?.to(`merchant:${order.merchantId}`).emit('order.updated', order);
     this.server?.to('ops').emit('order.updated', order);
+  }
+
+  /** A diner called for staff, or staff answered: floor screens and that table's phone refresh their calls. */
+  emitServiceRequest(request: { merchantId: string; tableId: string; id: string; status: string; kind: string }) {
+    this.server?.to(`merchant:${request.merchantId}`).emit('service.updated', request);
+    this.server?.to(`table:${request.tableId}`).emit('service.updated', request);
   }
 }

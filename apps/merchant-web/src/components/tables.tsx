@@ -2,7 +2,8 @@ import { api } from '@/components/providers';
 import { Link } from '@/i18n/navigation';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, EmptyState, toast } from '@alliva/ui';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { TableLayout } from '@alliva/types';
 import { ArrowLeft, ArrowRight, Calendar, Check, Grid3X3, List, Minus, Move, Pencil, Plus, Printer, QrCode, RotateCcw, Save, Search, Sparkles, Users, X } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -71,6 +72,45 @@ export function TablesPage({ tables: rows, canManage = true }: { tables: DiningT
   useEffect(() => {
     if (params.get('new') === '1' && canManage) setEditing('new');
   }, [params, canManage]);
+  // The layout lives on the server so every device, including the order taker app, sees the same floor plan.
+  // This browser's copy is only a fallback, and is uploaded once if the server has none yet.
+  const hydrated = useRef(false);
+  const lastSaved = useRef('');
+  const layoutQuery = useQuery({ queryKey: ['merchant', 'table-layout'], queryFn: () => api.tableLayout(), staleTime: Infinity, retry: false });
+  useEffect(() => {
+    if (hydrated.current || !layoutQuery.isFetched) return;
+    hydrated.current = true;
+    const server = layoutQuery.data?.layout;
+    if (!server) return;
+    positionsRef.current = server.positions;
+    setPositions(server.positions);
+    setZoneOrder(server.zones.order);
+    setZoneWidths(server.zones.widths);
+    setZoneHeights(server.zones.heights);
+    zoneRectsRef.current = server.zones.rects;
+    setZoneRects(server.zones.rects);
+    lastSaved.current = JSON.stringify(server);
+  }, [layoutQuery.isFetched, layoutQuery.data]);
+  useEffect(() => {
+    if (!canManage || !hydrated.current) return;
+    const ids = new Set(tables.map((table) => table.id));
+    const floorIds = new Set(floors.map((floor) => floor.id));
+    const keep = <T,>(record: Record<string, T>, allowed: Set<string>) => Object.fromEntries(Object.entries(record).filter(([id]) => allowed.has(id)));
+    const layout: TableLayout = {
+      positions: keep(positions, ids),
+      zones: { order: zoneOrder.filter((id) => floorIds.has(id)), widths: keep(zoneWidths, floorIds), heights: keep(zoneHeights, floorIds), rects: keep(zoneRects, floorIds) },
+    };
+    const json = JSON.stringify(layout);
+    if (json === lastSaved.current) return;
+    const timer = window.setTimeout(() => {
+      lastSaved.current = json;
+      void api.saveTableLayout(layout).then(
+        (saved) => client.setQueryData(['merchant', 'table-layout'], saved),
+        () => { lastSaved.current = ''; },
+      );
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [canManage, layoutQuery.isFetched, positions, zoneOrder, zoneWidths, zoneHeights, zoneRects, tables, floors, client]);
   useEffect(() => {
     try {
       const saved = localStorage.getItem('alliva-table-layout-v2');

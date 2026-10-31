@@ -214,6 +214,7 @@ model DiningTable {
   orders     Order[]
   sessions   TableSession[]
   qrCodes    QrCode[]
+  serviceRequests ServiceRequest[]
 
   @@unique([merchantId, number])
   @@index([merchantId])
@@ -243,4 +244,23 @@ model QrCode {
   table      DiningTable? @relation(fields: [tableId], references: [id])
 
   @@index([merchantId])
+}
+
+/// A diner at a table asking for staff: a waiter, the bill or help. Floor staff acknowledge it, then mark it done.
+model ServiceRequest {
+  id               String               @id @default(uuid()) @db.Uuid
+  merchantId       String               @db.Uuid
+  tableId          String               @db.Uuid
+  kind             ServiceRequestKind
+  status           ServiceRequestStatus @default(OPEN)
+  createdAt        DateTime             @default(now())
+  acknowledgedAt   DateTime?
+  acknowledgedById String?              @db.Uuid
+  resolvedAt       DateTime?
+  resolvedById     String?              @db.Uuid
+  merchant         Merchant             @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  table            DiningTable          @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId, status])
+  @@index([tableId, status])
 }

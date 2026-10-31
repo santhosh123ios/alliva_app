@@ -654,6 +654,51 @@ export const tableStatusSchema = z.object({
   status: z.enum(['AVAILABLE', 'OCCUPIED', 'RESERVED', 'INACTIVE']),
 });
 
+/** A diner at a table asking for staff. The table comes from the QR cookie, not the body. */
+export const serviceRequestCreateSchema = z.object({
+  kind: z.enum(['WAITER', 'BILL', 'HELP']),
+});
+
+export const serviceRequestUpdateSchema = z.object({
+  status: z.enum(['ACKNOWLEDGED', 'RESOLVED']),
+});
+
+const layoutPercent = z.number().min(-50).max(200);
+const layoutRect = z.object({ x: layoutPercent, y: layoutPercent, width: z.number().min(0).max(100), height: z.number().min(0).max(100) });
+
+/** The floor plan the owner arranges on the Tables page, in percent of the canvas. */
+export const tableLayoutSchema = z.object({
+  positions: z.record(z.uuid(), z.object({ x: layoutPercent, y: layoutPercent })),
+  zones: z.object({
+    order: z.array(z.uuid()).max(200),
+    widths: z.record(z.uuid(), z.number().min(0).max(100)),
+    heights: z.record(z.uuid(), z.number().min(0).max(100)),
+    rects: z.record(z.uuid(), layoutRect),
+  }),
+});
+
+/** An order taken by floor staff for a table or the counter. Prices are worked out on the server. */
+export const staffOrderSchema = z
+  .object({
+    fulfillmentType: z.enum(['DINE_IN', 'TAKEAWAY']),
+    tableId: z.uuid().nullable().optional(),
+    branchId: z.uuid().optional(),
+    notes: z.string().trim().max(500).optional(),
+    items: z
+      .array(
+        z.object({
+          productId: z.uuid(),
+          variantId: z.uuid().nullable().optional(),
+          addonIds: z.array(z.uuid()).max(30).default([]),
+          quantity: z.number().int().min(1).max(50),
+          notes: z.string().trim().max(200).optional(),
+        }),
+      )
+      .min(1)
+      .max(100),
+  })
+  .refine((body) => body.fulfillmentType !== 'DINE_IN' || Boolean(body.tableId), { message: 'Choose a table for a dine-in order', path: ['tableId'] });
+
 export const incidentSchema = z.object({
   title: z.string().min(3),
   details: z.string().min(3),

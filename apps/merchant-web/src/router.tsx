@@ -16,6 +16,12 @@ const RiderOrder = lazy(() => import('@/rider/order'));
 const RiderCollection = lazy(() => import('@/rider/collection'));
 const RiderProfile = lazy(() => import('@/rider/profile'));
 const Kitchen = lazy(() => import('@/kitchen/kitchen'));
+const FloorLayout = lazy(() => import('@/floor/layout'));
+const FloorHome = lazy(() => import('@/floor/home'));
+const FloorTables = lazy(() => import('@/floor/tables'));
+const FloorMenu = lazy(() => import('@/floor/menu'));
+const FloorOrders = lazy(() => import('@/floor/orders'));
+const FloorProfile = lazy(() => import('@/floor/profile'));
 
 function ShellLayout() {
   return (
@@ -41,6 +47,17 @@ export const router = createBrowserRouter([
           { path: 'orders/:id', element: <RiderOrder /> },
           { path: 'collection', element: <RiderCollection /> },
           { path: 'profile', element: <RiderProfile /> },
+        ],
+      },
+      {
+        path: 'floor',
+        element: <Suspense fallback={<Loading />}><FloorLayout /></Suspense>,
+        children: [
+          { index: true, element: <FloorHome /> },
+          { path: 'tables', element: <FloorTables /> },
+          { path: 'menu', element: <FloorMenu /> },
+          { path: 'orders', element: <FloorOrders /> },
+          { path: 'profile', element: <FloorProfile /> },
         ],
       },
       { path: 'kitchen', element: <Suspense fallback={<Loading />}><Kitchen /></Suspense> },

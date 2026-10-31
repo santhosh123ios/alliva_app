@@ -245,6 +245,18 @@ enum TableStatus {
   INACTIVE
 }
 
+enum ServiceRequestKind {
+  WAITER
+  BILL
+  HELP
+}
+
+enum ServiceRequestStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
 enum QrType {
   MERCHANT
   TABLE

@@ -1,12 +1,12 @@
 import type { Request } from 'express';
-import { cartContextSchema, cartItemSchema, checkoutSchema, promoApplySchema, reviewSchema } from '@alliva/validation';
+import { cartContextSchema, cartItemSchema, checkoutSchema, promoApplySchema, reviewSchema, serviceRequestCreateSchema } from '@alliva/validation';
 import { checkoutError, forbidden, notFound } from '../common/errors';
 import { authCookieName, authPortal, cookieBase, RequestUser, validate } from '../common/http';
 import { createRoutes } from '../common/routes';
 import type { Container } from '../container';
 import type { CheckoutRequest } from '../modules/commerce.service';
 
-export function storefrontRoutes({ prisma, jwt, crypto, commerce }: Container) {
+export function storefrontRoutes({ prisma, jwt, crypto, commerce, floor }: Container) {
   const routes = createRoutes({ jwt, prisma }, 'Storefront');
 
   routes.post('/guests', { public: true }, async (request, response) => {
@@ -59,6 +59,14 @@ export function storefrontRoutes({ prisma, jwt, crypto, commerce }: Container) {
       response.cookie('alliva_table', resolved.tableId, { ...cookieBase(), httpOnly: false, maxAge: 12 * 3600000 });
     }
     return resolved;
+  });
+
+  /** The table the diner scanned in at, and whether staff are on the way. */
+  routes.get('/table-service', { public: true }, (request) => floor.tableService(request.cookies?.alliva_table as string | undefined));
+
+  routes.post('/table-service/calls', { public: true, throttle: 10 }, (request) => {
+    const body = validate<{ kind: 'WAITER' | 'BILL' | 'HELP' }>(serviceRequestCreateSchema, request.body);
+    return floor.callStaff(request.cookies?.alliva_table as string | undefined, body.kind);
   });
 
   routes.get('/cart', { public: true }, async (request) => commerce.cartFor(await viewerFor(request, request.user)));

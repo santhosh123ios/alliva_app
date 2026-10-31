@@ -16,6 +16,7 @@ import { PlatformService } from './modules/platform.service';
 import { RiderService } from './modules/rider.service';
 import { DispatchService } from './modules/dispatch.service';
 import { StoreOpsService } from './modules/store-ops.service';
+import { FloorService } from './modules/floor.service';
 import { PrismaService } from './prisma/prisma.service';
 import { BenefitGateway, MockPushProvider, PaypalGateway, TapGateway } from './providers/mock.providers';
 import { createEmailProvider } from './providers/resend';
@@ -58,6 +59,7 @@ export function createContainer() {
     rider: new RiderService(prisma, commerce),
     dispatch: new DispatchService(prisma, commerce),
     storeOps: new StoreOpsService(prisma),
+    floor: new FloorService(prisma, gateway),
     geocoder: createReverseGeocoder(),
     marketing,
     sms: createOtpProvider(),

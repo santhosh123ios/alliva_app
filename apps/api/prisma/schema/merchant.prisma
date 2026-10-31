@@ -28,6 +28,10 @@ model Merchant {
   registrationPromo   String?
   acceptedPaymentMethods Json?
   orderCharges        Json?
+  /// Floor plan the owner arranged on the Tables page: table positions and zone rectangles, in percent of the canvas.
+  tableLayout         Json?
+  /// The guest customer that staff-entered orders (walk-ins at a table or the counter) are booked under.
+  walkInCustomerId    String?        @db.Uuid
   logoUrl             String?
   coverUrl            String?
   minimumOrder        Decimal        @default(0) @db.Decimal(19, 3)
@@ -83,6 +87,7 @@ model Merchant {
   floors         Floor[]
   tables         DiningTable[]
   qrCodes        QrCode[]
+  serviceRequests ServiceRequest[]
   carts          Cart[]
   cashCollections CashCollection[]
   expenses       Expense[]
