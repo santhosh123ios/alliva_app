@@ -590,12 +590,17 @@ export type RiderOrder = {
   number: string;
   status: OrderStatus;
   stop: number | null;
+  /** Drive from the previous stop (or the route start) to this one, and minutes until arrival along the route. */
+  legKm: number | null;
+  etaMinutes: number | null;
   sequence: number;
   createdAt: string;
   scheduledFor: string | null;
   assignedAt: string | null;
   pickupVerifiedAt: string | null;
   pickupMethod: 'QR' | 'CODE' | null;
+  /** The code printed on the ticket, so the rider can match tickets to orders at the counter. */
+  pickupCode: string | null;
   notes: string | null;
   customer: { name: string; phone: string | null };
   address: {
@@ -630,6 +635,8 @@ export type RiderOrder = {
 
 export type RiderOrders = {
   origin: { latitude: number; longitude: number } | null;
+  /** Where today's route starts: the store while orders are still to collect, else the rider's position. */
+  route: { start: 'store' | 'rider'; toCollect: number; totalKm: number; etaMinutes: number } | null;
   active: RiderOrder[];
   delivered: RiderOrder[];
 };

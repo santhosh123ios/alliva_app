@@ -12,7 +12,7 @@ Currency is **BHD** (3 decimal places). The platform timezone is **Asia/Bahrain*
 - Staff and merchants sign in with email and password. Customers sign in with a Bahrain mobile OTP sent on WhatsApp. In development, with no WhatsApp token, the API logs the code and accepts `123456`.
 - Access tokens last 15 minutes. Refresh tokens rotate and live in HTTP-only cookies. A readable CSRF cookie must be echoed as `x-csrf-token` on mutations.
 - Finance manager demo login asks for a second factor. The development code is `000000`.
-- Tap, BENEFIT, Google Maps, Firebase, email, and S3 are provider interfaces with development mocks. No live secrets are shipped.
+- Tap, BENEFIT, Google Maps, Firebase, email, and file storage (ImageKit or S3) are provider interfaces with development mocks. No live secrets are shipped.
 - Subscription features are database rows (`key` + JSON `value`). Visibility is `MARKETPLACE` or `EXCLUSIVE_STOREFRONT`.
 - Marketing commission is created only when a referred merchant's subscription payment is verified. Recruitment alone does not pay commission.
 - Ledger rows are append-only. A Postgres trigger rejects updates and deletes.
@@ -126,6 +126,6 @@ End-to-end tests (`e2e/`) drive the portals in a browser. The marketing specs cr
 4. Run `pnpm db:migrate` and start the API with `pnpm --filter @alliva/api start`.
 5. Build the web apps with `pnpm build`. Each app writes static files to `apps/<app>/dist`. Set `VITE_API_URL` at build time to the public API URL used for live order updates.
 6. Serve each `dist` folder behind HTTPS. Send unknown paths to `index.html`, and proxy `/api` and `/uploads` on the same origin to the API so browser cookies stay on each portal origin. `pnpm --filter <app> preview` does this locally, using `API_INTERNAL_URL` as the proxy target.
-7. Put uploads on S3 by setting `STORAGE_DRIVER=s3`.
+7. Put uploads on ImageKit by setting `IMAGEKIT_PRIVATE_KEY` (or on S3 with `STORAGE_DRIVER=s3`).
 
 Business rules stay in the API services. React portals call the typed client in `@alliva/api-client`.

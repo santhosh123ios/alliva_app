@@ -510,7 +510,10 @@
       "allClosedBody": "المتاجر القريبة منك مغلقة الآن. عد لاحقاً.",
       "closedTitle": "مغلقة الآن",
       "closedBody": "هذه المتاجر توصل إليك لكنها لا تستقبل طلبات الآن.",
-      "deliveryFeeShort": "توصيل {fee}"
+      "deliveryFeeShort": "توصيل {fee}",
+      "savedAddresses": "العناوين المحفوظة",
+      "pickOnMap": "ابحث أو اختر على الخريطة",
+      "manageAddresses": "إدارة العناوين"
     },
     "address": {
       "pinTitle": "حدد المدخل بدقة",
@@ -772,6 +775,7 @@
     },
     "alerts": {
       "newOrder": "طلب جديد #{number}",
+      "announcement": "تم استلام طلب جديد. يرجى مراجعة هذا الطلب وقبوله.",
       "enableSound": "تفعيل الصوت",
       "mute": "كتم صوت الطلبات الجديدة",
       "unmute": "تشغيل صوت الطلبات الجديدة",
@@ -2501,7 +2505,23 @@
       "minutesAgo": "{minutes} د",
       "collect": "حصّل {amount}",
       "paid": "مدفوع",
-      "items": "{count, plural, zero {لا أصناف} one {صنف واحد} two {صنفان} few {# أصناف} many {# صنفاً} other {# صنف}}"
+      "items": "{count, plural, zero {لا أصناف} one {صنف واحد} two {صنفان} few {# أصناف} many {# صنفاً} other {# صنف}}",
+      "markCollected": "تأكيد الاستلام",
+      "startRide": "بدء الرحلة",
+      "startRideAll": "{count, plural, one {بدء الرحلة · طلب واحد} other {بدء الرحلة · # طلبات}}",
+      "rideStarted": "{count, plural, one {بدأت الرحلة لطلب واحد} other {بدأت الرحلة لـ # طلبات}}",
+      "stillToCollect": "{count, plural, one {طلب واحد لم يُستلم من المتجر بعد} other {# طلبات لم تُستلم من المتجر بعد}}",
+      "deliverNow": "فتح للتسليم",
+      "nextStop": "المحطة التالية",
+      "legFromStore": "{km} كم من المتجر",
+      "legFromYou": "{km} كم منك",
+      "legFromPrevious": "{km} كم من المحطة السابقة",
+      "eta": "الوصول خلال ~{minutes} د",
+      "noPin": "لا يوجد موقع على الخريطة",
+      "routeStats": "{stops, plural, one {محطة واحدة} other {# محطات}} · {km} كم · ~{minutes} د",
+      "routeFromStore": "أقصر مسار من المتجر بترتيب التوصيل",
+      "routeFromYou": "أقصر مسار من موقعك بترتيب التوصيل",
+      "navigateRoute": "ابدأ الملاحة"
     },
     "stage": {
       "assigned": "مُسند",
@@ -2527,7 +2547,19 @@
       "checking": "جارٍ التحقق…",
       "cameraFailed": "الكاميرا غير متاحة",
       "useCode": "أدخل الرمز بدلاً من ذلك",
-      "scanHint": "وجّه الكاميرا نحو الرمز على التذكرة"
+      "scanHint": "وجّه الكاميرا نحو الرمز على التذكرة",
+      "picked": "تم استلام #{number}",
+      "listTitle": "طلبات للاستلام",
+      "listLeft": "{count, plural, one {متبقٍ 1} other {متبقٍ #}}",
+      "listDone": "تم استلام الكل",
+      "noCode": "لا يوجد رمز بعد",
+      "itemCount": "{count, plural, one {صنف واحد} other {# أصناف}}",
+      "pickedLabel": "تم الاستلام",
+      "markPicked": "تأكيد الاستلام",
+      "cameraInsecure": "المسح المباشر يحتاج رابطًا آمنًا (https). التقط صورة لرمز QR بدلًا من ذلك.",
+      "cameraDenied": "الوصول إلى الكاميرا متوقف. فعّله من الإعدادات › Safari › الكاميرا، أو التقط صورة لرمز QR.",
+      "takePhoto": "التقط صورة لرمز QR",
+      "photoNoQr": "لم يُعثر على رمز QR في الصورة. قرّب الهاتف وحاول مجددًا، أو أدخل الرمز."
     },
     "order": {
       "loadFailed": "تعذّر تحميل هذا الطلب",

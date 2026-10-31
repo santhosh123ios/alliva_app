@@ -2,7 +2,7 @@ import type { OrderStatus } from '@alliva/types';
 import { dec, loc } from '../common/crypto';
 import { badRequest, forbidden, notFound } from '../common/errors';
 import type { RequestUser } from '../common/http';
-import { handoffCode, handoffToken, nearestNeighbourRoute, normalizeHandoffCode, parsePickupQr, PICKUP_QR_PREFIX } from '../domain/dispatch';
+import { handoffCode, handoffToken, optimiseRoute, routeEstimate, normalizeHandoffCode, parsePickupQr, PICKUP_QR_PREFIX } from '../domain/dispatch';
 import { haversineKm, type Point } from '../domain/geo';
 import { money, moneyString } from '../domain/money';
 import { startOfDay } from '../domain/store-day';
@@ -115,7 +115,10 @@ export class RiderService {
     return { ok: true };
   }
 
-  /** Active orders first, in route order: the planned stop number, then nearest-next from the rider (or the store). */
+  /**
+   * Active orders first, in the order to drive them: the shortest route we can find through every drop.
+   * While any order still has to be collected the route starts at the store; once all are on board it starts where the rider is.
+   */
   async orders(user: RequestUser, from: Point | null) {
     const driver = await this.driver(user);
     const rows = (await this.prisma.order.findMany({
@@ -126,17 +129,23 @@ export class RiderService {
       },
       include: riderOrderInclude,
     })) as unknown as RiderOrderRow[];
-    const active = rows.filter((row) => ACTIVE.includes(row.status));
+    const active = rows
+      .filter((row) => ACTIVE.includes(row.status))
+      // The store's planned order breaks ties and places stops without a pin.
+      .sort((a, b) => (a.dispatch?.sequence || 999) - (b.dispatch?.sequence || 999) || a.createdAt.getTime() - b.createdAt.getTime());
     const done = rows.filter((row) => !ACTIVE.includes(row.status)).sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-    const origin = from ?? (active[0] ? branchPoint(active[0].branch) : null);
-    const planned = active.filter((row) => (row.dispatch?.sequence ?? 0) > 0).sort((a, b) => a.dispatch!.sequence - b.dispatch!.sequence);
-    const loose = active.filter((row) => (row.dispatch?.sequence ?? 0) === 0);
-    const lastPlanned = planned.at(-1);
-    const route = nearestNeighbourRoute(lastPlanned ? dropoffPoint(lastPlanned) ?? origin : origin, loose.map((row) => ({ item: row, point: dropoffPoint(row) })));
-    const ordered = [...planned, ...route.map((stop) => stop.item)];
+    const store = active[0] ? branchPoint(active[0].branch) : null;
+    const toCollect = active.filter((row) => !row.dispatch?.pickupVerifiedAt).length;
+    const start = toCollect || !from ? 'store' : 'rider';
+    const origin = start === 'rider' ? from : store ?? from;
+    const route = optimiseRoute(origin, active.map((row) => ({ item: row, point: dropoffPoint(row) })));
+    const totalKm = route.reduce((total, stop) => total + (stop.legKm ?? 0), 0);
     return {
       origin,
-      active: ordered.map((row, index) => this.present(row, { stop: index + 1, from })),
+      route: active.length ? { start, toCollect, totalKm: round1(totalKm), etaMinutes: routeEstimate(totalKm, route.length) } : null,
+      active: route.map((stop, index) =>
+        this.present(stop.item, { stop: index + 1, from, legKm: stop.legKm, etaMinutes: stop.cumulativeKm === null ? null : routeEstimate(stop.cumulativeKm, index + 1) }),
+      ),
       delivered: done.map((row) => this.present(row, { stop: null, from: null })),
     };
   }
@@ -148,12 +157,15 @@ export class RiderService {
     return this.present(row, { stop: null, from: null });
   }
 
-  async verifyPickup(user: RequestUser, input: { qr?: string; code?: string; orderId?: string }) {
+  async verifyPickup(user: RequestUser, input: { qr?: string; code?: string; orderId?: string; manual?: boolean }) {
     const driver = await this.driver(user);
     const scope = { merchantId: driver.merchantId!, fulfillmentType: 'DELIVERY' as const, status: { in: ['READY_FOR_PICKUP', 'ASSIGNED_TO_DRIVER'] as OrderStatus[] } };
     let order: { id: string; status: OrderStatus; dispatch: { driverId: string; pickupVerifiedAt: Date | null } | null } | null = null;
     let method: 'QR' | 'CODE' = 'CODE';
-    if (input.qr) {
+    if (input.manual && input.orderId) {
+      // Ticket lost or unreadable: the rider marks one of their own orders by hand. Stored as a code pickup, noted as manual.
+      order = await this.prisma.order.findFirst({ where: { ...scope, id: input.orderId }, include: { dispatch: true } });
+    } else if (input.qr) {
       const token = parsePickupQr(input.qr);
       if (!token) throw badRequest('This QR is not an Alliva pickup code');
       order = await this.prisma.order.findFirst({ where: { ...scope, handoffToken: token }, include: { dispatch: true } });
@@ -173,7 +185,7 @@ export class RiderService {
     if (order.status !== 'ASSIGNED_TO_DRIVER') throw badRequest('The store has not handed this order to a rider yet');
     if (!order.dispatch.pickupVerifiedAt) {
       await this.prisma.dispatchAssignment.update({ where: { orderId: order.id }, data: { pickupVerifiedAt: new Date(), pickupMethod: method } });
-      await this.prisma.orderStatusEvent.create({ data: { orderId: order.id, status: order.status, note: method === 'QR' ? 'Pickup verified by QR' : 'Pickup verified by code', actorId: user.id } });
+      await this.prisma.orderStatusEvent.create({ data: { orderId: order.id, status: order.status, note: input.manual ? 'Pickup marked by rider' : method === 'QR' ? 'Pickup verified by QR' : 'Pickup verified by code', actorId: user.id } });
     }
     return this.order(user, order.id);
   }
@@ -362,7 +374,7 @@ export class RiderService {
     return { orderId: order.id, number: order.number, code, qr: `${PICKUP_QR_PREFIX}${token}` };
   }
 
-  private present(row: RiderOrderRow, options: { stop: number | null; from: Point | null }) {
+  private present(row: RiderOrderRow, options: { stop: number | null; from: Point | null; legKm?: number | null; etaMinutes?: number | null }) {
     const snapshot = (row.addressSnapshot ?? {}) as Snapshot;
     const drop = dropoffPoint(row);
     const store = branchPoint(row.branch);
@@ -373,12 +385,15 @@ export class RiderService {
       number: row.number,
       status: row.status,
       stop: options.stop,
+      legKm: options.legKm ?? null,
+      etaMinutes: options.etaMinutes ?? null,
       sequence: row.dispatch?.sequence ?? 0,
       createdAt: row.createdAt.toISOString(),
       scheduledFor: row.scheduledFor?.toISOString() ?? null,
       assignedAt: row.dispatch?.assignedAt.toISOString() ?? null,
       pickupVerifiedAt: row.dispatch?.pickupVerifiedAt?.toISOString() ?? null,
       pickupMethod: row.dispatch?.pickupMethod ?? null,
+      pickupCode: row.handoffCode ?? null,
       notes: row.notes,
       customer: {
         name: snapshot.contactName || `${row.customer.user.firstName} ${row.customer.user.lastName}`.trim(),

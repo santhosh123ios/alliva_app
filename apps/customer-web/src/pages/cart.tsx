@@ -4,7 +4,7 @@ import { beginCartChange, bumpCart, cartQueryOptions, clearCartLines, failCartCh
 import { categoryIcon } from '@/components/storefront';
 import { Link } from '@/i18n/navigation';
 import { areas, usePlace, type FulfillmentMode } from '@/lib/place';
-import { chooseLocation, useLocationStore } from '@/lib/location';
+import { chooseAddress, chooseLocation, useLocationStore } from '@/lib/location';
 import { deliveryProblem } from '@/lib/checkout-errors';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { cn, EmptyState, ErrorState, Skeleton } from '@alliva/ui';
@@ -63,6 +63,7 @@ export default function CartPage() {
     enabled: me.data?.kind === 'CUSTOMER',
     retry: false,
   });
+  const savedAddresses = useQuery({ queryKey: ['addresses'], queryFn: () => api.addresses(), enabled: me.data?.kind === 'CUSTOMER' });
   const [code, setCode] = useState('');
   const [note, setNote] = useState('');
   const [noteReady, setNoteReady] = useState(false);
@@ -278,7 +279,12 @@ export default function CartPage() {
       selectedAreaId={null}
       manageHref={me.data?.kind === 'CUSTOMER' ? '/profile' : null}
       manageLabel={t('customer.storeAddress')}
-      onAddress={(id) => context.mutate({ addressId: id, notes: note.trim() || null })}
+      onAddress={(id) => {
+        // Through the shared location, so the header, store lists and checkout move to this address too.
+        const picked = savedAddresses.data?.find((row) => row.id === id);
+        if (picked) chooseAddress(picked);
+        else context.mutate({ addressId: id, notes: note.trim() || null });
+      }}
       onArea={(id) => {
         const picked = areas.find((item) => item.id === id);
         if (picked) void chooseLocation({ lat: Number(picked.lat), lng: Number(picked.lng) }, 'AREA', locale, locale === 'ar' ? picked.ar : picked.en);

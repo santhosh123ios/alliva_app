@@ -62,7 +62,8 @@ import { categoryNameKey, mergeCatalogCategory, replaceMerchantCategory, resolve
 import { mergeCatalogProduct, resolveCatalogProduct } from '../modules/catalog-products';
 import { customerRewardAvailable, customerWallet, merchantWallet, requestCustomerWithdrawal, requestMerchantWithdrawal } from '../modules/portal-wallet';
 import { adminSignInUrl, merchantSignInUrl, roleLabel, sendWelcomeEmail } from '../providers/welcome-email';
-import { extensionFor, LocalStorageProvider, S3StorageProvider } from '../providers/mock.providers';
+import { extensionFor } from '../providers/mock.providers';
+import { createStorageProvider } from '../providers/imagekit';
 
 type OrderStatusChange = { status: 'ACCEPTED' | 'PREPARING' | 'READY_FOR_PICKUP' | 'ASSIGNED_TO_DRIVER' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED' | 'REFUNDED'; note?: string; preparationMinutes?: number; driverId?: string; cancellationReason?: string };
 
@@ -1624,8 +1625,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     if (!ALLOWED_UPLOAD_TYPES.has(file.mimetype) || file.size > MAX_UPLOAD_BYTES) {
       throw badRequest('File type or size is not allowed');
     }
-    const storage = process.env.STORAGE_DRIVER === 's3' ? new S3StorageProvider() : new LocalStorageProvider();
-    const saved = await storage.save({ filename: `upload${extensionFor(file.mimetype)}`, mimeType: file.mimetype, bytes: file.buffer });
+    const saved = await createStorageProvider().save({ filename: `upload${extensionFor(file.mimetype)}`, mimeType: file.mimetype, bytes: file.buffer });
     return prisma.storedFile.create({
       data: { ownerId: user.id, merchantId: user.merchantId, filename: file.originalname.replace(/[^a-zA-Z0-9._-]/g, ''), mimeType: file.mimetype, sizeBytes: file.size, url: saved.url },
     });

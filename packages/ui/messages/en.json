@@ -510,7 +510,10 @@
       "allClosedBody": "Stores near you are closed right now. Check back later.",
       "closedTitle": "Closed now",
       "closedBody": "These stores deliver to you but aren't taking orders right now.",
-      "deliveryFeeShort": "{fee} delivery"
+      "deliveryFeeShort": "{fee} delivery",
+      "savedAddresses": "Saved addresses",
+      "pickOnMap": "Search or pick on the map",
+      "manageAddresses": "Manage addresses"
     },
     "address": {
       "pinTitle": "Pin the exact entrance",
@@ -772,6 +775,7 @@
     },
     "alerts": {
       "newOrder": "New order #{number}",
+      "announcement": "A new order received. Please check and accept this order.",
       "enableSound": "Enable sound",
       "mute": "Mute new-order sound",
       "unmute": "Turn on new-order sound",
@@ -2501,7 +2505,23 @@
       "minutesAgo": "{minutes} min",
       "collect": "Collect {amount}",
       "paid": "Paid",
-      "items": "{count, plural, one {# item} other {# items}}"
+      "items": "{count, plural, one {# item} other {# items}}",
+      "markCollected": "Mark as collected",
+      "startRide": "Start ride",
+      "startRideAll": "{count, plural, one {Start ride · 1 order} other {Start ride · # orders}}",
+      "rideStarted": "{count, plural, one {Ride started for 1 order} other {Ride started for # orders}}",
+      "stillToCollect": "{count, plural, one {1 order still to collect from the store} other {# orders still to collect from the store}}",
+      "deliverNow": "Open to deliver",
+      "nextStop": "Next stop",
+      "legFromStore": "{km} km from the store",
+      "legFromYou": "{km} km from you",
+      "legFromPrevious": "{km} km from last stop",
+      "eta": "Arrive in ~{minutes} min",
+      "noPin": "No map pin",
+      "routeStats": "{stops, plural, one {1 stop} other {# stops}} · {km} km · ~{minutes} min",
+      "routeFromStore": "Shortest route from the store, in delivery order",
+      "routeFromYou": "Shortest route from where you are, in delivery order",
+      "navigateRoute": "Navigate route"
     },
     "stage": {
       "assigned": "Assigned",
@@ -2527,7 +2547,19 @@
       "checking": "Checking…",
       "cameraFailed": "Camera not available",
       "useCode": "Enter the code instead",
-      "scanHint": "Point the camera at the QR on the ticket"
+      "scanHint": "Point the camera at the QR on the ticket",
+      "picked": "#{number} picked up",
+      "listTitle": "Orders to collect",
+      "listLeft": "{count, plural, one {1 left} other {# left}}",
+      "listDone": "All collected",
+      "noCode": "No code yet",
+      "itemCount": "{count, plural, one {# item} other {# items}}",
+      "pickedLabel": "Picked up",
+      "markPicked": "Mark picked up",
+      "cameraInsecure": "Live scanning needs a secure (https) link. Take a photo of the QR instead.",
+      "cameraDenied": "Camera access is off. Allow it in Settings › Safari › Camera, or take a photo of the QR.",
+      "takePhoto": "Take a photo of the QR",
+      "photoNoQr": "No QR found in that photo. Hold the phone closer and try again, or enter the code."
     },
     "order": {
       "loadFailed": "Could not load this order",

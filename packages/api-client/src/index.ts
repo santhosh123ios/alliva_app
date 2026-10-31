@@ -253,7 +253,7 @@ export function createApiClient(baseUrl = '', portal?: AuthPortal) {
       orders: (from?: { latitude: number; longitude: number } | null) =>
         request<RiderOrders>(`/api/rider/orders${queryString(from ? { lat: from.latitude, lng: from.longitude } : undefined)}`),
       order: (id: string) => request<RiderOrder>(`/api/rider/orders/${id}`),
-      verifyPickup: (body: { qr?: string; code?: string; orderId?: string }) => send<RiderOrder>('/api/rider/pickup', 'POST', body),
+      verifyPickup: (body: { qr?: string; code?: string; orderId?: string; manual?: boolean }) => send<RiderOrder>('/api/rider/pickup', 'POST', body),
       setStatus: (id: string, body: { status: 'OUT_FOR_DELIVERY' | 'DELIVERED'; collectedAmount?: string; note?: string }) =>
         send<{ order: RiderOrder }>(`/api/rider/orders/${id}/status`, 'POST', body),
       correctDropoff: (id: string, body: { latitude: number; longitude: number; note?: string }) => send<RiderOrder>(`/api/rider/orders/${id}/dropoff`, 'POST', body),

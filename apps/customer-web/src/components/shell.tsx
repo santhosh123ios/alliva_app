@@ -1,12 +1,12 @@
 import { api } from '@/components/providers';
-import { cartQueryOptions } from '@/lib/cart-cache';
+import { cartQueryKey, cartQueryOptions, type CartSnapshot } from '@/lib/cart-cache';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { usePlace } from '@/lib/place';
 import { LocationPicker } from '@/components/location-picker';
-import { ensureGuest, useLocationStore } from '@/lib/location';
+import { chooseAddress, detectLocation, ensureGuest, useLocationStore } from '@/lib/location';
 import { cn } from '@alliva/ui';
-import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ClipboardList, Heart, Home, Loader2, MapPin, Search, ShoppingCart, User, X } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Check, ChevronDown, ClipboardList, Heart, Home, Loader2, Map as MapIcon, MapPin, Navigation, Search, Settings2, ShoppingCart, User, X } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
@@ -29,6 +29,9 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
   const prompted = useLocationStore((state) => state.prompted);
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationIntro, setLocationIntro] = useState(false);
+  const customer = me.data?.kind === 'CUSTOMER';
+  const addresses = useQuery({ queryKey: ['addresses'], queryFn: () => api.addresses(), enabled: customer });
+  useDeliverToCart(customer, addresses.data);
 
   useEffect(() => {
     void ensureGuest().catch(() => undefined);
@@ -70,6 +73,21 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
                 label={t('customer.deliverTo')}
                 emptyLabel={t('customer.locationFlow.choose')}
                 pinnedLabel={t('customer.locationFlow.pinnedLocation')}
+                addresses={customer ? addresses.data ?? [] : []}
+                menuLabels={{
+                  saved: t('customer.locationFlow.savedAddresses'),
+                  current: t('customer.locationFlow.useCurrent'),
+                  locating: t('customer.locationFlow.locating'),
+                  map: t('customer.locationFlow.pickOnMap'),
+                  manage: t('customer.locationFlow.manageAddresses'),
+                }}
+                onManage={() => router.push('/profile')}
+                onUseCurrent={() =>
+                  void detectLocation(locale).catch(() => {
+                    setLocationIntro(false);
+                    setLocationOpen(true);
+                  })
+                }
                 onOpen={() => {
                   setLocationIntro(false);
                   setLocationOpen(true);
@@ -632,36 +650,165 @@ function SearchField({
   );
 }
 
+type SavedAddress = Awaited<ReturnType<typeof api.addresses>>[number];
+
+/**
+ * Keep the cart's delivery address in step with the header.
+ * Picking a saved address delivers there; picking any other spot clears it so the cart is priced to that spot.
+ * Also drops a remembered address that was deleted or belongs to an account that signed out.
+ */
+function useDeliverToCart(customer: boolean, addresses: SavedAddress[] | undefined) {
+  const client = useQueryClient();
+  const addressId = useLocationStore((state) => state.addressId);
+  const revision = useLocationStore((state) => state.revision);
+  const clearAddress = useLocationStore((state) => state.clearAddress);
+  const me = useQuery({ queryKey: ['me'], queryFn: () => api.me(), retry: false });
+  const fulfillment = usePlace((state) => state.fulfillment);
+
+  useEffect(() => {
+    if (!addressId) return;
+    if (me.isError || (me.data && !customer)) clearAddress();
+    else if (addresses && !addresses.some((row) => row.id === addressId)) clearAddress();
+  }, [addressId, addresses, customer, me.isError, me.data, clearAddress]);
+
+  // Only after a choice made in this visit (revision > 0), never on load, so a stored choice cannot override the cart unasked.
+  useEffect(() => {
+    if (!revision || !customer) return;
+    const cart = client.getQueryData<CartSnapshot>(cartQueryKey);
+    if (!cart?.items.length || (cart.addressId ?? null) === addressId) return;
+    void api
+      .cartContext({
+        fulfillmentType: cart.fulfillmentType ?? fulfillment,
+        addressId,
+        tableId: cart.tableId,
+        notes: cart.notes,
+      })
+      .then((view) => client.setQueryData(cartQueryKey, view))
+      .catch(() => undefined)
+      // The cart page refetches on every new location too; refetch once more so a read that raced this write cannot win.
+      .finally(() => {
+        void client.invalidateQueries({ queryKey: cartQueryKey });
+        void client.invalidateQueries({ queryKey: ['checkout'] });
+      });
+    // Runs per new choice; the cart and fulfillment are read at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revision, customer]);
+}
+
 function LocationControl({
   label,
   emptyLabel,
   pinnedLabel,
+  addresses,
+  menuLabels,
+  onManage,
+  onUseCurrent,
   onOpen,
 }: {
   label: string;
   emptyLabel: string;
   pinnedLabel: string;
+  addresses: SavedAddress[];
+  menuLabels: { saved: string; current: string; locating: string; map: string; manage: string };
+  onManage: () => void;
+  onUseCurrent: () => void;
   onOpen: () => void;
 }) {
   const point = useLocationStore((state) => state.point);
   const name = useLocationStore((state) => state.label);
   const status = useLocationStore((state) => state.status);
+  const selectedId = useLocationStore((state) => state.addressId);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
   const text = point ? name || pinnedLabel : emptyLabel;
+  const hasMenu = addresses.length > 0;
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
+  const run = (action: () => void) => () => {
+    setMenuOpen(false);
+    action();
+  };
+
   return (
-    <div className="relative min-w-0">
+    <div ref={rootRef} className="relative min-w-0">
       <button
         type="button"
         className="relative flex min-w-0 max-w-[9.5rem] items-center gap-1.5 rounded-full bg-[#2a2a2e] px-3 pt-1.5 pb-2 text-sm font-semibold text-white ring-1 ring-inset ring-white/10 md:max-w-[16rem] md:gap-2 md:px-3.5"
         aria-label={`${label}: ${text}`}
-        aria-haspopup="dialog"
+        aria-haspopup={hasMenu ? 'menu' : 'dialog'}
+        aria-expanded={hasMenu ? menuOpen : undefined}
+        aria-controls={hasMenu ? menuId : undefined}
         title={text}
-        onClick={onOpen}
+        onClick={hasMenu ? () => setMenuOpen((open) => !open) : onOpen}
       >
         {status === 'locating' ? <Loader2 className="size-3.5 shrink-0 animate-spin" /> : <MapPin className="size-3.5 shrink-0" strokeWidth={2.25} />}
         <span className="min-w-0 truncate">{text}</span>
-        <ChevronDown className="size-3.5 shrink-0 opacity-90" />
+        <ChevronDown className={cn('size-3.5 shrink-0 opacity-90 transition-transform', menuOpen && 'rotate-180')} />
         <span aria-hidden className="absolute bottom-1 left-1/2 h-[3px] w-8 -translate-x-1/2 rounded-full bg-primary" />
       </button>
+      {hasMenu && menuOpen ? (
+        <div
+          id={menuId}
+          role="menu"
+          aria-label={label}
+          className="fixed inset-x-3 top-[5rem] z-50 overflow-hidden md:absolute md:inset-x-auto md:start-0 md:top-[calc(100%+0.75rem)] md:w-[20rem] rounded-3xl border border-[#ecece6] bg-white p-2 text-[#111] shadow-[0_18px_40px_rgba(17,17,17,0.18)]"
+        >
+          <p className="px-3 pt-2 pb-1 text-xs font-semibold tracking-wide text-[#8d8d88] uppercase">{menuLabels.saved}</p>
+          <ul className="max-h-[50dvh] overflow-y-auto">
+            {addresses.map((address) => {
+              const active = address.id === selectedId;
+              return (
+                <li key={address.id}>
+                  <button
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={active}
+                    onClick={run(() => chooseAddress(address))}
+                    className={cn('flex w-full items-start gap-3 rounded-2xl px-3 py-2.5 text-start hover:bg-[#f7f7f5]', active && 'bg-[#fff6d0] hover:bg-[#fff6d0]')}
+                  >
+                    <MapPin className="mt-0.5 size-4 shrink-0" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{address.label}</span>
+                      <span className="block truncate text-xs text-[#6f6f6a]">{[address.line1, address.area, address.city].filter(Boolean).join(', ')}</span>
+                    </span>
+                    {active ? <Check className="mt-0.5 size-4 shrink-0" /> : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-1 border-t border-[#ecece6] pt-1">
+            <button type="button" role="menuitem" onClick={run(onUseCurrent)} disabled={status === 'locating'} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-start text-sm font-semibold hover:bg-[#f7f7f5] disabled:opacity-60">
+              {status === 'locating' ? <Loader2 className="size-4 shrink-0 animate-spin" /> : <Navigation className="size-4 shrink-0" />}
+              {status === 'locating' ? menuLabels.locating : menuLabels.current}
+            </button>
+            <button type="button" role="menuitem" onClick={run(onOpen)} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-start text-sm font-semibold hover:bg-[#f7f7f5]">
+              <MapIcon className="size-4 shrink-0" />
+              {menuLabels.map}
+            </button>
+            <button type="button" role="menuitem" onClick={run(onManage)} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-start text-sm font-semibold text-[#6f6f6a] hover:bg-[#f7f7f5]">
+              <Settings2 className="size-4 shrink-0" />
+              {menuLabels.manage}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -59,6 +59,48 @@ export function nearestNeighbourRoute<T>(origin: Point | null, stops: RouteStop<
   return result;
 }
 
+/**
+ * The shortest drive we can cheaply find through every stop, starting at `origin` and ending at the last drop.
+ * Starts from the nearest-next order, then keeps reversing stretches of it (2-opt) while that shortens the trip.
+ * Stops without a pin go last, in the order given.
+ */
+export function optimiseRoute<T>(origin: Point | null, stops: RouteStop<T>[]): { item: T; legKm: number | null; cumulativeKm: number | null }[] {
+  const greedy = nearestNeighbourRoute(origin, stops);
+  const located = greedy.filter((stop) => stop.legKm !== null).map((stop) => stops.find((entry) => entry.item === stop.item)! as { item: T; point: Point });
+  const unlocated = greedy.filter((stop) => stop.legKm === null);
+  const start = origin ?? located[0]?.point ?? null;
+  if (!start || located.length < 3) return greedy;
+  const path = [start, ...located.map((stop) => stop.point)];
+  const order = located.map((_, index) => index + 1);
+  const at = (position: number) => path[position === 0 ? 0 : order[position - 1]!]!;
+  // Positions 1..n in the tour; position 0 is the fixed origin and the tour is open at the end.
+  let improved = true;
+  for (let pass = 0; improved && pass < 50; pass += 1) {
+    improved = false;
+    for (let i = 1; i < order.length; i += 1) {
+      for (let k = i + 1; k <= order.length; k += 1) {
+        const before = haversineKm(at(i - 1), at(i)) + (k < order.length ? haversineKm(at(k), at(k + 1)) : 0);
+        const after = haversineKm(at(i - 1), at(k)) + (k < order.length ? haversineKm(at(i), at(k + 1)) : 0);
+        if (after < before - 1e-9) {
+          order.splice(i - 1, k - i + 1, ...order.slice(i - 1, k).reverse());
+          improved = true;
+        }
+      }
+    }
+  }
+  const result: { item: T; legKm: number | null; cumulativeKm: number | null }[] = [];
+  let here = start;
+  let total = 0;
+  for (const position of order) {
+    const stop = located[position - 1]!;
+    const km = haversineKm(here, stop.point);
+    total += km;
+    result.push({ item: stop.item, legKm: round(km), cumulativeKm: round(total) });
+    here = stop.point;
+  }
+  return [...result, ...unlocated];
+}
+
 function round(km: number) {
   return Math.round(km * 10) / 10;
 }

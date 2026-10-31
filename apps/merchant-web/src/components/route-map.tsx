@@ -11,7 +11,8 @@ export type MapRoute = { id: string; color: string; stops: (MapStop & { muted?: 
  * Read-only map of one or more rider routes: the store pin, numbered stops and a line between them.
  * Lines are straight between stops; the rider's maps app does the turn-by-turn.
  */
-export function RouteMap({ store, routes, me, className, focus }: { store: MapPoint | null; routes: MapRoute[]; me?: MapPoint | null; className?: string; focus?: string | null }) {
+/** `startAtMe` draws route lines from the rider's position instead of the store, for a rider already on the road. */
+export function RouteMap({ store, routes, me, className, focus, startAtMe }: { store: MapPoint | null; routes: MapRoute[]; me?: MapPoint | null; className?: string; focus?: string | null; startAtMe?: boolean }) {
   const nodeRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const layerRef = useRef<LayerGroup | null>(null);
@@ -70,7 +71,8 @@ export function RouteMap({ store, routes, me, className, focus }: { store: MapPo
       }
       for (const route of routes) {
         const dimmed = Boolean(focus && focus !== route.id);
-        const line: [number, number][] = store ? [[store.lat, store.lng]] : [];
+        const from = startAtMe && me ? me : store;
+        const line: [number, number][] = from ? [[from.lat, from.lng]] : [];
         for (const stop of route.stops) {
           line.push([stop.lat, stop.lng]);
           bounds.push([stop.lat, stop.lng]);
@@ -92,7 +94,7 @@ export function RouteMap({ store, routes, me, className, focus }: { store: MapPo
         });
       }
     });
-  }, [ready, store, routes, me, focus]);
+  }, [ready, store, routes, me, focus, startAtMe]);
 
   return <div ref={nodeRef} className={className ?? 'z-0 h-64 w-full'} />;
 }
