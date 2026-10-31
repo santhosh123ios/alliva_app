@@ -46,8 +46,8 @@ export function PromosPage() {
     <div className="grid gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[32px] font-semibold leading-tight tracking-tight text-[#161616]">{t('title')}</h1>
-          <p className="mt-1 max-w-xl text-sm text-[#8A8A86]">{t('subtitle')}</p>
+          <h1 className="text-[32px] font-semibold leading-tight tracking-tight text-foreground">{t('title')}</h1>
+          <p className="mt-1 max-w-xl text-sm text-subtle">{t('subtitle')}</p>
         </div>
         <Button type="button" variant="yellow" className="h-11" onClick={() => setOpen(true)}>
           <Plus className="size-4" />
@@ -55,9 +55,9 @@ export function PromosPage() {
         </Button>
       </div>
       {rows.length ? (
-        <div className="overflow-hidden rounded-2xl border border-[#EEEEEC] bg-white">
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
           <table className="w-full text-sm">
-            <thead className="text-xs font-semibold tracking-wide text-[#8A8A86] uppercase">
+            <thead className="text-xs font-semibold tracking-wide text-subtle uppercase">
               <tr>
                 <th className="px-4 py-3 text-start font-semibold">{t('code')}</th>
                 <th className="px-4 py-3 text-start font-semibold">{t('discount')}</th>
@@ -74,12 +74,12 @@ export function PromosPage() {
           </table>
         </div>
       ) : (
-        <div className="rounded-2xl border border-[#EEEEEC] bg-white px-5 py-12 text-center">
-          <span className="mx-auto grid size-12 place-items-center rounded-full bg-[#FFF6D4] text-[#161616]">
+        <div className="rounded-2xl border border-border bg-card px-5 py-12 text-center">
+          <span className="mx-auto grid size-12 place-items-center rounded-full bg-primary-soft text-foreground">
             <Ticket className="size-5" />
           </span>
-          <p className="mt-4 font-semibold text-[#161616]">{t('emptyTitle')}</p>
-          <p className="mx-auto mt-1 max-w-md text-sm text-[#8A8A86]">{t('emptyBody')}</p>
+          <p className="mt-4 font-semibold text-foreground">{t('emptyTitle')}</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-subtle">{t('emptyBody')}</p>
         </div>
       )}
       {open ? <CreatePromoDialog onClose={() => setOpen(false)} onCreated={async () => { setOpen(false); await client.invalidateQueries({ queryKey: ['merchant', 'promos'] }); }} /> : null}
@@ -96,16 +96,16 @@ function PromoRow({ row, locale, onChanged }: { row: MerchantPromo; locale: 'en'
   });
   const description = pickLocalized(row.description, locale);
   return (
-    <tr className="border-t border-[#EEEEEC]">
+    <tr className="border-t border-border">
       <td className="px-4 py-3">
-        <p className="font-semibold tracking-wide text-[#161616]" dir="ltr">{row.code}</p>
-        <p className="mt-0.5 text-xs text-[#8A8A86]">{description}</p>
-        <p className="mt-1 text-xs text-[#8A8A86] md:hidden">{row.usageLimit === null ? t('usedOpen', { used: row.usedCount }) : t('used', { used: row.usedCount, limit: row.usageLimit })}</p>
+        <p className="font-semibold tracking-wide text-foreground" dir="ltr">{row.code}</p>
+        <p className="mt-0.5 text-xs text-subtle">{description}</p>
+        <p className="mt-1 text-xs text-subtle md:hidden">{row.usageLimit === null ? t('usedOpen', { used: row.usedCount }) : t('used', { used: row.usedCount, limit: row.usageLimit })}</p>
       </td>
-      <td className="px-4 py-3 font-semibold text-[#161616]" dir="ltr">{discountLabel(row, locale)}</td>
-      <td className="hidden px-4 py-3 text-[#161616] md:table-cell">{row.usageLimit === null ? t('usedOpen', { used: row.usedCount }) : t('used', { used: row.usedCount, limit: row.usageLimit })}</td>
+      <td className="px-4 py-3 font-semibold text-foreground" dir="ltr">{discountLabel(row, locale)}</td>
+      <td className="hidden px-4 py-3 text-foreground md:table-cell">{row.usageLimit === null ? t('usedOpen', { used: row.usedCount }) : t('used', { used: row.usedCount, limit: row.usageLimit })}</td>
       <td className="px-4 py-3">
-        <span className={row.active ? 'font-semibold text-[#168A52]' : 'font-semibold text-[#8A8A86]'}>{row.active ? t('active') : t('paused')}</span>
+        <span className={row.active ? 'font-semibold text-success' : 'font-semibold text-subtle'}>{row.active ? t('active') : t('paused')}</span>
       </td>
       <td className="px-4 py-3 text-end">
         <Button type="button" variant="outline" size="sm" loading={toggle.isPending} onClick={() => toggle.mutate()}>
@@ -188,7 +188,7 @@ function CreatePromoDialog({ onClose, onCreated }: { onClose: () => void; onCrea
               <Input id="promo-end" className="mt-1" type="datetime-local" dir="ltr" value={form.endsAt} onChange={(event) => set('endsAt', event.target.value)} required />
             </Field>
           </div>
-          <label className="flex items-center gap-2 text-sm font-semibold text-[#161616]">
+          <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <input type="checkbox" checked={form.firstOrderOnly} onChange={(event) => set('firstOrderOnly', event.target.checked)} />
             {t('firstOrder')}
           </label>
@@ -207,7 +207,7 @@ function Field({ label, htmlFor, hint, children }: { label: string; htmlFor: str
     <div>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
-      {hint ? <p className="mt-1 text-xs text-[#8A8A86]">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-xs text-subtle">{hint}</p> : null}
     </div>
   );
 }

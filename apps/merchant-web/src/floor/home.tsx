@@ -30,7 +30,7 @@ export default function FloorHome() {
     <div className="space-y-4">
       <section>
         <h1 className="text-2xl font-semibold tracking-tight">{t(hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening', { name: me.data?.firstName ?? '' })}</h1>
-        <p className="mt-0.5 text-sm text-[#696965]">{calls.length || ready.length ? t('summaryBusy', { calls: calls.length, ready: ready.length }) : t('summaryQuiet')}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{calls.length || ready.length ? t('summaryBusy', { calls: calls.length, ready: ready.length }) : t('summaryQuiet')}</p>
       </section>
 
       <section className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
@@ -41,18 +41,18 @@ export default function FloorHome() {
       </section>
 
       <Card title={t('callsTitle')} icon={BellRing} count={calls.length}>
-        {calls.length ? <ul className="divide-y divide-[#F0F0EC]">{calls.map((call) => <CallRow key={call.id} call={call} now={now} />)}</ul> : <Empty text={t('noCalls')} />}
+        {calls.length ? <ul className="divide-y divide-border">{calls.map((call) => <CallRow key={call.id} call={call} now={now} />)}</ul> : <Empty text={t('noCalls')} />}
       </Card>
 
       <Card title={t('readyTitle')} icon={CircleCheck} count={ready.length}>
-        {ready.length ? <ul className="divide-y divide-[#F0F0EC]">{ready.map((order) => <ReadyRow key={order.id} order={order} now={now} />)}</ul> : <Empty text={t('noReady')} />}
+        {ready.length ? <ul className="divide-y divide-border">{ready.map((order) => <ReadyRow key={order.id} order={order} now={now} />)}</ul> : <Empty text={t('noReady')} />}
       </Card>
 
-      <Card title={t('mineTitle')} icon={ChefHat} count={mine.length} action={<Link href="/floor/orders" className="inline-flex items-center gap-1 text-xs font-semibold text-[#2F6FED]">{t('allOrders')}<ArrowRight className="size-3.5 rtl:-scale-x-100" /></Link>}>
-        {mine.length ? <ul className="divide-y divide-[#F0F0EC]">{mine.map((order) => <MineRow key={order.id} order={order} now={now} />)}</ul> : (
+      <Card title={t('mineTitle')} icon={ChefHat} count={mine.length} action={<Link href="/floor/orders" className="inline-flex items-center gap-1 text-xs font-semibold text-info">{t('allOrders')}<ArrowRight className="size-3.5 rtl:-scale-x-100" /></Link>}>
+        {mine.length ? <ul className="divide-y divide-border">{mine.map((order) => <MineRow key={order.id} order={order} now={now} />)}</ul> : (
           <div className="flex flex-col items-center gap-3 px-5 py-6 text-center">
-            <p className="text-sm text-[#8A8A86]">{t('noMine')}</p>
-            <Link href="/floor/tables" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#111111] px-4 text-sm font-semibold text-white"><UtensilsCrossed className="size-4" />{t('takeOrder')}</Link>
+            <p className="text-sm text-subtle">{t('noMine')}</p>
+            <Link href="/floor/tables" className="inline-flex h-10 items-center gap-2 rounded-xl bg-secondary px-4 text-sm font-semibold text-secondary-foreground"><UtensilsCrossed className="size-4" />{t('takeOrder')}</Link>
           </div>
         )}
       </Card>
@@ -62,21 +62,21 @@ export default function FloorHome() {
 
 function Stat({ label, value, detail, tone = 'plain' }: { label: string; value: string | number; detail?: string; tone?: 'plain' | 'alert' | 'good' }) {
   return (
-    <div className={cn('rounded-2xl p-3.5', tone === 'alert' ? 'bg-[#B42318] text-white' : tone === 'good' ? 'bg-[#E3F5EA]' : 'bg-white')}>
-      <p className={cn('text-xs font-medium', tone === 'alert' ? 'text-white/80' : 'text-[#696965]')}>{label}</p>
+    <div className={cn('rounded-2xl p-3.5', tone === 'alert' ? 'bg-destructive text-white' : tone === 'good' ? 'bg-success-soft' : 'bg-card')}>
+      <p className={cn('text-xs font-medium', tone === 'alert' ? 'text-white/80' : 'text-muted-foreground')}>{label}</p>
       <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
-      {detail ? <p className="text-xs text-[#696965]">{detail}</p> : null}
+      {detail ? <p className="text-xs text-muted-foreground">{detail}</p> : null}
     </div>
   );
 }
 
 export function Card({ title, icon: Icon, count, action, children }: { title: string; icon: typeof BellRing; count?: number; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="overflow-hidden rounded-3xl bg-white">
+    <section className="overflow-hidden rounded-3xl bg-card">
       <header className="flex items-center gap-2 px-5 pb-2 pt-4">
-        <Icon className="size-4 text-[#696965]" />
+        <Icon className="size-4 text-muted-foreground" />
         <h2 className="font-semibold">{title}</h2>
-        {count ? <span className="rounded-full bg-[#F0F0EC] px-2 py-0.5 text-xs font-semibold tabular-nums">{count}</span> : null}
+        {count ? <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold tabular-nums">{count}</span> : null}
         <span className="ms-auto">{action}</span>
       </header>
       {children}
@@ -85,7 +85,7 @@ export function Card({ title, icon: Icon, count, action, children }: { title: st
 }
 
 function Empty({ text }: { text: string }) {
-  return <p className="px-5 pb-5 pt-1 text-sm text-[#8A8A86]">{text}</p>;
+  return <p className="px-5 pb-5 pt-1 text-sm text-subtle">{text}</p>;
 }
 
 export function CallRow({ call, now }: { call: ServiceRequestView; now: number }) {
@@ -96,22 +96,22 @@ export function CallRow({ call, now }: { call: ServiceRequestView; now: number }
   const open = call.status === 'OPEN';
   return (
     <li className="flex items-center gap-3 px-4 py-3 sm:px-5">
-      <span className={cn('relative grid size-11 shrink-0 place-items-center rounded-2xl text-base font-bold', open ? 'bg-[#FDECEA] text-[#B42318]' : 'bg-[#E3F5EA] text-[#168A52]')}>
+      <span className={cn('relative grid size-11 shrink-0 place-items-center rounded-2xl text-base font-bold', open ? 'bg-destructive-soft text-destructive' : 'bg-success-soft text-success')}>
         {tableNo(call.table.number)}
-        <span className={cn('absolute -bottom-1 -end-1 grid size-5 place-items-center rounded-full text-white', open ? 'animate-pulse bg-[#B42318]' : 'bg-[#168A52]')}><Icon className="size-3" /></span>
+        <span className={cn('absolute -bottom-1 -end-1 grid size-5 place-items-center rounded-full text-white', open ? 'animate-pulse bg-destructive' : 'bg-success')}><Icon className="size-3" /></span>
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold">{t(`short.${call.kind}`)}</p>
-        <p className="truncate text-xs text-[#696965]">
+        <p className="truncate text-xs text-muted-foreground">
           {open ? t('waiting', { age: age(call.createdAt, now) }) : call.acknowledgedBy ? t('comingNamed', { name: call.acknowledgedBy }) : t('coming')}
         </p>
       </div>
       {open ? (
-        <button type="button" disabled={answer.isPending} onClick={() => answer.mutate({ id: call.id, status: 'ACKNOWLEDGED' })} className="h-10 shrink-0 rounded-xl bg-[#111111] px-3 text-sm font-semibold text-white disabled:opacity-50">
+        <button type="button" disabled={answer.isPending} onClick={() => answer.mutate({ id: call.id, status: 'ACKNOWLEDGED' })} className="h-10 shrink-0 rounded-xl bg-secondary px-3 text-sm font-semibold text-secondary-foreground disabled:opacity-50">
           {t('onMyWay')}
         </button>
       ) : null}
-      <button type="button" disabled={answer.isPending} onClick={() => answer.mutate({ id: call.id, status: 'RESOLVED' })} aria-label={t('doneAria', { table: tableNo(call.table.number) })} className="grid size-10 shrink-0 place-items-center rounded-xl border border-[#E6E6E2] text-[#168A52] disabled:opacity-50">
+      <button type="button" disabled={answer.isPending} onClick={() => answer.mutate({ id: call.id, status: 'RESOLVED' })} aria-label={t('doneAria', { table: tableNo(call.table.number) })} className="grid size-10 shrink-0 place-items-center rounded-xl border border-border text-success disabled:opacity-50">
         <Check className="size-5" />
       </button>
     </li>
@@ -125,13 +125,13 @@ function ReadyRow({ order, now }: { order: FloorOrder; now: number }) {
   const step = useOrderStep();
   return (
     <li className="flex items-center gap-3 px-5 py-3">
-      <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#E3F5EA] text-sm font-bold text-[#168A52]">{order.tableNumber ? tableNo(order.tableNumber) : <UtensilsCrossed className="size-5" />}</span>
+      <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-success-soft text-sm font-bold text-success">{order.tableNumber ? tableNo(order.tableNumber) : <UtensilsCrossed className="size-5" />}</span>
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold">{order.tableNumber ? t('tableNumber', { table: tableNo(order.tableNumber) }) : <>{t(`fulfillment.${order.fulfillmentType}`)} · <bdi>{order.number}</bdi></>}</p>
-        <p className="truncate text-xs text-[#696965]">{order.items.map((item) => `${item.quantity}× ${itemLine(item, locale)}`).join(', ')}</p>
-        <p className="text-xs text-[#168A52]">{t('readyFor', { age: age(order.readyAt ?? order.createdAt, now) })}</p>
+        <p className="truncate text-xs text-muted-foreground">{order.items.map((item) => `${item.quantity}× ${itemLine(item, locale)}`).join(', ')}</p>
+        <p className="text-xs text-success">{t('readyFor', { age: age(order.readyAt ?? order.createdAt, now) })}</p>
       </div>
-      <button type="button" disabled={step.isPending} onClick={() => step.mutate({ order, status: 'DELIVERED' })} className="h-10 shrink-0 rounded-xl bg-[#168A52] px-3.5 text-sm font-semibold text-white disabled:opacity-50">
+      <button type="button" disabled={step.isPending} onClick={() => step.mutate({ order, status: 'DELIVERED' })} className="h-10 shrink-0 rounded-xl bg-success px-3.5 text-sm font-semibold text-white disabled:opacity-50">
         {order.fulfillmentType === 'DINE_IN' ? t('actions.served') : t('actions.handedOver')}
       </button>
     </li>
@@ -144,10 +144,10 @@ function MineRow({ order, now }: { order: FloorOrder; now: number }) {
   return (
     <li>
       <Link href={`/floor/orders?open=${order.id}`} className="flex items-center gap-3 px-5 py-3">
-        <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#F2F2EF] text-sm font-bold">{order.tableNumber ? tableNo(order.tableNumber) : <UtensilsCrossed className="size-5" />}</span>
+        <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-surface-2 text-sm font-bold">{order.tableNumber ? tableNo(order.tableNumber) : <UtensilsCrossed className="size-5" />}</span>
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold"><bdi>{order.number}</bdi></p>
-          <p className="truncate text-xs text-[#696965]">{t('placedAgo', { age: age(order.createdAt, now) })}</p>
+          <p className="truncate text-xs text-muted-foreground">{t('placedAgo', { age: age(order.createdAt, now) })}</p>
         </div>
         <StagePill status={order.status} />
       </Link>

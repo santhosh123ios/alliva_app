@@ -336,7 +336,7 @@ export function OrderAlerts({ orders }: { orders?: MerchantDashboard['liveOrders
         <button
           type="button"
           onClick={() => void test()}
-          className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-primary px-3 text-xs font-semibold text-[#111111]"
+          className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-primary px-3 text-xs font-semibold text-primary-foreground"
         >
           <Volume2 className="size-4" />
           <span className="hidden sm:inline">{t('enableSound')}</span>
@@ -350,12 +350,12 @@ export function OrderAlerts({ orders }: { orders?: MerchantDashboard['liveOrders
           aria-label={t('settings')}
           title={t('settings')}
           onClick={() => setOpen((value) => !value)}
-          className={`grid size-10 place-items-center rounded-full border border-[#E6E6E2] bg-white ${ringing && !muted ? 'text-[#C49200]' : 'text-[#161616]'}`}
+          className={`grid size-10 place-items-center rounded-full border border-border bg-card ${ringing && !muted ? 'text-warning' : 'text-foreground'}`}
         >
-          {muted ? <BellOff className="size-4 text-[#8A8A86]" /> : <BellRing className={`size-4 ${ringing ? 'motion-safe:animate-bounce' : ''}`} />}
+          {muted ? <BellOff className="size-4 text-subtle" /> : <BellRing className={`size-4 ${ringing ? 'motion-safe:animate-bounce' : ''}`} />}
         </button>
         {open ? (
-          <div role="dialog" aria-label={t('settings')} className="absolute end-0 top-12 z-50 w-64 rounded-2xl border border-[#E6E6E2] bg-white p-4 text-[#161616] shadow-lg">
+          <div role="dialog" aria-label={t('settings')} className="absolute end-0 top-12 z-50 w-64 rounded-2xl border border-border bg-card p-4 text-foreground shadow-lg">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-semibold">{t('sound')}</span>
               <button
@@ -364,17 +364,17 @@ export function OrderAlerts({ orders }: { orders?: MerchantDashboard['liveOrders
                 aria-checked={!muted}
                 aria-label={muted ? t('unmute') : t('mute')}
                 onClick={toggleMute}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${muted ? 'bg-[#D9D9D5]' : 'bg-primary'}`}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${muted ? 'bg-border-strong' : 'bg-primary'}`}
               >
-                <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-[inset-inline-start] ${muted ? 'start-0.5' : 'start-[1.375rem]'}`} />
+                <span className={`absolute top-0.5 size-5 rounded-full bg-card shadow transition-[inset-inline-start] ${muted ? 'start-0.5' : 'start-[1.375rem]'}`} />
               </button>
             </div>
-            <label className="mt-4 block text-xs font-medium text-[#6B6B67]" htmlFor="order-alert-volume">
+            <label className="mt-4 block text-xs font-medium text-muted-foreground" htmlFor="order-alert-volume">
               {t('volume')}
-              <span className="float-end tabular-nums text-[#161616]">{percent}%</span>
+              <span className="float-end tabular-nums text-foreground">{percent}%</span>
             </label>
             <div className="mt-2 flex items-center gap-2">
-              <Volume1 className="size-4 shrink-0 text-[#8A8A86]" />
+              <Volume1 className="size-4 shrink-0 text-subtle" />
               <input
                 id="order-alert-volume"
                 type="range"
@@ -388,20 +388,20 @@ export function OrderAlerts({ orders }: { orders?: MerchantDashboard['liveOrders
                 onKeyUp={(event) => {
                   if (event.key.startsWith('Arrow') || event.key === 'Home' || event.key === 'End') void test();
                 }}
-                className="w-full accent-[#C49200] disabled:opacity-40"
+                className="w-full accent-primary disabled:opacity-40"
               />
-              <Volume2 className="size-4 shrink-0 text-[#8A8A86]" />
+              <Volume2 className="size-4 shrink-0 text-subtle" />
             </div>
             <button
               type="button"
               onClick={() => void test()}
               disabled={muted}
-              className="mt-4 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-[#E6E6E2] text-xs font-semibold disabled:opacity-40"
+              className="mt-4 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-border text-xs font-semibold disabled:opacity-40"
             >
               <Play className="size-3.5" />
               {t('test')}
             </button>
-            <p className="mt-3 text-[11px] leading-snug text-[#8A8A86]">{t('hint')}</p>
+            <p className="mt-3 text-[11px] leading-snug text-subtle">{t('hint')}</p>
           </div>
         ) : null}
       </div>

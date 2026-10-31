@@ -52,7 +52,7 @@ export function PickupVerifier({ open, onOpenChange, orderId, onVerified }: { op
           <DialogTitle className="text-xl">{t('title')}</DialogTitle>
           <DialogDescription>{t('body')}</DialogDescription>
         </div>
-        <div className="mx-5 grid grid-cols-2 gap-1 rounded-xl bg-[#F2F2EF] p-1" role="tablist">
+        <div className="mx-5 grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1" role="tablist">
           {(['scan', 'code'] as const).map((value) => (
             <button
               key={value}
@@ -60,7 +60,7 @@ export function PickupVerifier({ open, onOpenChange, orderId, onVerified }: { op
               role="tab"
               aria-selected={mode === value}
               onClick={() => { setMode(value); setError(''); }}
-              className={cn('flex h-10 items-center justify-center gap-2 rounded-lg text-sm font-semibold', mode === value ? 'bg-white shadow-sm' : 'text-[#696965]')}
+              className={cn('flex h-10 items-center justify-center gap-2 rounded-lg text-sm font-semibold', mode === value ? 'bg-card shadow-sm' : 'text-muted-foreground')}
             >
               {value === 'scan' ? <QrCode className="size-4" /> : <Keyboard className="size-4" />}
               {t(value === 'scan' ? 'scanTab' : 'codeTab')}
@@ -96,21 +96,21 @@ export function PickupVerifier({ open, onOpenChange, orderId, onVerified }: { op
                 maxLength={8}
                 placeholder="AB3K7Q"
                 dir="ltr"
-                className="h-16 w-full rounded-2xl border-2 border-[#E2E2DC] bg-white text-center font-mono text-3xl font-bold tracking-[0.4em] outline-none focus:border-[#111111]"
+                className="h-16 w-full rounded-2xl border-2 border-border-strong bg-card text-center font-mono text-3xl font-bold tracking-[0.4em] outline-none focus:border-foreground"
               />
-              <p className="text-xs text-[#696965]">{t('codeHint')}</p>
+              <p className="text-xs text-muted-foreground">{t('codeHint')}</p>
               <button
                 type="submit"
                 disabled={verify.isPending || code.trim().length < 4}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#111111] text-sm font-semibold text-white disabled:opacity-40"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-secondary text-sm font-semibold text-secondary-foreground disabled:opacity-40"
               >
                 {verify.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
                 {t('submit')}
               </button>
             </form>
           )}
-          {verify.isPending && mode === 'scan' ? <p className="mt-3 flex items-center justify-center gap-2 text-sm text-[#696965]"><Loader2 className="size-4 animate-spin" />{t('checking')}</p> : null}
-          {error ? <p className="mt-3 rounded-xl bg-[#FDECEA] px-3 py-2.5 text-sm font-medium text-[#B42318]" role="alert">{error}</p> : null}
+          {verify.isPending && mode === 'scan' ? <p className="mt-3 flex items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />{t('checking')}</p> : null}
+          {error ? <p className="mt-3 rounded-xl bg-destructive-soft px-3 py-2.5 text-sm font-medium text-destructive" role="alert">{error}</p> : null}
           <PickupList
             orderId={orderId}
             highlight={last}
@@ -134,7 +134,7 @@ function PickupList({ orderId, highlight, busy, onMark }: { orderId?: string; hi
     <section className="mt-5">
       <div className="mb-2 flex items-end justify-between">
         <h2 className="text-sm font-semibold">{t('listTitle')}</h2>
-        <span className="text-xs text-[#696965]">{left ? t('listLeft', { count: left }) : t('listDone')}</span>
+        <span className="text-xs text-muted-foreground">{left ? t('listLeft', { count: left }) : t('listDone')}</span>
       </div>
       <ol className="space-y-2">
         {rows.map((order) => {
@@ -142,25 +142,25 @@ function PickupList({ orderId, highlight, busy, onMark }: { orderId?: string; hi
           return (
             <li
               key={order.id}
-              className={cn('flex items-center gap-3 rounded-2xl border p-3 transition-colors', picked ? 'border-[#BFE5CF] bg-[#F1FAF4]' : 'border-[#ECECE8] bg-white', highlight === order.id && 'ring-2 ring-[#168A52]')}
+              className={cn('flex items-center gap-3 rounded-2xl border p-3 transition-colors', picked ? 'border-success bg-success-soft' : 'border-border bg-card', highlight === order.id && 'ring-2 ring-success')}
             >
-              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#111111] text-sm font-bold text-[#FFC400]">{order.stop}</span>
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-secondary text-sm font-bold text-primary">{order.stop}</span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold"><bdi dir="ltr">#{order.number}</bdi></p>
-                <p className="truncate text-xs text-[#5C5C58]">{order.customer.name}</p>
-                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#696965]">
-                  {order.pickupCode ? <span className="rounded-md bg-[#F2F2EF] px-1.5 py-0.5 font-mono text-[13px] font-bold tracking-widest text-[#111111]" dir="ltr">{order.pickupCode}</span> : <span>{t('noCode')}</span>}
+                <p className="truncate text-xs text-muted-foreground">{order.customer.name}</p>
+                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  {order.pickupCode ? <span className="rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[13px] font-bold tracking-widest text-foreground" dir="ltr">{order.pickupCode}</span> : <span>{t('noCode')}</span>}
                   <span>{t('itemCount', { count: order.items.reduce((total, item) => total + item.quantity, 0) })}</span>
                 </p>
               </div>
               {picked ? (
-                <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#E3F5EA] px-2.5 py-1.5 text-xs font-semibold text-[#168A52]"><Check className="size-3.5" />{t('pickedLabel')}</span>
+                <span className="flex shrink-0 items-center gap-1 rounded-full bg-success-soft px-2.5 py-1.5 text-xs font-semibold text-success"><Check className="size-3.5" />{t('pickedLabel')}</span>
               ) : (
                 <button
                   type="button"
                   disabled={busy !== null}
                   onClick={() => onMark(order.id)}
-                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[#111111] px-3 text-xs font-semibold text-white disabled:opacity-50"
+                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-secondary px-3 text-xs font-semibold text-secondary-foreground disabled:opacity-50"
                 >
                   {busy === order.id ? <Loader2 className="size-3.5 animate-spin" /> : <Hand className="size-3.5" />}
                   {t('markPicked')}
@@ -252,10 +252,10 @@ function Camera({ active, onResult, onUnavailable, onError, compact }: { active:
 
   return (
     <div>
-      <div className={cn('relative mx-auto aspect-square w-full overflow-hidden rounded-3xl bg-[#111111]', compact ? 'max-w-[15rem]' : 'max-w-sm')}>
+      <div className={cn('relative mx-auto aspect-square w-full overflow-hidden rounded-3xl bg-secondary', compact ? 'max-w-[15rem]' : 'max-w-sm')}>
         <video ref={videoRef} className="size-full object-cover" muted playsInline autoPlay />
         {state === 'running' ? (
-          <div className="pointer-events-none absolute inset-[18%] rounded-2xl border-4 border-[#FFC400] shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
+          <div className="pointer-events-none absolute inset-[18%] rounded-2xl border-4 border-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
         ) : null}
         {state === 'starting' ? <div className="absolute inset-0 grid place-items-center text-sm text-white/80"><Loader2 className="size-6 animate-spin" /></div> : null}
         {blocked ? (
@@ -273,12 +273,12 @@ function Camera({ active, onResult, onUnavailable, onError, compact }: { active:
         type="button"
         disabled={reading}
         onClick={() => photoRef.current?.click()}
-        className={cn('mx-auto mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-semibold disabled:opacity-60', compact ? 'max-w-[15rem]' : 'max-w-sm', blocked ? 'bg-[#FFC400] text-[#111111]' : 'border border-[#E2E2DC] bg-white text-[#111111]')}
+        className={cn('mx-auto mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-semibold disabled:opacity-60', compact ? 'max-w-[15rem]' : 'max-w-sm', blocked ? 'bg-primary text-primary-foreground' : 'border border-border-strong bg-card text-foreground')}
       >
         {reading ? <Loader2 className="size-4 animate-spin" /> : <CameraIcon className="size-4" />}
         {t('takePhoto')}
       </button>
-      {state === 'running' ? <p className="mt-2 text-center text-sm text-[#696965]">{t('scanHint')}</p> : null}
+      {state === 'running' ? <p className="mt-2 text-center text-sm text-muted-foreground">{t('scanHint')}</p> : null}
     </div>
   );
 }

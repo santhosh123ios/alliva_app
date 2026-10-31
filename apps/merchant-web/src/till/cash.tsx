@@ -48,20 +48,20 @@ function ClosedDrawer({ canOpen }: { canOpen: boolean }) {
     onError: (error: Error) => toast.error(error.message),
   });
   return (
-    <section className="rounded-3xl bg-white p-5">
+    <section className="rounded-3xl bg-card p-5">
       <div className="flex items-center gap-3">
-        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#F0F0EC] text-[#696965]"><Lock className="size-6" /></span>
+        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-surface-2 text-muted-foreground"><Lock className="size-6" /></span>
         <div className="min-w-0 flex-1">
           <h2 className="font-semibold">{t('closedTitle')}</h2>
-          <p className="text-xs text-[#696965]">{t('closedBody')}</p>
+          <p className="text-xs text-muted-foreground">{t('closedBody')}</p>
         </div>
       </div>
       {canOpen ? (
         <div className="mt-4 space-y-3">
           <label className="block text-sm font-semibold" htmlFor="till-float">{t('float')}</label>
-          <input id="till-float" inputMode="decimal" dir="ltr" value={float} onChange={(event) => setFloat(event.target.value.replace(/[^\d.]/g, ''))} placeholder="0.000" className="h-12 w-full rounded-xl border border-[#E2E2DC] px-4 text-lg font-semibold tabular-nums outline-none focus:border-[#111111]" />
-          <p className="text-xs text-[#696965]">{t('floatHint')}</p>
-          <button type="button" disabled={open.isPending} onClick={() => open.mutate()} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#111111] text-sm font-semibold text-white disabled:opacity-50">
+          <input id="till-float" inputMode="decimal" dir="ltr" value={float} onChange={(event) => setFloat(event.target.value.replace(/[^\d.]/g, ''))} placeholder="0.000" className="h-12 w-full rounded-xl border border-border-strong px-4 text-lg font-semibold tabular-nums outline-none focus:border-foreground" />
+          <p className="text-xs text-muted-foreground">{t('floatHint')}</p>
+          <button type="button" disabled={open.isPending} onClick={() => open.mutate()} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-secondary text-sm font-semibold text-secondary-foreground disabled:opacity-50">
             {open.isPending ? <Loader2 className="size-4 animate-spin" /> : <Unlock className="size-4" />}{t('open', { amount: money(float || 0, locale) })}
           </button>
         </div>
@@ -95,12 +95,12 @@ function OpenDrawer({ drawer, canClose }: { drawer: CashDrawerView; canClose: bo
   });
 
   return (
-    <section className="rounded-3xl bg-white p-5">
+    <section className="rounded-3xl bg-card p-5">
       <div className="flex items-center gap-3">
-        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#E3F5EA] text-[#168A52]"><Wallet className="size-6" /></span>
+        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-success-soft text-success"><Wallet className="size-6" /></span>
         <div className="min-w-0 flex-1">
           <h2 className="font-semibold">{t('openTitle')}</h2>
-          <p className="truncate text-xs text-[#696965]">{t('openedAt', { time: opened, name: drawer.openedBy ?? '—' })}</p>
+          <p className="truncate text-xs text-muted-foreground">{t('openedAt', { time: opened, name: drawer.openedBy ?? '—' })}</p>
         </div>
       </div>
       <dl className="mt-4 grid gap-2 sm:grid-cols-3 sm:text-center">
@@ -110,32 +110,32 @@ function OpenDrawer({ drawer, canClose }: { drawer: CashDrawerView; canClose: bo
       </dl>
 
       {canClose && !counting ? (
-        <button type="button" onClick={() => setCounting(true)} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#111111] text-sm font-semibold text-white">
+        <button type="button" onClick={() => setCounting(true)} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-secondary text-sm font-semibold text-secondary-foreground">
           <Lock className="size-4" />{t('countAndClose')}
         </button>
       ) : null}
 
       {counting ? (
-        <div className="mt-4 space-y-3 border-t border-[#F0F0EC] pt-4">
+        <div className="mt-4 space-y-3 border-t border-border pt-4">
           <p className="text-sm font-semibold">{t('countTitle')}</p>
           <ul className="space-y-2">
             {NOTES.map((value) => (
               <li key={value} className="flex items-center gap-3">
                 <span className="w-20 text-sm font-semibold tabular-nums">{money(value, locale)}</span>
-                <div className="flex items-center rounded-xl border border-[#E2E2DC]">
+                <div className="flex items-center rounded-xl border border-border-strong">
                   <button type="button" aria-label={t('less', { note: money(value, locale) })} onClick={() => setNotes((current) => ({ ...current, [value]: Math.max(0, (current[value] ?? 0) - 1) }))} className="grid size-10 place-items-center"><Minus className="size-4" /></button>
                   <input inputMode="numeric" dir="ltr" aria-label={t('noteCount', { note: money(value, locale) })} value={notes[value] ?? ''} onChange={(event) => setNotes((current) => ({ ...current, [value]: Number(event.target.value.replace(/\D/g, '').slice(0, 4) || 0) }))} placeholder="0" className="h-10 w-12 bg-transparent text-center font-semibold tabular-nums outline-none" />
                   <button type="button" aria-label={t('more', { note: money(value, locale) })} onClick={() => setNotes((current) => ({ ...current, [value]: (current[value] ?? 0) + 1 }))} className="grid size-10 place-items-center"><Plus className="size-4" /></button>
                 </div>
-                <span className="ms-auto text-sm tabular-nums text-[#696965]">{money(value * (notes[value] ?? 0), locale)}</span>
+                <span className="ms-auto text-sm tabular-nums text-muted-foreground">{money(value * (notes[value] ?? 0), locale)}</span>
               </li>
             ))}
             <li className="flex items-center gap-3">
               <label htmlFor="till-coins" className="w-20 text-sm font-semibold">{t('coins')}</label>
-              <input id="till-coins" inputMode="decimal" dir="ltr" value={coins} onChange={(event) => setCoins(event.target.value.replace(/[^\d.]/g, ''))} placeholder="0.000" className="h-10 w-[8.5rem] rounded-xl border border-[#E2E2DC] px-3 font-semibold tabular-nums outline-none focus:border-[#111111]" />
+              <input id="till-coins" inputMode="decimal" dir="ltr" value={coins} onChange={(event) => setCoins(event.target.value.replace(/[^\d.]/g, ''))} placeholder="0.000" className="h-10 w-[8.5rem] rounded-xl border border-border-strong px-3 font-semibold tabular-nums outline-none focus:border-foreground" />
             </li>
           </ul>
-          <div className={cn('flex items-center justify-between rounded-xl px-4 py-3', Math.abs(difference) < 0.0005 ? 'bg-[#E3F5EA] text-[#11663D]' : difference > 0 ? 'bg-[#EEF4FF] text-[#1E4FB8]' : 'bg-[#FDECEA] text-[#B42318]')}>
+          <div className={cn('flex items-center justify-between rounded-xl px-4 py-3', Math.abs(difference) < 0.0005 ? 'bg-success-soft text-success' : difference > 0 ? 'bg-info-soft text-info' : 'bg-destructive-soft text-destructive')}>
             <div>
               <p className="text-xs">{t('counted')}</p>
               <p className="text-xl font-bold tabular-nums">{money(counted, locale)}</p>
@@ -144,10 +144,10 @@ function OpenDrawer({ drawer, canClose }: { drawer: CashDrawerView; canClose: bo
               {Math.abs(difference) < 0.0005 ? t('balanced') : t(difference > 0 ? 'over' : 'short', { amount: money(Math.abs(difference), locale) })}
             </p>
           </div>
-          <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} maxLength={300} placeholder={t('notePlaceholder')} className="w-full rounded-xl border border-[#E2E2DC] px-3 py-2 text-sm outline-none focus:border-[#111111]" />
+          <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} maxLength={300} placeholder={t('notePlaceholder')} className="w-full rounded-xl border border-border-strong px-3 py-2 text-sm outline-none focus:border-foreground" />
           <div className="grid grid-cols-[auto_1fr] gap-2">
-            <button type="button" onClick={() => setCounting(false)} className="h-12 rounded-2xl border border-[#E2E2DC] px-4 text-sm font-semibold">{t('cancel')}</button>
-            <button type="button" disabled={close.isPending} onClick={() => close.mutate()} className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#111111] text-sm font-semibold text-white disabled:opacity-50">
+            <button type="button" onClick={() => setCounting(false)} className="h-12 rounded-2xl border border-border-strong px-4 text-sm font-semibold">{t('cancel')}</button>
+            <button type="button" disabled={close.isPending} onClick={() => close.mutate()} className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-secondary text-sm font-semibold text-secondary-foreground disabled:opacity-50">
               {close.isPending ? <Loader2 className="size-4 animate-spin" /> : <Lock className="size-4" />}{t('close')}
             </button>
           </div>
@@ -159,8 +159,8 @@ function OpenDrawer({ drawer, canClose }: { drawer: CashDrawerView; canClose: bo
 
 function Figure({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className={cn('flex items-center justify-between gap-3 rounded-2xl px-4 py-3 sm:block sm:px-2', strong ? 'bg-[#111111] text-white' : 'bg-[#F7F7F5]')}>
-      <dt className={cn('truncate text-xs', strong ? 'text-white/70' : 'text-[#696965]')}>{label}</dt>
+    <div className={cn('flex items-center justify-between gap-3 rounded-2xl px-4 py-3 sm:block sm:px-2', strong ? 'bg-secondary text-secondary-foreground' : 'bg-muted')}>
+      <dt className={cn('truncate text-xs', strong ? 'text-white/70' : 'text-muted-foreground')}>{label}</dt>
       <dd className="whitespace-nowrap font-semibold tabular-nums sm:mt-0.5">{value}</dd>
     </div>
   );
@@ -173,13 +173,13 @@ function DrawerHistory() {
   const history = useQuery({ queryKey: ['merchant', 'billing', 'drawers', branchId], queryFn: () => api.cashDrawers(branchId || undefined) });
   const rows = history.data?.drawers ?? [];
   return (
-    <section className="overflow-hidden rounded-3xl bg-white">
+    <section className="overflow-hidden rounded-3xl bg-card">
       <header className="flex items-center gap-2 px-5 pb-2 pt-4">
-        <History className="size-4 text-[#696965]" />
+        <History className="size-4 text-muted-foreground" />
         <h2 className="font-semibold">{t('historyTitle')}</h2>
       </header>
       {history.isLoading ? <Skeleton className="mx-5 mb-5 h-16 rounded-2xl" /> : rows.length ? (
-        <ul className="divide-y divide-[#F0F0EC]">
+        <ul className="divide-y divide-border">
           {rows.map((row) => {
             const diff = Number(row.difference ?? 0);
             const when = new Date(row.closedAt!).toLocaleString(locale === 'ar' ? 'ar-BH' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bahrain' });
@@ -187,17 +187,17 @@ function DrawerHistory() {
               <li key={row.id} className="flex items-center gap-3 px-5 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{when}{row.closedBy ? ` · ${row.closedBy}` : ''}</p>
-                  <p className="truncate text-xs text-[#696965]">{t('historyLine', { expected: money(row.expected, locale), counted: money(row.countedAmount ?? 0, locale) })}</p>
-                  {row.note ? <p className="truncate text-xs text-[#8A5A00]"><bdi>{row.note}</bdi></p> : null}
+                  <p className="truncate text-xs text-muted-foreground">{t('historyLine', { expected: money(row.expected, locale), counted: money(row.countedAmount ?? 0, locale) })}</p>
+                  {row.note ? <p className="truncate text-xs text-warning"><bdi>{row.note}</bdi></p> : null}
                 </div>
-                <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums', Math.abs(diff) < 0.0005 ? 'bg-[#E3F5EA] text-[#168A52]' : diff > 0 ? 'bg-[#EEF4FF] text-[#1E4FB8]' : 'bg-[#FDECEA] text-[#B42318]')}>
+                <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums', Math.abs(diff) < 0.0005 ? 'bg-success-soft text-success' : diff > 0 ? 'bg-info-soft text-info' : 'bg-destructive-soft text-destructive')}>
                   {Math.abs(diff) < 0.0005 ? t('balanced') : `${diff > 0 ? '+' : '−'}${money(Math.abs(diff), locale)}`}
                 </span>
               </li>
             );
           })}
         </ul>
-      ) : <p className="px-5 pb-5 pt-1 text-sm text-[#8A8A86]">{t('noHistory')}</p>}
+      ) : <p className="px-5 pb-5 pt-1 text-sm text-subtle">{t('noHistory')}</p>}
     </section>
   );
 }

@@ -32,7 +32,7 @@ export default function TillHome() {
     <div className="space-y-4">
       <section>
         <h1 className="text-2xl font-semibold tracking-tight">{t(hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening', { name: me.data?.firstName ?? '' })}</h1>
-        <p className="mt-0.5 text-sm text-[#696965]">{data.open.length ? t('summaryBusy', { open: data.open.length, due: money(data.today.due, locale) }) : t('summaryQuiet')}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{data.open.length ? t('summaryBusy', { open: data.open.length, due: money(data.today.due, locale) }) : t('summaryQuiet')}</p>
       </section>
 
       <section className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
@@ -45,11 +45,11 @@ export default function TillHome() {
       </section>
 
       {!data.drawer ? (
-        <Link href="/billing/cash" className="flex items-center gap-3 rounded-3xl bg-[#FFF8DC] px-5 py-4">
-          <Wallet className="size-5 shrink-0 text-[#8A5A00]" />
+        <Link href="/billing/cash" className="flex items-center gap-3 rounded-3xl bg-primary-soft px-5 py-4">
+          <Wallet className="size-5 shrink-0 text-warning" />
           <div className="min-w-0 flex-1">
             <p className="font-semibold">{t('drawerTitle')}</p>
-            <p className="text-xs text-[#6B4A00]">{t('drawerBody')}</p>
+            <p className="text-xs text-warning">{t('drawerBody')}</p>
           </div>
           <ArrowRight className="size-4 shrink-0 rtl:-scale-x-100" />
         </Link>
@@ -59,7 +59,7 @@ export default function TillHome() {
         {asking.length ? <div className="grid gap-2 px-3 pb-3 md:grid-cols-2">{asking.map((bill) => <OpenBillCard key={bill.key} bill={bill} inset onOpen={() => open(bill.key)} />)}</div> : <Empty text={t('noAsking')} />}
       </Card>
 
-      <Card title={t('readyTitle')} icon={CircleCheck} count={ready.length} action={<Link href="/billing/bills" className="inline-flex items-center gap-1 text-xs font-semibold text-[#2F6FED]">{t('allBills')}<ArrowRight className="size-3.5 rtl:-scale-x-100" /></Link>}>
+      <Card title={t('readyTitle')} icon={CircleCheck} count={ready.length} action={<Link href="/billing/bills" className="inline-flex items-center gap-1 text-xs font-semibold text-info">{t('allBills')}<ArrowRight className="size-3.5 rtl:-scale-x-100" /></Link>}>
         {ready.length ? <div className="grid gap-2 px-3 pb-3 md:grid-cols-2">{ready.map((bill) => <OpenBillCard key={bill.key} bill={bill} inset onOpen={() => open(bill.key)} />)}</div> : <Empty text={t('noReady')} />}
       </Card>
 
@@ -71,13 +71,13 @@ export default function TillHome() {
               return (
                 <li key={row.method}>
                   <div className="flex items-center gap-2 text-sm">
-                    <Icon className="size-4 text-[#696965]" />
+                    <Icon className="size-4 text-muted-foreground" />
                     <span className="flex-1 font-medium">{tm(row.method)}</span>
-                    <span className="text-xs text-[#696965]">{t('stats.bills', { count: row.bills })}</span>
+                    <span className="text-xs text-muted-foreground">{t('stats.bills', { count: row.bills })}</span>
                     <span className="w-24 text-end font-semibold tabular-nums">{money(row.amount, locale)}</span>
                   </div>
-                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[#F0F0EC]">
-                    <div className="h-full rounded-full bg-[#111111]" style={{ width: `${top ? Math.max(4, (Number(row.amount) / top) * 100) : 0}%` }} />
+                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-2">
+                    <div className="h-full rounded-full bg-secondary" style={{ width: `${top ? Math.max(4, (Number(row.amount) / top) * 100) : 0}%` }} />
                   </div>
                 </li>
               );
@@ -91,14 +91,14 @@ export default function TillHome() {
 
 function Stat({ label, value, detail, tone = 'plain' }: { label: string; value: string; detail?: string; tone?: 'plain' | 'alert' | 'good' | 'warn' }) {
   return (
-    <div className={cn('h-full rounded-2xl p-3.5', tone === 'alert' ? 'bg-[#B42318] text-white' : tone === 'good' ? 'bg-[#E3F5EA]' : tone === 'warn' ? 'bg-[#FFF8DC]' : 'bg-white')}>
-      <p className={cn('text-xs font-medium', tone === 'alert' ? 'text-white/80' : 'text-[#696965]')}>{label}</p>
+    <div className={cn('h-full rounded-2xl p-3.5', tone === 'alert' ? 'bg-destructive text-white' : tone === 'good' ? 'bg-success-soft' : tone === 'warn' ? 'bg-primary-soft' : 'bg-card')}>
+      <p className={cn('text-xs font-medium', tone === 'alert' ? 'text-white/80' : 'text-muted-foreground')}>{label}</p>
       <p className="mt-1 truncate text-xl font-semibold tabular-nums">{value}</p>
-      {detail ? <p className={cn('text-xs', tone === 'alert' ? 'text-white/80' : 'text-[#696965]')}>{detail}</p> : null}
+      {detail ? <p className={cn('text-xs', tone === 'alert' ? 'text-white/80' : 'text-muted-foreground')}>{detail}</p> : null}
     </div>
   );
 }
 
 function Empty({ text }: { text: string }) {
-  return <p className="px-5 pb-5 pt-1 text-sm text-[#8A8A86]">{text}</p>;
+  return <p className="px-5 pb-5 pt-1 text-sm text-subtle">{text}</p>;
 }

@@ -66,7 +66,7 @@ export function SquareCropper({
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{hint}</DialogDescription>
         <div
-          className="relative mx-auto mt-4 size-[280px] cursor-grab touch-none overflow-hidden rounded-xl bg-[#111] active:cursor-grabbing"
+          className="relative mx-auto mt-4 size-[280px] cursor-grab touch-none overflow-hidden rounded-xl bg-secondary active:cursor-grabbing"
           onPointerDown={(event) => {
             dragRef.current = { x: event.clientX, y: event.clientY, ox: offset.x, oy: offset.y };
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -97,7 +97,7 @@ export function SquareCropper({
             />
           ) : null}
         </div>
-        <label className="mt-4 block text-xs font-semibold text-[#161616]">
+        <label className="mt-4 block text-xs font-semibold text-foreground">
           {zoomLabel}
           <input
             type="range"
@@ -115,11 +115,11 @@ export function SquareCropper({
               setZoom(nextZoom);
               setOffset(clamp(BOX / 2 + centerX * (next.width / current.width), BOX / 2 + centerY * (next.height / current.height), nextZoom));
             }}
-            className="mt-2 w-full accent-[#FFC400]"
+            className="mt-2 w-full accent-primary"
           />
         </label>
         <div className="mt-4 flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className="h-10 rounded-xl border border-[#DDDCD7] px-3 text-sm font-semibold">{cancelLabel}</button>
+          <button type="button" onClick={onCancel} className="h-10 rounded-xl border border-border-strong px-3 text-sm font-semibold">{cancelLabel}</button>
           <Button type="button" variant="yellow" className="h-10 rounded-xl px-4" disabled={!ready} onClick={confirm}>{useLabel}</Button>
         </div>
       </DialogContent>

@@ -13,16 +13,16 @@ export default function LandingPage() {
   const list = [...(plans.data ?? [])].sort((a, b) => a.displayOrder - b.displayOrder || Number(a.priceMonthly) - Number(b.priceMonthly));
 
   return (
-    <div className="h-dvh snap-y snap-mandatory overflow-y-auto scroll-smooth bg-white text-[#111111]">
-      <header className="fixed inset-x-0 top-0 z-20 h-[72px] bg-white">
+    <div className="h-dvh snap-y snap-mandatory overflow-y-auto scroll-smooth bg-card text-foreground">
+      <header className="fixed inset-x-0 top-0 z-20 h-[72px] bg-card">
         <div className="mx-auto flex h-full max-w-6xl items-center gap-8 px-5 lg:px-8">
-          <img src="/logo-on-light.png" alt="Alliva" className="h-8 w-auto" />
-          <nav className="hidden items-center gap-7 text-sm text-[#3f3f3f] md:flex">
-            <a href="#how" className="hover:text-[#111111]">{t('how')}</a>
-            <a href="#plans" className="hover:text-[#111111]">{t('plansNav')}</a>
-            <a href="#how" className="hover:text-[#111111]">{t('featuresNav')}</a>
+          <img src="/logo-on-light.png" alt="Alliva" className="h-8 w-auto dark:brightness-0 dark:invert" />
+          <nav className="hidden items-center gap-7 text-sm text-foreground md:flex">
+            <a href="#how" className="hover:text-foreground">{t('how')}</a>
+            <a href="#plans" className="hover:text-foreground">{t('plansNav')}</a>
+            <a href="#how" className="hover:text-foreground">{t('featuresNav')}</a>
           </nav>
-          <Link href="/register" className="ms-auto inline-flex h-10 items-center rounded-lg bg-[#111111] px-4 text-sm font-semibold text-white">{t('getStarted')}</Link>
+          <Link href="/register" className="ms-auto inline-flex h-10 items-center rounded-lg bg-secondary px-4 text-sm font-semibold text-secondary-foreground">{t('getStarted')}</Link>
         </div>
       </header>
 
@@ -31,21 +31,21 @@ export default function LandingPage() {
           <div>
             <h1 className="font-display text-5xl leading-[0.95] tracking-tight sm:text-6xl lg:text-[4.25rem]">
               <span className="block">{t('headline')}</span>
-              <span className="mt-2 inline-block whitespace-nowrap bg-primary px-2 text-[2.35rem] leading-[1.2] sm:text-5xl lg:text-[3.15rem]">{t('headlineAccent')}</span>
+              <span className="mt-2 inline-block bg-primary px-2 text-[2rem] leading-[1.2] min-[400px]:whitespace-nowrap min-[400px]:text-[2.35rem] sm:text-5xl lg:text-[3.15rem]">{t('headlineAccent')}</span>
             </h1>
-            <p className="mt-6 max-w-md text-base text-[#3f3f3f] sm:text-lg">{t('subhead')}</p>
+            <p className="mt-6 max-w-md text-base text-foreground sm:text-lg">{t('subhead')}</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <a href="#plans" className="inline-flex h-12 items-center gap-2 rounded-lg bg-[#111111] px-5 text-sm font-semibold text-white">
+              <a href="#plans" className="inline-flex h-12 items-center gap-2 rounded-lg bg-secondary px-5 text-sm font-semibold text-secondary-foreground">
                 {t('explore')} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
               </a>
-              <a href="#how" className="inline-flex h-12 items-center gap-2 rounded-lg border border-[#d7d7d2] bg-white px-5 text-sm font-semibold">
+              <a href="#how" className="inline-flex h-12 items-center gap-2 rounded-lg border border-border-strong bg-card px-5 text-sm font-semibold">
                 {t('how')} <Play className="h-3.5 w-3.5 fill-current" />
               </a>
             </div>
           </div>
           <PhoneStage t={t} />
         </div>
-        <div className="shrink-0 bg-[#111111] text-white">
+        <div className="shrink-0 bg-secondary text-secondary-foreground">
           <div className="mx-auto grid max-w-6xl gap-6 px-5 py-6 md:grid-cols-3 lg:px-8">
             <Feature icon={Truck} title={t('ownTeam')} body={t('ownTeamBody')} />
             <Feature icon={Smartphone} title={t('customerApp')} body={t('customerAppBody')} />
@@ -54,28 +54,28 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="plans" className="flex h-dvh snap-start snap-always flex-col justify-center bg-[#fbfbfa] px-5 pt-[72px] lg:px-8">
+      <section id="plans" className="flex h-dvh snap-start snap-always flex-col justify-center bg-muted px-5 pt-[72px] lg:px-8">
         <h2 className="font-display text-center text-4xl tracking-tight sm:text-5xl">{t('plans')}</h2>
-        <p className="mt-3 text-center text-[#6b6b66]">{t('plansHint')}</p>
+        <p className="mt-3 text-center text-muted-foreground">{t('plansHint')}</p>
         <div className="mt-8 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-2">
           {list.map((plan) => (
             <PlanCard key={plan.id} plan={plan} locale={locale} t={t} />
           ))}
         </div>
-        <p className="mx-auto mt-6 flex max-w-xl items-start justify-center gap-3 text-center text-sm text-[#6b6b66]">
-          <QrCode className="mt-0.5 h-5 w-5 shrink-0 text-[#111111]" />
+        <p className="mx-auto mt-6 flex max-w-xl items-start justify-center gap-3 text-center text-sm text-muted-foreground">
+          <QrCode className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
           <span className="whitespace-pre-line text-start">{t('footnote')}</span>
         </p>
       </section>
 
-      <footer id="footer" className="relative flex h-dvh snap-start snap-always flex-col overflow-hidden bg-[#161616] px-5 pt-[72px] text-white lg:px-8">
+      <footer id="footer" className="relative flex h-dvh snap-start snap-always flex-col overflow-hidden bg-secondary px-5 pt-[72px] text-secondary-foreground lg:px-8">
         <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center gap-12">
-          <div className="flex flex-wrap items-center justify-between gap-6 rounded-[28px] bg-primary px-8 py-7 text-[#111111]">
+          <div className="flex flex-wrap items-center justify-between gap-6 rounded-[28px] bg-primary px-8 py-7 text-primary-foreground">
             <div>
               <p className="font-display text-3xl tracking-tight sm:text-4xl">{t('readyTitle')}</p>
               <p className="mt-1 text-sm sm:text-base">{t('readyBody')}</p>
             </div>
-            <a href="#plans" className="inline-flex h-12 items-center gap-2 rounded-full bg-[#111111] px-5 text-sm font-semibold text-white">
+            <a href="#plans" className="inline-flex h-12 items-center gap-2 rounded-full bg-secondary px-5 text-sm font-semibold text-secondary-foreground">
               {t('explore')} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
             </a>
           </div>
@@ -142,7 +142,7 @@ function Social({ label, children }: { label: string; children: React.ReactNode 
 function Feature({ icon: Icon, title, body }: { icon: typeof Truck; title: string; body: string }) {
   return (
     <div className="flex items-center gap-4">
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#1c1c1c] text-primary">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
         <Icon className="h-5 w-5" />
       </span>
       <div>
@@ -160,7 +160,7 @@ function PlanCard({ plan, locale, t }: { plan: SubscriptionPlanView; locale: 'en
   const price = Number.isFinite(amount) && Math.abs(amount - Math.round(amount)) < 0.001 ? String(Math.round(amount)) : amount.toFixed(3);
   const features = planFeatures(plan, plansT);
   return (
-    <article className={`flex w-[300px] shrink-0 snap-start flex-col rounded-[28px] border p-6 ${plan.recommended ? 'border-[#e6b000] bg-[#fff8df] shadow-[0_0_0_1px_#e6b000]' : 'border-[#e6e6e1] bg-white'}`}>
+    <article className={`flex w-[300px] shrink-0 snap-start flex-col rounded-[28px] border p-6 ${plan.recommended ? 'border-primary bg-primary-soft ring-1 ring-primary' : 'border-border bg-card'}`}>
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-display text-3xl">{name}</h3>
         {plan.recommended ? <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold">{t('popular')}</span> : null}
@@ -168,20 +168,20 @@ function PlanCard({ plan, locale, t }: { plan: SubscriptionPlanView; locale: 'en
       <p className="mt-5 flex items-end gap-1.5">
         <span className="mb-2 text-sm font-semibold">{t('currency')}</span>
         <span className="font-display text-6xl leading-none tracking-tight">{price}</span>
-        <span className="mb-2 text-sm text-[#6b6b66]">{t('perMonth')}</span>
+        <span className="mb-2 text-sm text-muted-foreground">{t('perMonth')}</span>
       </p>
-      <p className="mt-4 min-h-12 text-sm leading-6 text-[#4a4a46]">{pickLocalized(plan.description, locale)}</p>
+      <p className="mt-4 min-h-12 text-sm leading-6 text-foreground">{pickLocalized(plan.description, locale)}</p>
       <ul className="mt-5 space-y-3 text-sm">
         {features.map((feature) => (
           <li key={feature} className="flex items-start gap-2.5">
-            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[#111111]">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
               <Check className="h-3 w-3" strokeWidth={3} />
             </span>
             <span>{feature}</span>
           </li>
         ))}
       </ul>
-      <Link href={`/register?plan=${plan.id}&interval=MONTHLY`} className={`mt-auto inline-flex h-12 items-center justify-center rounded-xl text-sm font-semibold ${plan.recommended ? 'bg-[#111111] text-white' : 'border border-[#d7d7d2] bg-white'}`}>
+      <Link href={`/register?plan=${plan.id}&interval=MONTHLY`} className={`mt-auto inline-flex h-12 items-center justify-center rounded-xl text-sm font-semibold ${plan.recommended ? 'bg-secondary text-secondary-foreground' : 'border border-border-strong bg-card'}`}>
         {t('get', { name })}
       </Link>
     </article>
@@ -212,19 +212,19 @@ function limitText(value: unknown, t: ReturnType<typeof useTranslations<'plans'>
 function PhoneStage({ t }: { t: ReturnType<typeof useTranslations> }) {
   return (
     <div className="relative mx-auto h-[min(540px,100%)] max-h-[460px] w-full max-w-[460px]">
-      <div className="absolute inset-x-8 top-8 bottom-0 rounded-[40px] bg-[#f6e7b8]" />
+      <div className="absolute inset-x-8 top-8 bottom-0 rounded-[40px] bg-primary" />
       <div className="absolute start-1/2 top-4 w-[250px] -translate-x-1/2 rtl:translate-x-1/2">
-        <div className="rounded-[32px] border-[8px] border-[#1a1a1a] bg-white shadow-2xl">
+        <div className="rounded-[32px] border-[8px] border-foreground bg-card shadow-2xl">
           <div className="flex items-center justify-between px-4 pt-2 text-[10px] font-semibold">
             <span>9:41</span>
-            <span className="h-4 w-16 rounded-full bg-[#1a1a1a]" />
+            <span className="h-4 w-16 rounded-full bg-secondary" />
             <span className="w-6" />
           </div>
           <div className="flex items-center justify-between px-3 py-2">
             <img src="/logo-on-light.png" alt="" className="h-4 w-auto" />
             <ShoppingBag className="h-4 w-4" />
           </div>
-          <div className="mx-3 flex h-7 items-center gap-1 rounded-full bg-[#f3f3f0] px-2 text-[9px] text-[#8a8a86]">
+          <div className="mx-3 flex h-7 items-center gap-1 rounded-full bg-muted px-2 text-[9px] text-subtle">
             <Search className="h-3 w-3" /> {t('phoneSearch')}
           </div>
           <p className="mt-2 flex items-center gap-1 px-3 text-[10px] font-semibold">
@@ -234,7 +234,7 @@ function PhoneStage({ t }: { t: ReturnType<typeof useTranslations> }) {
             <p className="text-[11px] font-bold leading-tight">{t('phoneBanner')}</p>
             <p className="mt-1 text-[8px]">{t('phoneBannerSub')}</p>
           </div>
-          <div className="mt-2 flex justify-between px-3 text-[8px] text-[#6b6b66]">
+          <div className="mt-2 flex justify-between px-3 text-[8px] text-muted-foreground">
             <span className="flex flex-col items-center gap-0.5"><UtensilsCrossed className="h-3 w-3" /> </span>
             <span className="flex flex-col items-center gap-0.5"><Store className="h-3 w-3" /> </span>
             <span className="flex flex-col items-center gap-0.5"><ShoppingBag className="h-3 w-3" /> </span>
@@ -242,14 +242,14 @@ function PhoneStage({ t }: { t: ReturnType<typeof useTranslations> }) {
           </div>
           <div className="mt-2 flex items-center justify-between px-3 text-[10px] font-semibold">
             <span>{t('phonePopular')}</span>
-            <span className="text-[8px] font-medium text-[#8a8a86]">{t('phoneSeeAll')}</span>
+            <span className="text-[8px] font-medium text-subtle">{t('phoneSeeAll')}</span>
           </div>
           <div className="grid grid-cols-2 gap-2 px-3 pb-2 pt-1">
-            <MiniCard title="Saffron House" meta="Bahraini · Manama" tone="bg-[#f4c542]" />
-            <MiniCard title="Pearl Grill" meta="Grill · Muharraq" tone="bg-[#e8a04a]" />
+            <MiniCard title="Saffron House" meta="Bahraini · Manama" tone="bg-primary" />
+            <MiniCard title="Pearl Grill" meta="Grill · Muharraq" tone="bg-primary" />
           </div>
-          <div className="grid grid-cols-4 border-t px-1 py-1.5 text-[7px] text-[#8a8a86]">
-            <span className="flex flex-col items-center text-[#111111]"><Home className="h-3 w-3" />{t('phoneHome')}</span>
+          <div className="grid grid-cols-4 border-t px-1 py-1.5 text-[7px] text-subtle">
+            <span className="flex flex-col items-center text-foreground"><Home className="h-3 w-3" />{t('phoneHome')}</span>
             <span className="flex flex-col items-center"><ShoppingBag className="h-3 w-3" />{t('phoneOrders')}</span>
             <span className="flex flex-col items-center"><Heart className="h-3 w-3" />{t('phoneFavorites')}</span>
             <span className="flex flex-col items-center"><span className="h-3 w-3 rounded-full border" />{t('phoneAccount')}</span>
@@ -265,7 +265,7 @@ function MiniCard({ title, meta, tone }: { title: string; meta: string; tone: st
     <div>
       <div className={`h-14 rounded-lg ${tone}`} />
       <p className="mt-1 truncate text-[9px] font-semibold">{title}</p>
-      <p className="truncate text-[8px] text-[#8a8a86]">{meta}</p>
+      <p className="truncate text-[8px] text-subtle">{meta}</p>
     </div>
   );
 }

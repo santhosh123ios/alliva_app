@@ -203,7 +203,7 @@ export function BusinessSetupDialog({ profile }: { profile?: SetupProfile }) {
         onPointerDownOutside={(event) => event.preventDefault()}
         className="flex max-h-[min(92dvh,56rem)] w-[min(100%-1rem,52rem)] flex-col overflow-hidden p-0"
       >
-        <div className="border-b border-[#ECECEA] bg-[#FFF9E4] px-5 py-5 sm:px-7">
+        <div className="border-b border-border bg-primary-soft px-5 py-5 sm:px-7">
           <div className="flex items-start gap-4">
             <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary shadow-[0_8px_24px_rgba(255,196,0,0.3)]">
               <Store className="size-5" />
@@ -214,7 +214,7 @@ export function BusinessSetupDialog({ profile }: { profile?: SetupProfile }) {
             </div>
           </div>
           {missing.length ? (
-            <div role="status" className="mt-4 rounded-xl bg-white/80 px-3 py-2.5 text-sm text-[#5C4700]">
+            <div role="status" className="mt-4 rounded-xl bg-white/80 px-3 py-2.5 text-sm text-warning">
               <p className="font-semibold">{t('setupMissingTitle')}</p>
               <p className="mt-0.5">{t('setupMissingBody', { items: missing.map((gap) => t(gapLabel[gap])).join(', ') })}</p>
             </div>
@@ -223,16 +223,16 @@ export function BusinessSetupDialog({ profile }: { profile?: SetupProfile }) {
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/10">
               <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${complete * 25}%` }} />
             </div>
-            <span className="shrink-0 text-xs font-semibold text-[#5C5C58]">{t('setupProgress', { complete })}</span>
+            <span className="shrink-0 text-xs font-semibold text-muted-foreground">{t('setupProgress', { complete })}</span>
           </div>
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
           <SetupSection icon={Truck} title={t('deliverySettings')} ready={deliveryReady}>
-            <div className="flex items-center justify-between gap-3 rounded-xl bg-[#F7F7F5] px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-muted px-3 py-2.5">
               <div>
                 <p className="text-sm font-semibold">{t('freeDelivery')}</p>
-                <p className="text-xs text-[#8A8A86]">{t('freeDeliveryHint')}</p>
+                <p className="text-xs text-subtle">{t('freeDeliveryHint')}</p>
               </div>
               <Switch checked={freeDeliveryEnabled} onClick={() => { setFreeDeliveryEnabled((value) => !value); changed(); }} label={t('freeDelivery')} />
             </div>
@@ -247,7 +247,7 @@ export function BusinessSetupDialog({ profile }: { profile?: SetupProfile }) {
               )}
               <label className="block text-sm font-semibold">
                 {t('beyondPricingMode')}
-                <select value={deliveryForm.beyondDeliveryFeeMode} onChange={(event) => { setDeliveryForm((current) => ({ ...current, beyondDeliveryFeeMode: event.target.value === 'FIXED' ? 'FIXED' : 'PER_KM' })); changed(); }} className="mt-1.5 h-11 w-full rounded-xl border border-[#E4E4E0] bg-[#F7F7F5] px-3 text-sm outline-none">
+                <select value={deliveryForm.beyondDeliveryFeeMode} onChange={(event) => { setDeliveryForm((current) => ({ ...current, beyondDeliveryFeeMode: event.target.value === 'FIXED' ? 'FIXED' : 'PER_KM' })); changed(); }} className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm outline-none">
                   <option value="PER_KM">{t('perKm')}</option>
                   <option value="FIXED">{t('fixedPrice')}</option>
                 </select>
@@ -263,19 +263,19 @@ export function BusinessSetupDialog({ profile }: { profile?: SetupProfile }) {
               <form className="flex gap-2" onSubmit={(event) => void searchLocation(event)}>
                 <label className="relative min-w-0 flex-1">
                   <span className="sr-only">{t('setupLocationSearch')}</span>
-                  <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[#8A8A86]" />
-                  <input value={locationQuery} onChange={(event) => setLocationQuery(event.target.value)} placeholder={t('setupLocationPlaceholder')} className="h-11 w-full rounded-xl border border-[#E4E4E0] bg-[#F7F7F5] ps-9 pe-3 text-sm outline-none focus:border-[#111111]" />
+                  <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
+                  <input value={locationQuery} onChange={(event) => setLocationQuery(event.target.value)} placeholder={t('setupLocationPlaceholder')} className="h-11 w-full rounded-xl border border-border bg-muted ps-9 pe-3 text-sm outline-none focus:border-foreground" />
                 </label>
                 <Button type="submit" variant="outline" className="h-11 min-w-0 rounded-xl px-3" loading={searchingLocation}>{t('setupLocationSearch')}</Button>
-                <button type="button" onClick={useCurrentLocation} className="grid size-11 shrink-0 place-items-center rounded-xl border border-[#E4E4E0] bg-white" aria-label={t('useLocation')} title={t('useLocation')}>
+                <button type="button" onClick={useCurrentLocation} className="grid size-11 shrink-0 place-items-center rounded-xl border border-border bg-card" aria-label={t('useLocation')} title={t('useLocation')}>
                   <LocateFixed className="size-4" />
                 </button>
               </form>
               {locationResults.length ? (
-                <ul className="absolute inset-x-0 top-12 z-20 max-h-52 overflow-y-auto rounded-xl border border-[#E4E4E0] bg-white p-1.5 shadow-xl">
+                <ul className="absolute inset-x-0 top-12 z-20 max-h-52 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-xl">
                   {locationResults.map((result) => (
                     <li key={`${result.lat}-${result.lon}`}>
-                      <button type="button" className="w-full rounded-lg px-3 py-2 text-start text-sm hover:bg-[#F7F7F5]" onClick={() => {
+                      <button type="button" className="w-full rounded-lg px-3 py-2 text-start text-sm hover:bg-muted" onClick={() => {
                         setLocationQuery(result.display_name);
                         choosePoint({ lat: Number(result.lat), lng: Number(result.lon) });
                       }}>
@@ -286,10 +286,10 @@ export function BusinessSetupDialog({ profile }: { profile?: SetupProfile }) {
                 </ul>
               ) : null}
             </div>
-            <div className="mt-3 overflow-hidden rounded-2xl border border-[#E8E8E4]">
+            <div className="mt-3 overflow-hidden rounded-2xl border border-border">
               <LocationMap point={point} onMark={choosePoint} className="z-0 h-56 w-full" />
             </div>
-            {point ? <p className="mt-2 text-xs font-medium text-[#5C5C58]">{point.lat.toFixed(6)}, {point.lng.toFixed(6)}</p> : null}
+            {point ? <p className="mt-2 text-xs font-medium text-muted-foreground">{point.lat.toFixed(6)}, {point.lng.toFixed(6)}</p> : null}
           </SetupSection>
 
           <SetupSection icon={ShoppingBag} title={t('orderTypesTitle')} ready={orderTypesReady} hint={t('orderTypesHint')}>
@@ -301,18 +301,18 @@ export function BusinessSetupDialog({ profile }: { profile?: SetupProfile }) {
           </SetupSection>
 
           <SetupSection icon={Clock} title={t('hours')} ready={hoursReady} hint={t('setupHoursHint')}>
-            <div className="mt-3 divide-y divide-[#EEEEEC]">
+            <div className="mt-3 divide-y divide-border">
               {hours.map((hour, index) => (
                 <div key={hour.dayOfWeek} className="grid items-center gap-2 py-2.5 sm:grid-cols-[minmax(5rem,1fr)_auto] sm:gap-3">
                   <span className="text-sm font-semibold">{days[index]}</span>
                   <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-                    <label className="inline-flex items-center gap-1.5 text-xs text-[#696965]">
-                      <input type="checkbox" checked={hour.closed} onChange={(event) => changeHour(hour.dayOfWeek, { closed: event.target.checked })} className="size-4 accent-[#FFC400]" />
+                    <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <input type="checkbox" checked={hour.closed} onChange={(event) => changeHour(hour.dayOfWeek, { closed: event.target.checked })} className="size-4 accent-primary" />
                       {t('setupClosed')}
                     </label>
-                    <input type="time" disabled={hour.closed} value={hour.opensAt} onChange={(event) => changeHour(hour.dayOfWeek, { opensAt: event.target.value })} className="h-9 w-[6.6rem] rounded-lg border border-[#E4E4E0] bg-white px-2 text-xs disabled:opacity-40" />
-                    <span className="text-xs text-[#8A8A86]">–</span>
-                    <input type="time" disabled={hour.closed} value={hour.closesAt} onChange={(event) => changeHour(hour.dayOfWeek, { closesAt: event.target.value })} className="h-9 w-[6.6rem] rounded-lg border border-[#E4E4E0] bg-white px-2 text-xs disabled:opacity-40" />
+                    <input type="time" disabled={hour.closed} value={hour.opensAt} onChange={(event) => changeHour(hour.dayOfWeek, { opensAt: event.target.value })} className="h-9 w-[6.6rem] rounded-lg border border-border bg-card px-2 text-xs disabled:opacity-40" />
+                    <span className="text-xs text-subtle">–</span>
+                    <input type="time" disabled={hour.closed} value={hour.closesAt} onChange={(event) => changeHour(hour.dayOfWeek, { closesAt: event.target.value })} className="h-9 w-[6.6rem] rounded-lg border border-border bg-card px-2 text-xs disabled:opacity-40" />
                   </div>
                 </div>
               ))}
@@ -320,9 +320,9 @@ export function BusinessSetupDialog({ profile }: { profile?: SetupProfile }) {
           </SetupSection>
         </div>
 
-        <div className="border-t border-[#ECECEA] bg-white px-4 py-4 sm:px-6">
-          {autoSave.isPending ? <p className="mb-2 text-center text-xs font-medium text-[#696965]">{t('saving')}</p> : hasAutoSaved ? <p className="mb-2 text-center text-xs font-medium text-[#168A52]"><Check className="me-1 inline size-3.5" />{t('saved')}</p> : null}
-          {error ? <p className="mb-3 text-sm font-medium text-[#B42318]" role="alert">{error}</p> : null}
+        <div className="border-t border-border bg-card px-4 py-4 sm:px-6">
+          {autoSave.isPending ? <p className="mb-2 text-center text-xs font-medium text-muted-foreground">{t('saving')}</p> : hasAutoSaved ? <p className="mb-2 text-center text-xs font-medium text-success"><Check className="me-1 inline size-3.5" />{t('saved')}</p> : null}
+          {error ? <p className="mb-3 text-sm font-medium text-destructive" role="alert">{error}</p> : null}
           <Button type="button" variant="yellow" className="h-12 w-full rounded-xl" loading={save.isPending} disabled={autoSave.isPending} onClick={submit}>
             <Check className="size-4" /> {t('setupComplete')}
           </Button>
@@ -352,14 +352,14 @@ function amount(value: string | undefined, fallback: string, zeroIsValid = false
 
 function SetupSection({ icon: Icon, title, hint, ready, children }: { icon: typeof Truck; title: string; hint?: string; ready: boolean; children: React.ReactNode }) {
   return (
-    <section className={`rounded-2xl border bg-white p-4 transition-colors ${ready ? 'border-[#D6EBDD]' : 'border-[#ECECEA]'}`}>
+    <section className={`rounded-2xl border bg-card p-4 transition-colors ${ready ? 'border-success/30' : 'border-border'}`}>
       <div className="flex items-center gap-3">
-        <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${ready ? 'bg-[#E7F8EE] text-[#168A52]' : 'bg-[#FFF3C4]'}`}>
+        <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${ready ? 'bg-success-soft text-success' : 'bg-primary-soft'}`}>
           {ready ? <Check className="size-4" strokeWidth={3} /> : <Icon className="size-4" />}
         </span>
         <div>
           <h3 className="text-sm font-semibold">{title}</h3>
-          {hint ? <p className="text-xs text-[#8A8A86]">{hint}</p> : null}
+          {hint ? <p className="text-xs text-subtle">{hint}</p> : null}
         </div>
       </div>
       <div className="mt-3">{children}</div>
@@ -371,9 +371,9 @@ function NumberField({ label, suffix, value, onChange }: { label: string; suffix
   return (
     <label className="block text-xs font-semibold">
       {label}
-      <span className="mt-1.5 flex h-11 overflow-hidden rounded-xl border border-[#E4E4E0] bg-[#F7F7F5]">
+      <span className="mt-1.5 flex h-11 overflow-hidden rounded-xl border border-border bg-muted">
         <input type="number" min="0" step="0.001" value={value} onChange={(event) => onChange(event.target.value)} className="min-w-0 flex-1 bg-transparent px-3 text-sm outline-none" />
-        <span className="grid shrink-0 place-items-center border-s border-[#E4E4E0] bg-white px-2 text-[10px] text-[#8A8A86]">{suffix}</span>
+        <span className="grid shrink-0 place-items-center border-s border-border bg-card px-2 text-[10px] text-subtle">{suffix}</span>
       </span>
     </label>
   );
@@ -381,18 +381,18 @@ function NumberField({ label, suffix, value, onChange }: { label: string; suffix
 
 function Switch({ checked, onClick, label }: { checked: boolean; onClick: () => void; label: string }) {
   return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={onClick} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${checked ? 'bg-[#161616]' : 'bg-[#DCDCD7]'}`}>
-      <span className={`absolute top-0.5 size-6 rounded-full bg-white shadow transition-[inset-inline-start] ${checked ? 'start-5' : 'start-0.5'}`} />
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={onClick} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${checked ? 'bg-secondary' : 'bg-border-strong'}`}>
+      <span className={`absolute top-0.5 size-6 rounded-full bg-card shadow transition-[inset-inline-start] ${checked ? 'start-5' : 'start-0.5'}`} />
     </button>
   );
 }
 
 function OrderType({ icon: Icon, label, selected, onClick }: { icon: typeof Truck; label: string; selected: boolean; onClick: () => void }) {
   return (
-    <button type="button" aria-pressed={selected} onClick={onClick} className={`flex h-12 items-center gap-2 rounded-xl border px-3 text-sm font-semibold ${selected ? 'border-[#E6B800] bg-[#FFF8D4]' : 'border-[#E4E4E0] bg-white'}`}>
+    <button type="button" aria-pressed={selected} onClick={onClick} className={`flex h-12 items-center gap-2 rounded-xl border px-3 text-sm font-semibold ${selected ? 'border-primary bg-primary-soft' : 'border-border bg-card'}`}>
       <Icon className="size-4" />
       <span className="min-w-0 flex-1 text-start">{label}</span>
-      <span className={`grid size-5 place-items-center rounded-full ${selected ? 'bg-primary' : 'border border-[#D6D6D0]'}`}>{selected ? <Check className="size-3" strokeWidth={3} /> : null}</span>
+      <span className={`grid size-5 place-items-center rounded-full ${selected ? 'bg-primary' : 'border border-border-strong'}`}>{selected ? <Check className="size-3" strokeWidth={3} /> : null}</span>
     </button>
   );
 }

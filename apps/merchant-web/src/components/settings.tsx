@@ -16,8 +16,8 @@ export function SettingsPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-[-0.03em] text-[#161616]">{nav('settings')}</h1>
-        <p className="mt-0.5 text-sm text-[#6F6F6B]">{t('settingsSubtitle')}</p>
+        <h1 className="text-2xl font-bold tracking-[-0.03em] text-foreground">{nav('settings')}</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('settingsSubtitle')}</p>
       </div>
       <div className="grid items-start gap-4 min-[900px]:grid-cols-2">
         <div className="min-w-0 min-[900px]:col-start-1 min-[900px]:row-start-1">
@@ -65,15 +65,15 @@ function ChargeSettings({ profile }: { profile: unknown }) {
   });
   if (!profile) return <Skeleton className="h-56 rounded-xl" />;
   return (
-    <section className="rounded-xl border border-[#E2E1DC] bg-white p-4">
-      <h2 className="font-bold text-[#161616]">{t('chargesTitle')}</h2>
-      <p className="mt-1 text-sm text-[#777772]">{t('chargesHint')}</p>
+    <section className="rounded-xl border border-border-strong bg-card p-4">
+      <h2 className="font-bold text-foreground">{t('chargesTitle')}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t('chargesHint')}</p>
       <div className="mt-4 grid gap-3">
         <ChargeCard title={t('serviceFee')} charge={serviceFee} onChange={setServiceFee} />
         <ChargeCard title={t('taxCharge')} charge={tax} onChange={setTax} />
       </div>
-      {error ? <p className="mt-3 text-sm font-medium text-[#B42318]">{error}</p> : null}
-      {saved ? <p className="mt-3 text-sm font-semibold text-[#157A3E]">{saved}</p> : null}
+      {error ? <p className="mt-3 text-sm font-medium text-destructive">{error}</p> : null}
+      {saved ? <p className="mt-3 text-sm font-semibold text-success">{saved}</p> : null}
       <Button type="button" variant="yellow" className="mt-4 h-10 rounded-lg px-4" loading={save.isPending} onClick={() => { setError(''); save.mutate(); }}>{t('saveUpdate')}</Button>
     </section>
   );
@@ -83,30 +83,30 @@ function ChargeCard({ title, charge, onChange }: { title: string; charge: Charge
   const t = useTranslations('merchantProducts');
   const patch = (next: Partial<ChargeDraft>) => onChange({ ...charge, ...next });
   return (
-    <div className="@container rounded-lg border border-[#E3E2DD] p-3">
+    <div className="@container rounded-lg border border-border-strong p-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="font-semibold text-[#161616]">{title}</p>
-        <button type="button" role="switch" aria-checked={charge.enabled} onClick={() => patch({ enabled: !charge.enabled })} className="inline-flex items-center gap-2 text-sm font-semibold text-[#161616]">
+        <p className="font-semibold text-foreground">{title}</p>
+        <button type="button" role="switch" aria-checked={charge.enabled} onClick={() => patch({ enabled: !charge.enabled })} className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
           <span>{charge.enabled ? t('chargeOn') : t('chargeOff')}</span>
-          <span className={`relative h-6 w-11 rounded-full ${charge.enabled ? 'bg-[#25B55B]' : 'bg-[#D5D5D0]'}`}><span className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${charge.enabled ? 'end-0.5' : 'start-0.5'}`} /></span>
+          <span className={`relative h-6 w-11 rounded-full ${charge.enabled ? 'bg-success' : 'bg-border-strong'}`}><span className={`absolute top-0.5 size-5 rounded-full bg-card transition-all ${charge.enabled ? 'end-0.5' : 'start-0.5'}`} /></span>
         </button>
       </div>
-      <p className="mt-1 text-xs text-[#777772]">{t('chargeHint')}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{t('chargeHint')}</p>
       <div className="mt-3 grid gap-3 @min-[24rem]:grid-cols-2">
         <ChargeField label={t('labelEn')} value={charge.labelEn} onChange={(labelEn) => patch({ labelEn })} />
         <ChargeField label={t('labelAr')} value={charge.labelAr} dir="rtl" onChange={(labelAr) => patch({ labelAr })} />
         <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-[#777772]">{t('chargeType')}</span>
-          <select value={charge.mode} onChange={(event) => patch({ mode: event.target.value === 'FIXED' ? 'FIXED' : 'PERCENTAGE' })} className="h-10 w-full rounded-lg border border-[#E3E2DD] bg-white px-3 text-sm outline-none">
+          <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('chargeType')}</span>
+          <select value={charge.mode} onChange={(event) => patch({ mode: event.target.value === 'FIXED' ? 'FIXED' : 'PERCENTAGE' })} className="h-10 w-full rounded-lg border border-border-strong bg-card px-3 text-sm outline-none">
             <option value="PERCENTAGE">{t('percentage')}</option>
             <option value="FIXED">{t('fixedPrice')}</option>
           </select>
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-[#777772]">{t('amount')}</span>
-          <span className="flex h-10 overflow-hidden rounded-lg border border-[#E3E2DD] bg-white">
+          <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('amount')}</span>
+          <span className="flex h-10 overflow-hidden rounded-lg border border-border-strong bg-card">
             <input value={charge.amount} inputMode="decimal" onChange={(event) => patch({ amount: event.target.value })} className="min-w-0 flex-1 bg-transparent px-3 text-sm outline-none" />
-            <span className="grid place-items-center border-s border-[#E3E2DD] bg-[#F6F6F4] px-3 text-xs font-semibold text-[#555550]">{charge.mode === 'PERCENTAGE' ? '%' : 'BHD'}</span>
+            <span className="grid place-items-center border-s border-border-strong bg-muted px-3 text-xs font-semibold text-muted-foreground">{charge.mode === 'PERCENTAGE' ? '%' : 'BHD'}</span>
           </span>
         </label>
       </div>
@@ -117,8 +117,8 @@ function ChargeCard({ title, charge, onChange }: { title: string; charge: Charge
 function ChargeField({ label, value, onChange, dir }: { label: string; value: string; onChange: (value: string) => void; dir?: 'ltr' | 'rtl' }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-medium text-[#777772]">{label}</span>
-      <input dir={dir} value={value} onChange={(event) => onChange(event.target.value)} className="h-10 w-full rounded-lg border border-[#E3E2DD] bg-white px-3 text-sm outline-none" />
+      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{label}</span>
+      <input dir={dir} value={value} onChange={(event) => onChange(event.target.value)} className="h-10 w-full rounded-lg border border-border-strong bg-card px-3 text-sm outline-none" />
     </label>
   );
 }
@@ -203,26 +203,26 @@ function PaymentSettings({ profile }: { profile: unknown }) {
     setSelected((current) => current.includes(code) ? current.filter((item) => item !== code) : [...current, code]);
   }
   return (
-    <section className="rounded-xl border border-[#E2E1DC] bg-white p-4">
-      <h2 className="font-bold text-[#161616]">{t('paymentOptions')}</h2>
-      <p className="mt-1 text-sm text-[#777772]">{t('paymentOptionsHint')}</p>
+    <section className="rounded-xl border border-border-strong bg-card p-4">
+      <h2 className="font-bold text-foreground">{t('paymentOptions')}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t('paymentOptionsHint')}</p>
       {methods.isLoading ? <Skeleton className="mt-4 h-28 rounded-xl" /> : null}
-      {methods.isSuccess && !offered.length ? <p className="mt-4 text-sm text-[#777772]">{t('paymentEmpty')}</p> : null}
+      {methods.isSuccess && !offered.length ? <p className="mt-4 text-sm text-muted-foreground">{t('paymentEmpty')}</p> : null}
       <div className="mt-4 grid gap-2">
         {offered.map((method) => {
           const active = selected.includes(method.code);
           const Icon = methodIcon[method.code as keyof typeof methodIcon] ?? CreditCard;
           return (
-            <button key={method.code} type="button" onClick={() => toggle(method.code)} className={`flex items-center gap-3 rounded-lg border p-3 text-start ${active ? 'border-[#F2C300] bg-[#FFFCEF]' : 'border-[#E3E2DD] bg-white'}`}>
-              <span className={`grid size-9 shrink-0 place-items-center rounded-lg ${active ? 'bg-[#FFC400] text-[#161616]' : 'bg-[#F6F6F4] text-[#555550]'}`}><Icon className="size-4" /></span>
-              <span className="min-w-0 flex-1 font-semibold text-[#161616]">{pickLocalized(method.name, locale) || method.code}</span>
-              <span className={`relative h-6 w-11 shrink-0 rounded-full ${active ? 'bg-[#25B55B]' : 'bg-[#D5D5D0]'}`}><span className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${active ? 'end-0.5' : 'start-0.5'}`} /></span>
+            <button key={method.code} type="button" onClick={() => toggle(method.code)} className={`flex items-center gap-3 rounded-lg border p-3 text-start ${active ? 'border-primary bg-primary-soft' : 'border-border-strong bg-card'}`}>
+              <span className={`grid size-9 shrink-0 place-items-center rounded-lg ${active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}><Icon className="size-4" /></span>
+              <span className="min-w-0 flex-1 font-semibold text-foreground">{pickLocalized(method.name, locale) || method.code}</span>
+              <span className={`relative h-6 w-11 shrink-0 rounded-full ${active ? 'bg-success' : 'bg-border-strong'}`}><span className={`absolute top-0.5 size-5 rounded-full bg-card transition-all ${active ? 'end-0.5' : 'start-0.5'}`} /></span>
             </button>
           );
         })}
       </div>
-      {error ? <p className="mt-3 text-sm font-medium text-[#B42318]">{error}</p> : null}
-      {saved ? <p className="mt-3 text-sm font-semibold text-[#157A3E]">{saved}</p> : null}
+      {error ? <p className="mt-3 text-sm font-medium text-destructive">{error}</p> : null}
+      {saved ? <p className="mt-3 text-sm font-semibold text-success">{saved}</p> : null}
       <Button type="button" variant="yellow" className="mt-4 h-10 rounded-lg px-4" disabled={!ready || !offered.length} loading={save.isPending} onClick={() => { setError(''); save.mutate(); }}>{t('saveUpdate')}</Button>
     </section>
   );

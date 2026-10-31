@@ -1,14 +1,334 @@
 @import "tailwindcss";
-@import "@alliva/design-tokens/theme.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 @source "./**/*.{ts,tsx}";
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
 
+/* Copied from @alliva/design-tokens/theme.css so the element rules below sit in the base layer
+   and Tailwind utilities (border colours, heading weights) can override them. */
+:root {
+  --background: #f7f7f5;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --primary: #ffc400;
+  --primary-foreground: #111111;
+  --secondary: #111111;
+  --secondary-foreground: #ffffff;
+  --muted: #f7f7f5;
+  --muted-foreground: #696965;
+  --accent: #ffc400;
+  --accent-foreground: #111111;
+  --destructive: #d9342b;
+  --destructive-foreground: #ffffff;
+  --success: #168a52;
+  --info: #2563eb;
+  --border: #e2e2dc;
+  --input: #e2e2dc;
+  --ring: #111111;
+  --radius-control: 12px;
+  --radius-card: 16px;
+  --radius-feature: 24px;
+  --font-sans: var(--font-inter), var(--font-arabic), Arial, sans-serif;
+  --font-heading: var(--font-display), var(--font-kufi), var(--font-sans);
+}
+
+html[lang='ar'] {
+  --font-sans: var(--font-arabic), var(--font-inter), Arial, sans-serif;
+  --font-heading: var(--font-kufi), var(--font-display), var(--font-sans);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius-card);
+  --radius-xl: var(--radius-feature);
+  --font-sans: var(--font-sans);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+  }
+
+  html,
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+
+  h1,
+  h2,
+  .font-display {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .lift {
+    transition:
+      transform 200ms ease,
+      box-shadow 200ms ease;
+  }
+
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(17, 17, 17, 0.08);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lift,
+    .lift:hover {
+      transform: none;
+      transition: none;
+    }
+  }
+
+  /* Phones zoom the page when a focused field is smaller than 16px. */
+  @media (hover: none) and (pointer: coarse) {
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='button']):not([type='submit']):not([type='reset']):not([type='hidden']):not([type='file']):not([type='image']):not([type='color']),
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+}
+
+/* Ink & Saffron: the merchant portal's design tokens. Light is the default; html.dark switches the palette. */
 :root {
   --font-inter: "Inter Variable";
   --font-display: "Poppins";
   --font-arabic: "Noto Sans Arabic Variable";
   --font-kufi: "Noto Kufi Arabic";
+  color-scheme: light;
+
+  --background: #f5f6f8;
+  --foreground: #0e1116;
+  --card: #ffffff;
+  --card-foreground: #0e1116;
+  --popover: #ffffff;
+  --primary: #ffc400;
+  --primary-hover: #ffcf33;
+  --primary-foreground: #14110a;
+  --primary-soft: #fff5d1;
+  --primary-soft-foreground: #6e4b00;
+  --secondary: #0e1116;
+  --secondary-hover: #262a33;
+  --secondary-foreground: #ffffff;
+  --muted: #f3f4f6;
+  --muted-foreground: #545b69;
+  --subtle: #858c9a;
+  --faint: #c2c7d0;
+  --surface-2: #e9ecf0;
+  --accent: #ffc400;
+  --accent-foreground: #14110a;
+  --border: #e5e7eb;
+  --border-strong: #d0d5dd;
+  --input: #dadee5;
+  --ring: #0e1116;
+  --destructive: #d92d20;
+  --destructive-foreground: #ffffff;
+  --destructive-soft: #fdecea;
+  --success: #12804f;
+  --success-soft: #e3f6ec;
+  --warning: #9a5b00;
+  --warning-soft: #fff3d6;
+  --info: #2563eb;
+  --info-soft: #e8effe;
+  --violet: #7c3aed;
+  --violet-soft: #f1eafe;
+
+  --sidebar: #0e1116;
+  --sidebar-foreground: #c8ccd4;
+  --sidebar-muted: #7a8190;
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-active: rgba(255, 196, 0, 0.12);
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+
+  --radius-control: 12px;
+  --radius-card: 16px;
+  --radius-feature: 22px;
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 2px 4px -2px rgba(16, 24, 40, 0.06), 0 6px 16px -4px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 8px 12px -4px rgba(16, 24, 40, 0.06), 0 20px 32px -8px rgba(16, 24, 40, 0.14);
+
+  /* Hooks read by the shared @alliva/ui components. */
+  --button-shadow: var(--shadow-xs);
+  --outline-border: var(--border-strong);
+  --input-ring: rgba(255, 196, 0, 0.28);
+  --input-ring-width: 4px;
+  --input-ring-offset: 0px;
+  --input-focus-border: #e3ae00;
+  --placeholder: var(--subtle);
+  --overlay: rgba(10, 12, 16, 0.5);
+  --overlay-blur: 3px;
+  --dialog-border: var(--border);
+  --skeleton: var(--surface-2);
+  --table-shadow: var(--shadow-xs);
+  --table-head: var(--muted-foreground);
+  --destructive-border: rgba(217, 45, 32, 0.25);
+}
+
+html.dark {
+  color-scheme: dark;
+  --background: #0a0c10;
+  --foreground: #eceef2;
+  --card: #13161c;
+  --card-foreground: #eceef2;
+  --popover: #181b22;
+  --primary-hover: #ffd23d;
+  --primary-soft: rgba(255, 196, 0, 0.13);
+  --primary-soft-foreground: #ffd75a;
+  --secondary: #eceef2;
+  --secondary-hover: #d3d7de;
+  --secondary-foreground: #0a0c10;
+  --muted: #1a1e25;
+  --muted-foreground: #a3aab7;
+  --subtle: #78808f;
+  --faint: #474e5b;
+  --surface-2: #232832;
+  --border: #242932;
+  --border-strong: #343a46;
+  --input: #2d333e;
+  --ring: #eceef2;
+  --destructive: #f2635a;
+  --destructive-soft: rgba(242, 99, 90, 0.14);
+  --success: #3cc68a;
+  --success-soft: rgba(60, 198, 138, 0.14);
+  --warning: #f2b544;
+  --warning-soft: rgba(242, 181, 68, 0.14);
+  --info: #6f9cff;
+  --info-soft: rgba(111, 156, 255, 0.14);
+  --violet: #a98bfa;
+  --violet-soft: rgba(169, 139, 250, 0.15);
+
+  --sidebar: #07080b;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 16px -4px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 20px 40px -8px rgba(0, 0, 0, 0.6);
+}
+
+@theme inline {
+  --color-popover: var(--popover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-foreground: var(--primary-soft-foreground);
+  --color-subtle: var(--subtle);
+  --color-faint: var(--faint);
+  --color-surface-2: var(--surface-2);
+  --color-border-strong: var(--border-strong);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-border: var(--sidebar-border);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --radius-2xl: var(--radius-card);
+  --radius-3xl: var(--radius-feature);
+}
+
+@layer base {
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, .font-display {
+    letter-spacing: -0.015em;
+  }
+
+  html[lang='ar'] h1,
+  html[lang='ar'] h2,
+  html[lang='ar'] h3,
+  html[lang='ar'] .font-display {
+    letter-spacing: 0;
+  }
+
+  ::selection {
+    background: rgba(255, 196, 0, 0.35);
+  }
+
+  /* Native form controls (select, date) follow the theme. */
+  select,
+  input,
+  textarea {
+    background-color: var(--card);
+    color: var(--foreground);
+  }
+
+  select option {
+    background: var(--popover);
+    color: var(--foreground);
+  }
+}
+
+/* Page titles across the portal share one scale. */
+[data-slot='page-header'] h1 {
+  font-size: 1.5rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+@media (min-width: 768px) {
+  [data-slot='page-header'] h1 {
+    font-size: 1.75rem;
+  }
+}
+
+html[lang='ar'] [data-slot='page-header'] h1 {
+  letter-spacing: 0;
+}
+
+[data-slot='stat-card'] {
+  box-shadow: var(--shadow-xs);
+}
+
+/* Leaflet tiles read better slightly dimmed in dark mode. */
+html.dark .leaflet-tile-pane {
+  filter: brightness(0.8) contrast(1.1) saturate(0.8);
 }
 
 @keyframes alliva-rise {

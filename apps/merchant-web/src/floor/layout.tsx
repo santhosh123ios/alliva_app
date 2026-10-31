@@ -49,20 +49,20 @@ function FloorChrome() {
   const showDraft = draft.count > 0 && current !== 'menu';
 
   return (
-    <div className="min-h-dvh bg-[#F7F7F5] text-[#161616]">
-      <header className="sticky top-0 z-30 border-b border-[#ECECE8] bg-white/95 backdrop-blur">
+    <div className="min-h-dvh bg-muted text-foreground">
+      <header className="sticky top-0 z-30 border-b border-border bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#FFC400] text-[#111111]"><UtensilsCrossed className="size-5" /></span>
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"><UtensilsCrossed className="size-5" /></span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold leading-tight">{storeName ? pickLocalized(storeName, locale) : t('appName')}</p>
-            <p className="truncate text-xs text-[#696965]">{t('appName')}</p>
+            <p className="truncate text-xs text-muted-foreground">{t('appName')}</p>
           </div>
           <nav className="hidden items-center gap-1 lg:flex" aria-label={t('tabs.label')}>
             {tabs.map((tab) => (
               <Link
                 key={tab.key}
                 href={tab.href}
-                className={cn('flex h-9 items-center gap-2 rounded-xl px-3 text-sm font-medium', current === tab.key ? 'bg-[#111111] text-white' : 'text-[#5C5C58] hover:bg-[#F2F2EF]')}
+                className={cn('flex h-9 items-center gap-2 rounded-xl px-3 text-sm font-medium', current === tab.key ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground hover:bg-surface-2')}
                 aria-current={current === tab.key ? 'page' : undefined}
               >
                 <tab.icon className="size-4" />
@@ -73,7 +73,7 @@ function FloorChrome() {
           <Link
             href="/floor"
             aria-label={t('calls.badge', { count: calls })}
-            className={cn('flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold', calls ? 'bg-[#B42318] text-white' : 'bg-[#F0F0EC] text-[#696965]')}
+            className={cn('flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold', calls ? 'bg-destructive text-white' : 'bg-surface-2 text-muted-foreground')}
           >
             <BellRing className={cn('size-4', calls && 'animate-pulse')} />
             <span className="tabular-nums">{calls}</span>
@@ -90,7 +90,7 @@ function FloorChrome() {
           {showDraft ? (
             <Link
               href="/floor/menu?review=1"
-              className="pointer-events-auto mx-auto mb-2 flex h-12 max-w-[520px] items-center gap-3 rounded-2xl bg-[#FFC400] px-4 text-sm font-semibold text-[#111111] shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
+              className="pointer-events-auto mx-auto mb-2 flex h-12 max-w-[520px] items-center gap-3 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-lg"
             >
               <ShoppingBag className="size-4" />
               <span className="min-w-0 flex-1 truncate">

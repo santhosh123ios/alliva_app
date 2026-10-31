@@ -82,11 +82,11 @@ export function riderStage(order: Pick<RiderOrder, 'status' | 'pickupVerifiedAt'
 }
 
 const stageTone: Record<RiderStage, string> = {
-  assigned: 'bg-[#FFF4D6] text-[#8A5A00]',
-  pickedUp: 'bg-[#E7F0FF] text-[#2F6FED]',
-  onTheWay: 'bg-[#EDE7FF] text-[#6B3FD6]',
-  delivered: 'bg-[#E3F5EA] text-[#168A52]',
-  cancelled: 'bg-[#FDECEA] text-[#B42318]',
+  assigned: 'bg-primary-soft text-warning',
+  pickedUp: 'bg-info-soft text-info',
+  onTheWay: 'bg-violet-soft text-violet',
+  delivered: 'bg-success-soft text-success',
+  cancelled: 'bg-destructive-soft text-destructive',
 };
 
 export function StagePill({ stage, label, className }: { stage: RiderStage; label: string; className?: string }) {

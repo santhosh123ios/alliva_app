@@ -109,12 +109,12 @@ export function DispatchPage() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em]">{t('title')}</h1>
-          <p className="mt-1 text-sm text-[#777773]">{t('subtitle', { branch: pickLocalized(data.branch.name, locale) })}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle', { branch: pickLocalized(data.branch.name, locale) })}</p>
         </div>
         <div className="flex flex-wrap gap-2 text-sm">
           <Pill icon={Clock} label={t('stats.ready', { count: data.ready.length })} tone={data.ready.length ? 'warn' : 'muted'} />
           <Pill icon={Bike} label={t('stats.riders', { onShift, total: data.riders.length })} tone={onShift ? 'good' : 'muted'} />
-          <button type="button" onClick={() => void board.refetch()} className="flex h-9 items-center gap-1.5 rounded-xl border border-[#E8E8E5] bg-white px-3 font-medium" aria-label={t('refresh')}>
+          <button type="button" onClick={() => void board.refetch()} className="flex h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 font-medium" aria-label={t('refresh')}>
             <RefreshCw className={cn('size-4', board.isFetching && 'animate-spin')} />{t('refresh')}
           </button>
         </div>
@@ -140,16 +140,16 @@ export function DispatchPage() {
                   onOptimise={() => optimise(rider)}
                 />
               ))}
-              <section className="rounded-2xl border border-[#ECECEA] bg-white p-4">
+              <section className="rounded-2xl border border-border bg-card p-4">
                 <h2 className="text-sm font-semibold">{t('unplanned', { count: unplanned.length })}</h2>
                 {unplanned.length ? (
                   <ul className="mt-2 space-y-2">
                     {unplanned.map((order) => (
-                      <li key={order.id} className="rounded-xl border border-[#F0F0EC] p-3">
+                      <li key={order.id} className="rounded-xl border border-border p-3">
                         <OrderLine order={order} rank={data.ready.indexOf(order) + 1} />
-                        <label className="mt-2 flex items-center gap-2 text-xs text-[#696965]">
+                        <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                           {t('addTo')}
-                          <select className="h-8 flex-1 rounded-lg border border-[#E2E2DC] bg-white px-2 text-sm text-[#161616]" value="" onChange={(event) => event.target.value && move(order.id, event.target.value)}>
+                          <select className="h-8 flex-1 rounded-lg border border-border-strong bg-card px-2 text-sm text-foreground" value="" onChange={(event) => event.target.value && move(order.id, event.target.value)}>
                             <option value="">{t('pickRider')}</option>
                             {data.riders.filter((rider) => live[rider.id] !== undefined).map((rider) => <option key={rider.id} value={rider.id}>{rider.name}</option>)}
                           </select>
@@ -157,17 +157,17 @@ export function DispatchPage() {
                       </li>
                     ))}
                   </ul>
-                ) : <p className="mt-1 text-sm text-[#8A8A86]">{t('allPlanned')}</p>}
+                ) : <p className="mt-1 text-sm text-subtle">{t('allPlanned')}</p>}
               </section>
-              <div className="sticky bottom-3 z-10 flex gap-2 rounded-2xl border border-[#E8E8E5] bg-white p-3 shadow-[0_8px_24px_rgba(17,17,17,0.08)]">
-                <button type="button" onClick={() => setDraft(null)} className="flex h-11 items-center gap-1.5 rounded-xl border border-[#E2E2DC] px-4 text-sm font-semibold">
+              <div className="sticky bottom-3 z-10 flex gap-2 rounded-2xl border border-border bg-card p-3 shadow-xs">
+                <button type="button" onClick={() => setDraft(null)} className="flex h-11 items-center gap-1.5 rounded-xl border border-border-strong px-4 text-sm font-semibold">
                   <Undo2 className="size-4 rtl:-scale-x-100" />{t('discard')}
                 </button>
                 <button
                   type="button"
                   disabled={!toAssign.length || assign.isPending}
                   onClick={() => assign.mutate(toAssign)}
-                  className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#111111] text-sm font-semibold text-white disabled:opacity-40"
+                  className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-secondary text-sm font-semibold text-secondary-foreground disabled:opacity-40"
                 >
                   {assign.isPending ? <Loader2 className="size-4 animate-spin" /> : <Route className="size-4" />}
                   {t('assignAll', { count: toAssign.reduce((total, route) => total + route.orderIds.length, 0), riders: toAssign.length })}
@@ -176,7 +176,7 @@ export function DispatchPage() {
             </section>
           ) : (
             <>
-              <section className="rounded-2xl border border-[#ECECEA] bg-white p-4">
+              <section className="rounded-2xl border border-border bg-card p-4">
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="font-semibold">{t('riders')}</h2>
                   <Stepper label={t('maxPerRider')} value={maxPerRider} onChange={setMaxPerRider} />
@@ -185,10 +185,10 @@ export function DispatchPage() {
                   <ul className="mt-3 space-y-2">
                     {data.riders.map((rider) => (
                       <li key={rider.id}>
-                        <label className={cn('flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5', picked?.has(rider.id) ? 'border-[#111111]' : 'border-[#ECECE8]')}>
+                        <label className={cn('flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5', picked?.has(rider.id) ? 'border-foreground' : 'border-border')}>
                           <input
                             type="checkbox"
-                            className="size-4 accent-[#111111]"
+                            className="size-4 accent-foreground"
                             checked={Boolean(picked?.has(rider.id))}
                             onChange={(event) => setPicked((current) => {
                               const next = new Set(current ?? []);
@@ -200,13 +200,13 @@ export function DispatchPage() {
                           <span className="size-3 shrink-0 rounded-full" style={{ background: color(rider.id) }} />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-semibold">{rider.name}</span>
-                            <span className="block text-xs text-[#696965]">
+                            <span className="block text-xs text-muted-foreground">
                               {rider.onShift ? t('onShift') : t('offShift')}
                               {' · '}
                               {rider.active.length ? t('carrying', { count: rider.active.length }) : t('free')}
                             </span>
                           </span>
-                          {rider.active.length >= maxPerRider ? <span className="rounded-full bg-[#FDECEA] px-2 py-0.5 text-[11px] font-semibold text-[#B42318]">{t('full')}</span> : null}
+                          {rider.active.length >= maxPerRider ? <span className="rounded-full bg-destructive-soft px-2 py-0.5 text-[11px] font-semibold text-destructive">{t('full')}</span> : null}
                         </label>
                       </li>
                     ))}
@@ -216,33 +216,33 @@ export function DispatchPage() {
                   type="button"
                   disabled={!picked?.size || !data.ready.length || generate.isPending}
                   onClick={() => generate.mutate()}
-                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-[#161616] disabled:opacity-40"
+                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-40"
                 >
                   {generate.isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
                   {t('generate')}
                 </button>
-                <p className="mt-2 text-xs text-[#8A8A86]">{t('generateHint')}</p>
+                <p className="mt-2 text-xs text-subtle">{t('generateHint')}</p>
               </section>
 
-              <section className="rounded-2xl border border-[#ECECEA] bg-white p-4">
+              <section className="rounded-2xl border border-border bg-card p-4">
                 <h2 className="font-semibold">{t('queue', { count: data.ready.length })}</h2>
-                <p className="text-xs text-[#8A8A86]">{t('queueHint')}</p>
+                <p className="text-xs text-subtle">{t('queueHint')}</p>
                 {data.ready.length ? (
                   <ol className="mt-3 space-y-2">
-                    {data.ready.map((order, index) => <li key={order.id} className="rounded-xl border border-[#F0F0EC] p-3"><OrderLine order={order} rank={index + 1} /></li>)}
+                    {data.ready.map((order, index) => <li key={order.id} className="rounded-xl border border-border p-3"><OrderLine order={order} rank={index + 1} /></li>)}
                   </ol>
                 ) : <EmptyState title={t('queueEmpty')} body={t('queueEmptyBody')} />}
               </section>
 
               {data.upcoming.length ? (
-                <section className="rounded-2xl border border-[#ECECEA] bg-white p-4">
+                <section className="rounded-2xl border border-border bg-card p-4">
                   <h2 className="font-semibold">{t('upcoming', { count: data.upcoming.length })}</h2>
-                  <ul className="mt-2 divide-y divide-[#F0F0EC] text-sm">
+                  <ul className="mt-2 divide-y divide-border text-sm">
                     {data.upcoming.map((order) => (
                       <li key={order.id} className="flex items-center gap-3 py-2">
                         <span className="font-medium"><bdi dir="ltr">#{order.number}</bdi></span>
-                        <span className="min-w-0 flex-1 truncate text-[#696965]">{order.address.area ?? order.address.line1 ?? '—'}</span>
-                        <span className="text-xs text-[#8A8A86]">{order.estimatedReadyAt ? t('readyAt', { time: clock(order.estimatedReadyAt, locale) }) : t(`status.${order.status}`)}</span>
+                        <span className="min-w-0 flex-1 truncate text-muted-foreground">{order.address.area ?? order.address.line1 ?? '—'}</span>
+                        <span className="text-xs text-subtle">{order.estimatedReadyAt ? t('readyAt', { time: clock(order.estimatedReadyAt, locale) }) : t(`status.${order.status}`)}</span>
                       </li>
                     ))}
                   </ul>
@@ -252,12 +252,12 @@ export function DispatchPage() {
           )}
         </div>
 
-        <section className="order-1 overflow-hidden rounded-2xl border border-[#ECECEA] bg-white xl:sticky xl:top-20 xl:order-2">
+        <section className="order-1 overflow-hidden rounded-2xl border border-border bg-card xl:sticky xl:top-20 xl:order-2">
           <RouteMap store={{ lat: store.latitude, lng: store.longitude }} routes={mapRoutes} focus={focus} className="z-0 h-72 w-full sm:h-96 xl:h-[calc(100vh-11rem)]" />
-          <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-[#F0F0EC] px-4 py-2.5 text-xs text-[#696965]">
-            <span className="flex items-center gap-1.5"><span className="grid size-4 place-items-center rounded-full bg-[#111111] text-[9px] text-[#FFC400]">★</span>{t('legend.store')}</span>
-            <span className="flex items-center gap-1.5"><span className="size-3 rounded-full bg-[#8A8A86]" />{t('legend.current')}</span>
-            {unplanned.length ? <span className="flex items-center gap-1.5"><span className="size-3 rounded-full bg-[#111111]" />{t('legend.queue')}</span> : null}
+          <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5"><span className="grid size-4 place-items-center rounded-full bg-secondary text-[9px] text-primary">★</span>{t('legend.store')}</span>
+            <span className="flex items-center gap-1.5"><span className="size-3 rounded-full bg-subtle" />{t('legend.current')}</span>
+            {unplanned.length ? <span className="flex items-center gap-1.5"><span className="size-3 rounded-full bg-secondary" />{t('legend.queue')}</span> : null}
           </div>
         </section>
       </div>
@@ -285,7 +285,7 @@ function RouteCard({ rider, color, ids, orders, store, riders, focused, onFocus,
   const minutes = Math.round((totalKm / 22) * 60 + stops.length * 4);
   return (
     <section
-      className={cn('rounded-2xl border bg-white p-4 transition-shadow', focused ? 'shadow-[0_8px_24px_rgba(17,17,17,0.1)]' : 'border-[#ECECEA]')}
+      className={cn('rounded-2xl border bg-card p-4 transition-shadow', focused ? 'shadow-md' : 'border-border')}
       style={focused ? { borderColor: color } : undefined}
       onMouseEnter={() => onFocus(true)}
       onMouseLeave={() => onFocus(false)}
@@ -294,13 +294,13 @@ function RouteCard({ rider, color, ids, orders, store, riders, focused, onFocus,
         <span className="grid size-9 shrink-0 place-items-center rounded-full text-white" style={{ background: color }}><Bike className="size-4" /></span>
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{rider.name}</p>
-          <p className="text-xs text-[#696965]">
+          <p className="text-xs text-muted-foreground">
             {stops.length ? t('routeSummary', { stops: stops.length, km: totalKm.toFixed(1), minutes }) : t('noNewStops')}
             {rider.active.length ? ` · ${t('alreadyCarrying', { count: rider.active.length })}` : ''}
           </p>
         </div>
         {stops.length > 1 ? (
-          <button type="button" onClick={onOptimise} className="flex h-8 items-center gap-1 rounded-lg border border-[#E2E2DC] px-2 text-xs font-semibold" title={t('optimiseHint')}>
+          <button type="button" onClick={onOptimise} className="flex h-8 items-center gap-1 rounded-lg border border-border-strong px-2 text-xs font-semibold" title={t('optimiseHint')}>
             <Route className="size-3.5" />{t('optimise')}
           </button>
         ) : null}
@@ -308,7 +308,7 @@ function RouteCard({ rider, color, ids, orders, store, riders, focused, onFocus,
       {stops.length ? (
         <ol className="mt-3 space-y-2">
           {stops.map((order, index) => (
-            <li key={order.id} className="flex items-start gap-2 rounded-xl bg-[#FAFAF8] p-2.5">
+            <li key={order.id} className="flex items-start gap-2 rounded-xl bg-muted p-2.5">
               <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold text-white" style={{ background: color }}>{rider.active.length + index + 1}</span>
               <div className="min-w-0 flex-1">
                 <OrderLine order={order} compact legKm={legs[index] ?? null} />
@@ -317,7 +317,7 @@ function RouteCard({ rider, color, ids, orders, store, riders, focused, onFocus,
                   <IconButton label={t('moveDown')} disabled={index === stops.length - 1} onClick={() => onShift(index, 1)}><ArrowDown className="size-3.5" /></IconButton>
                   <select
                     aria-label={t('moveTo')}
-                    className="h-7 min-w-0 flex-1 rounded-lg border border-[#E2E2DC] bg-white px-1.5 text-xs"
+                    className="h-7 min-w-0 flex-1 rounded-lg border border-border-strong bg-card px-1.5 text-xs"
                     value=""
                     onChange={(event) => event.target.value && onMove(order.id, event.target.value)}
                   >
@@ -330,7 +330,7 @@ function RouteCard({ rider, color, ids, orders, store, riders, focused, onFocus,
             </li>
           ))}
         </ol>
-      ) : <p className="mt-2 text-sm text-[#8A8A86]">{t('dropHint')}</p>}
+      ) : <p className="mt-2 text-sm text-subtle">{t('dropHint')}</p>}
     </section>
   );
 }
@@ -341,20 +341,20 @@ function OrderLine({ order, rank, compact, legKm }: { order: DispatchOrder; rank
   return (
     <div>
       <div className="flex items-center gap-2">
-        {rank ? <span className="grid size-6 shrink-0 place-items-center rounded-md bg-[#111111] text-[11px] font-bold text-[#FFC400]">{rank}</span> : null}
+        {rank ? <span className="grid size-6 shrink-0 place-items-center rounded-md bg-secondary text-[11px] font-bold text-primary">{rank}</span> : null}
         <span className="text-sm font-semibold"><bdi dir="ltr">#{order.number}</bdi></span>
-        <span className="min-w-0 flex-1 truncate text-xs text-[#696965]">{order.customerName}</span>
-        {order.cash ? <span className="flex items-center gap-1 text-xs font-semibold text-[#8A5A00]"><Banknote className="size-3.5" />{formatMoney(order.total, locale)}</span> : null}
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{order.customerName}</span>
+        {order.cash ? <span className="flex items-center gap-1 text-xs font-semibold text-warning"><Banknote className="size-3.5" />{formatMoney(order.total, locale)}</span> : null}
       </div>
-      <p className="mt-1 flex items-center gap-1 truncate text-xs text-[#5C5C58]">
+      <p className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground">
         <MapPin className="size-3 shrink-0" />
         <span className="truncate">{[order.address.line1, order.address.area].filter(Boolean).join(', ') || '—'}</span>
-        {legKm !== undefined && legKm !== null ? <span className="ms-auto shrink-0 text-[#8A8A86]">{t('legKm', { km: legKm.toFixed(1) })}</span> : order.distanceKm !== null ? <span className="ms-auto shrink-0 text-[#8A8A86]">{t('fromStore', { km: order.distanceKm.toFixed(1) })}</span> : null}
+        {legKm !== undefined && legKm !== null ? <span className="ms-auto shrink-0 text-subtle">{t('legKm', { km: legKm.toFixed(1) })}</span> : order.distanceKm !== null ? <span className="ms-auto shrink-0 text-subtle">{t('fromStore', { km: order.distanceKm.toFixed(1) })}</span> : null}
       </p>
       {!compact || order.reasons.length ? (
         <div className="mt-1.5 flex flex-wrap gap-1">
           {order.reasons.map((reason) => <ReasonChip key={reason.code} reason={reason} />)}
-          {!compact ? <span className="rounded-full bg-[#F2F2EF] px-2 py-0.5 text-[11px] text-[#5C5C58]">{t('score', { score: order.score })}</span> : null}
+          {!compact ? <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted-foreground">{t('score', { score: order.score })}</span> : null}
         </div>
       ) : null}
     </div>
@@ -364,9 +364,9 @@ function OrderLine({ order, rank, compact, legKm }: { order: DispatchOrder; rank
 function ReasonChip({ reason }: { reason: DispatchReason }) {
   const t = useTranslations('dispatch.reasons');
   const tone = reason.code === 'HOT' || reason.code === 'LATE' || reason.code === 'DUE_SOON'
-    ? 'bg-[#FDECEA] text-[#B42318]'
-    : reason.code === 'WAITING' ? 'bg-[#FFF4D6] text-[#8A5A00]'
-      : reason.code === 'NO_PIN' ? 'bg-[#F2F2EF] text-[#B42318]' : 'bg-[#E7F0FF] text-[#2F6FED]';
+    ? 'bg-destructive-soft text-destructive'
+    : reason.code === 'WAITING' ? 'bg-primary-soft text-warning'
+      : reason.code === 'NO_PIN' ? 'bg-surface-2 text-destructive' : 'bg-info-soft text-info';
   return (
     <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold', tone)}>
       {reason.code === 'HOT' ? <Flame className="size-3" /> : null}
@@ -377,11 +377,11 @@ function ReasonChip({ reason }: { reason: DispatchReason }) {
 
 function Stepper({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
   return (
-    <div className="flex items-center gap-1.5 text-xs text-[#696965]">
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
       <span>{label}</span>
-      <div className="flex items-center rounded-lg border border-[#E2E2DC]">
+      <div className="flex items-center rounded-lg border border-border-strong">
         <button type="button" aria-label="−" disabled={value <= 1} onClick={() => onChange(value - 1)} className="grid size-7 place-items-center disabled:opacity-30"><Minus className="size-3" /></button>
-        <span className="w-5 text-center text-sm font-semibold text-[#161616]">{value}</span>
+        <span className="w-5 text-center text-sm font-semibold text-foreground">{value}</span>
         <button type="button" aria-label="+" disabled={value >= 10} onClick={() => onChange(value + 1)} className="grid size-7 place-items-center disabled:opacity-30"><Plus className="size-3" /></button>
       </div>
     </div>
@@ -390,7 +390,7 @@ function Stepper({ label, value, onChange }: { label: string; value: number; onC
 
 function IconButton({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick} className="grid size-7 place-items-center rounded-lg border border-[#E2E2DC] bg-white disabled:opacity-30">
+    <button type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick} className="grid size-7 place-items-center rounded-lg border border-border-strong bg-card disabled:opacity-30">
       {children}
     </button>
   );
@@ -398,7 +398,7 @@ function IconButton({ label, disabled, onClick, children }: { label: string; dis
 
 function Pill({ icon: Icon, label, tone }: { icon: typeof Clock; label: string; tone: 'good' | 'warn' | 'muted' }) {
   return (
-    <span className={cn('flex h-9 items-center gap-1.5 rounded-xl px-3 font-medium', tone === 'good' ? 'bg-[#E3F5EA] text-[#168A52]' : tone === 'warn' ? 'bg-[#FFF4D6] text-[#8A5A00]' : 'bg-[#F2F2EF] text-[#696965]')}>
+    <span className={cn('flex h-9 items-center gap-1.5 rounded-xl px-3 font-medium', tone === 'good' ? 'bg-success-soft text-success' : tone === 'warn' ? 'bg-primary-soft text-warning' : 'bg-surface-2 text-muted-foreground')}>
       <Icon className="size-4" />{label}
     </span>
   );

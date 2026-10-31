@@ -3,14 +3,14 @@ import { cn } from '../lib/utils';
 
 export function Table({ className, ...props }: React.TableHTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="w-full overflow-x-auto rounded-2xl border bg-card">
+    <div className="w-full overflow-x-auto rounded-2xl border bg-card shadow-[var(--table-shadow,none)]">
       <table className={cn('w-full text-sm', className)} {...props} />
     </div>
   );
 }
 
 export function THead({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
-  return <thead className={cn('bg-muted text-start text-xs uppercase tracking-wide', className)} {...props} />;
+  return <thead className={cn('bg-muted text-start text-xs uppercase tracking-wide text-[var(--table-head,inherit)]', className)} {...props} />;
 }
 
 export function TH({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {

@@ -83,12 +83,12 @@ export function Dock({ tabs, active: activeKey, label }: { tabs: DockTab[]; acti
           <path d={plate.d} fill={`url(#${gradientId})`} stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
         </svg>
       ) : (
-        <div className="absolute inset-0 rounded-[1.7rem] bg-[#1a1a1d]" />
+        <div className="absolute inset-0 rounded-[1.7rem] bg-secondary" />
       )}
       {plate ? (
         <div
           aria-hidden
-          className="pointer-events-none absolute size-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#FFC400]/45 blur-2xl"
+          className="pointer-events-none absolute size-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/45 blur-2xl"
           style={{ left: plate.bowlX, top: plate.bowlY }}
         />
       ) : null}
@@ -139,7 +139,7 @@ export function Dock({ tabs, active: activeKey, label }: { tabs: DockTab[]; acti
             window.addEventListener('pointercancel', end);
           }}
         >
-          <span className="relative grid size-11 place-items-center rounded-full bg-primary text-[#111] shadow-[0_8px_18px_rgba(255,196,0,0.45)]">
+          <span className="relative grid size-11 place-items-center rounded-full bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(255,196,0,0.45)]">
             <ActiveIcon className="size-5" strokeWidth={2.25} />
           </span>
         </button>

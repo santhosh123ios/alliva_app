@@ -114,18 +114,18 @@ export function DeliveryPricingCard() {
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setForm((current) => ({ ...current, [key]: value }));
   const fieldError = (key: (typeof errorFields)[number]) => (errors[key] ? t(`errors.${key}`) : undefined);
 
-  if (settings.isLoading) return <section className="h-40 animate-pulse rounded-[20px] border border-[#ECECEA] bg-white" />;
+  if (settings.isLoading) return <section className="h-40 animate-pulse rounded-[20px] border border-border bg-card" />;
   if (!data) return null;
 
   return (
-    <section className="rounded-[20px] border border-[#ECECEA] bg-white p-5 shadow-[0_8px_30px_rgba(17,17,17,0.04)]">
+    <section className="rounded-[20px] border border-border bg-card p-5 shadow-xs">
       <div className="flex items-center gap-3">
-        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF3C4]">
+        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-soft">
           <Route className="size-5" />
         </span>
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-[#161616]">{t('title')}</h3>
-          <p className="text-sm text-[#9A9A96]">{t('hint')}</p>
+          <h3 className="text-lg font-semibold tracking-tight text-foreground">{t('title')}</h3>
+          <p className="text-sm text-subtle">{t('hint')}</p>
         </div>
       </div>
 
@@ -136,7 +136,7 @@ export function DeliveryPricingCard() {
             type="button"
             role="tab"
             aria-selected={scope === item.id}
-            className={`h-9 rounded-full border px-4 text-sm font-semibold ${scope === item.id ? 'border-[#161616] bg-[#161616] text-white' : 'border-[#E8E8E4] bg-[#F7F7F5] text-[#161616]'}`}
+            className={`h-9 rounded-full border px-4 text-sm font-semibold ${scope === item.id ? 'border-foreground bg-secondary text-secondary-foreground' : 'border-border bg-muted text-foreground'}`}
             onClick={() => setScope(item.id)}
           >
             {item.label}
@@ -159,9 +159,9 @@ export function DeliveryPricingCard() {
             <Field label={t('maxRadius')} hint={t('maxRadiusHint')} suffix={t('km')} value={form.maxRadiusKm} error={fieldError('maxRadiusKm')} onChange={(value) => set('maxRadiusKm', value)} />
             <Field label={t('baseCharge')} suffix={t('bhd')} value={form.baseCharge} error={fieldError('baseCharge')} onChange={(value) => set('baseCharge', value)} />
             <Field label={t('chargePerStep')} suffix={t('bhd')} value={form.chargePerStep} error={fieldError('chargePerStep')} onChange={(value) => set('chargePerStep', value)} />
-            <label className="block text-sm font-semibold text-[#161616]">
+            <label className="block text-sm font-semibold text-foreground">
               {t('billingStep')}
-              <select value={form.billingStepKm} onChange={(event) => set('billingStepKm', event.target.value)} className="mt-1.5 h-12 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm outline-none">
+              <select value={form.billingStepKm} onChange={(event) => set('billingStepKm', event.target.value)} className="mt-1.5 h-12 w-full rounded-xl border border-border bg-muted px-3 text-sm outline-none">
                 <option value="1">{t('stepOne')}</option>
                 <option value="0.5">{t('stepHalf')}</option>
                 {form.billingStepKm !== '1' && form.billingStepKm !== '0.5' ? <option value={form.billingStepKm}>{form.billingStepKm} {t('km')}</option> : null}
@@ -173,27 +173,27 @@ export function DeliveryPricingCard() {
             <Field label={t('maxCharge')} hint={t('optional')} suffix={t('bhd')} value={form.maxCharge} error={fieldError('maxCharge')} onChange={(value) => set('maxCharge', value)} />
             <Field label={t('freeAboveOrder')} hint={t('optional')} suffix={t('bhd')} value={form.freeAboveOrder} error={fieldError('freeAboveOrder')} onChange={(value) => set('freeAboveOrder', value)} />
           </div>
-          <p className="mt-5 text-sm font-semibold text-[#161616]">{t('promo')}</p>
-          <p className="text-xs text-[#9A9A96]">{t('promoHint')}</p>
+          <p className="mt-5 text-sm font-semibold text-foreground">{t('promo')}</p>
+          <p className="text-xs text-subtle">{t('promoHint')}</p>
           <div className="mt-2 grid gap-3 sm:grid-cols-2">
             <DateField label={t('promoFrom')} value={form.promoFreeFrom} onChange={(value) => set('promoFreeFrom', value)} />
             <DateField label={t('promoUntil')} value={form.promoFreeUntil} error={fieldError('promoFreeUntil')} onChange={(value) => set('promoFreeUntil', value)} />
           </div>
 
-          <div className="mt-5 rounded-xl border border-[#F1F1EE] bg-[#FAFAF8] p-4">
+          <div className="mt-5 rounded-xl border border-border bg-muted p-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
-              <p className="inline-flex items-center gap-2 text-sm font-semibold text-[#161616]"><Calculator className="size-4" /> {t('preview')}</p>
+              <p className="inline-flex items-center gap-2 text-sm font-semibold text-foreground"><Calculator className="size-4" /> {t('preview')}</p>
               <div className="flex gap-2">
                 <MiniField label={t('previewOrder')} suffix={t('bhd')} value={orderAmount} onChange={setOrderAmount} />
                 <MiniField label={t('previewDistance')} suffix={t('km')} value={tryKm} onChange={setTryKm} />
               </div>
             </div>
             {!checked.success ? (
-              <p className="mt-3 text-sm text-[#8A8A86]">{t('previewFix')}</p>
+              <p className="mt-3 text-sm text-subtle">{t('previewFix')}</p>
             ) : (
               <table className="mt-3 w-full text-sm">
                 <thead>
-                  <tr className="text-start text-xs text-[#8A8A86]">
+                  <tr className="text-start text-xs text-subtle">
                     <th className="py-1 text-start font-medium">{t('distance')}</th>
                     <th className="py-1 text-end font-medium">{t('charge')}</th>
                     <th className="py-1 text-end font-medium">{t('tax')}</th>
@@ -202,18 +202,18 @@ export function DeliveryPricingCard() {
                 </thead>
                 <tbody className={preview.isFetching ? 'opacity-60' : ''}>
                   {(preview.data?.quotes ?? []).map((quote) => (
-                    <tr key={quote.distanceKm} className="border-t border-[#EFEFEC]">
+                    <tr key={quote.distanceKm} className="border-t border-border">
                       <td className="py-2 font-medium"><bdi>{Number(quote.distanceKm)} {t('km')}</bdi></td>
                       {quote.available ? (
                         <>
                           <td className="py-2 text-end"><bdi>{quote.charge}</bdi></td>
                           <td className="py-2 text-end"><bdi>{quote.tax}</bdi></td>
                           <td className="py-2 text-end font-semibold">
-                            {quote.free ? <span className="text-[#067647]">{t(`free.${quote.freeReason ?? 'WITHIN_FREE_RADIUS'}`)}</span> : <bdi>{t('bhd')} {quote.total}</bdi>}
+                            {quote.free ? <span className="text-success">{t(`free.${quote.freeReason ?? 'WITHIN_FREE_RADIUS'}`)}</span> : <bdi>{t('bhd')} {quote.total}</bdi>}
                           </td>
                         </>
                       ) : (
-                        <td colSpan={3} className="py-2 text-end text-[#B42318]">{t(`unavailable.${quote.reason ?? 'CONFIG_MISSING'}`)}</td>
+                        <td colSpan={3} className="py-2 text-end text-destructive">{t(`unavailable.${quote.reason ?? 'CONFIG_MISSING'}`)}</td>
                       )}
                     </tr>
                   ))}
@@ -227,14 +227,14 @@ export function DeliveryPricingCard() {
       )}
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <p className="inline-flex items-center gap-1.5 text-xs text-[#8A8A86]">
+        <p className="inline-flex items-center gap-1.5 text-xs text-subtle">
           <Info className="size-3.5" /> {row ? t('version', { version: row.version, date: new Date(row.updatedAt).toLocaleString(locale === 'ar' ? 'ar-BH' : 'en-BH') }) : t('notSaved')}
         </p>
         <Button type="button" variant="yellow" className="h-11 rounded-xl px-4" loading={save.isPending} disabled={(editing && !checked.success) || (!editing && !row)} onClick={() => { setNotice(''); save.mutate(); }}>
           {t('save')}
         </Button>
       </div>
-      {notice ? <p className="mt-3 text-sm font-medium text-[#161616]" role="status">{notice}</p> : null}
+      {notice ? <p className="mt-3 text-sm font-medium text-foreground" role="status">{notice}</p> : null}
     </section>
   );
 }
@@ -299,34 +299,34 @@ function useDebounced<T>(value: T, ms: number) {
 }
 
 function Note({ children }: { children: React.ReactNode }) {
-  return <p className="mt-4 flex items-start gap-2 rounded-xl bg-[#F7F7F5] px-4 py-3 text-sm text-[#5F5F5B]"><Info className="mt-0.5 size-4 shrink-0" /> {children}</p>;
+  return <p className="mt-4 flex items-start gap-2 rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground"><Info className="mt-0.5 size-4 shrink-0" /> {children}</p>;
 }
 
 function Toggle({ label, hint, on, onChange }: { label: string; hint: string; on: boolean; onChange: (value: boolean) => void }) {
   return (
-    <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-[#F1F1EE] px-4 py-3">
+    <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-3">
       <div>
-        <p className="text-sm font-semibold text-[#161616]">{label}</p>
-        <p className="text-xs text-[#9A9A96]">{hint}</p>
+        <p className="text-sm font-semibold text-foreground">{label}</p>
+        <p className="text-xs text-subtle">{hint}</p>
       </div>
-      <button type="button" role="switch" aria-checked={on} aria-label={label} className={`relative h-7 w-12 shrink-0 rounded-full transition ${on ? 'bg-[#161616]' : 'bg-[#E4E4E0]'}`} onClick={() => onChange(!on)}>
-        <span className={`absolute top-0.5 size-6 rounded-full bg-white shadow ${on ? 'start-5' : 'start-0.5'}`} />
+      <button type="button" role="switch" aria-checked={on} aria-label={label} className={`relative h-7 w-12 shrink-0 rounded-full transition ${on ? 'bg-secondary' : 'bg-border-strong'}`} onClick={() => onChange(!on)}>
+        <span className={`absolute top-0.5 size-6 rounded-full bg-card shadow ${on ? 'start-5' : 'start-0.5'}`} />
       </button>
     </div>
   );
 }
 
 function FieldError({ children }: { children: React.ReactNode }) {
-  return <span className="mt-1 block text-xs font-medium text-[#B42318]">{children}</span>;
+  return <span className="mt-1 block text-xs font-medium text-destructive">{children}</span>;
 }
 
 function Field({ label, hint, suffix, value, error, onChange }: { label: string; hint?: string; suffix: string; value: string; error?: string; onChange: (value: string) => void }) {
   return (
-    <label className="block text-sm font-semibold text-[#161616]">
-      {label} {hint ? <span className="font-normal text-[#9A9A96]">({hint})</span> : null}
-      <span className={`mt-1.5 flex h-12 overflow-hidden rounded-xl border bg-[#F7F7F5] ${error ? 'border-[#F04438]' : 'border-[#E8E8E4]'}`}>
+    <label className="block text-sm font-semibold text-foreground">
+      {label} {hint ? <span className="font-normal text-subtle">({hint})</span> : null}
+      <span className={`mt-1.5 flex h-12 overflow-hidden rounded-xl border bg-muted ${error ? 'border-destructive' : 'border-border'}`}>
         <input className="w-full bg-transparent px-3 text-sm font-medium outline-none" inputMode="decimal" dir="ltr" value={value} aria-invalid={Boolean(error)} onChange={(event) => onChange(event.target.value)} />
-        <span className="grid shrink-0 place-items-center border-s border-[#E8E8E4] bg-white px-3 text-xs font-medium text-[#8A8A86]">{suffix}</span>
+        <span className="grid shrink-0 place-items-center border-s border-border bg-card px-3 text-xs font-medium text-subtle">{suffix}</span>
       </span>
       {error ? <FieldError>{error}</FieldError> : null}
     </label>
@@ -335,10 +335,10 @@ function Field({ label, hint, suffix, value, error, onChange }: { label: string;
 
 function MiniField({ label, suffix, value, onChange }: { label: string; suffix: string; value: string; onChange: (value: string) => void }) {
   return (
-    <label className="block text-xs font-medium text-[#8A8A86]">
+    <label className="block text-xs font-medium text-subtle">
       {label}
-      <span className="mt-1 flex h-9 w-28 overflow-hidden rounded-lg border border-[#E8E8E4] bg-white">
-        <input className="w-full bg-transparent px-2 text-sm text-[#161616] outline-none" inputMode="decimal" dir="ltr" value={value} onChange={(event) => onChange(event.target.value)} />
+      <span className="mt-1 flex h-9 w-28 overflow-hidden rounded-lg border border-border bg-card">
+        <input className="w-full bg-transparent px-2 text-sm text-foreground outline-none" inputMode="decimal" dir="ltr" value={value} onChange={(event) => onChange(event.target.value)} />
         <span className="grid shrink-0 place-items-center px-2 text-xs">{suffix}</span>
       </span>
     </label>
@@ -347,9 +347,9 @@ function MiniField({ label, suffix, value, onChange }: { label: string; suffix: 
 
 function DateField({ label, value, error, onChange }: { label: string; value: string; error?: string; onChange: (value: string) => void }) {
   return (
-    <label className="block text-sm font-semibold text-[#161616]">
+    <label className="block text-sm font-semibold text-foreground">
       {label}
-      <input type="datetime-local" dir="ltr" value={value} onChange={(event) => onChange(event.target.value)} className={`mt-1.5 h-12 w-full rounded-xl border bg-[#F7F7F5] px-3 text-sm outline-none ${error ? 'border-[#F04438]' : 'border-[#E8E8E4]'}`} />
+      <input type="datetime-local" dir="ltr" value={value} onChange={(event) => onChange(event.target.value)} className={`mt-1.5 h-12 w-full rounded-xl border bg-muted px-3 text-sm outline-none ${error ? 'border-destructive' : 'border-border'}`} />
       {error ? <FieldError>{error}</FieldError> : null}
     </label>
   );

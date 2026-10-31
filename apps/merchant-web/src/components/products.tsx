@@ -49,14 +49,14 @@ type CentralProductOption = {
 };
 
 const statusTone: Record<Status, string> = {
-  active: 'bg-[#E7F8EE] text-[#16924A]',
-  out: 'bg-[#FDECEA] text-[#D9342B]',
-  draft: 'bg-[#F1F1EE] text-[#696965]',
+  active: 'bg-success-soft text-success',
+  out: 'bg-destructive-soft text-destructive',
+  draft: 'bg-surface-2 text-muted-foreground',
 };
 const dotTone: Record<Status, string> = {
-  active: 'bg-[#22A85A]',
-  out: 'bg-[#E5484D]',
-  draft: 'bg-[#8A8A86]',
+  active: 'bg-success',
+  out: 'bg-destructive',
+  draft: 'bg-subtle',
 };
 
 export function ProductsPage() {
@@ -142,38 +142,38 @@ export function ProductsPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-[-0.03em] text-[#161616]">{t('titleInventory')}</h1>
-        <p className="mt-0.5 text-sm text-[#6F6F6B]">{t('inventorySubtitle')}</p>
+        <h1 className="text-2xl font-bold tracking-[-0.03em] text-foreground">{t('titleInventory')}</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('inventorySubtitle')}</p>
       </div>
 
-      <div className="flex items-center gap-4 overflow-x-auto border-b border-[#DFDED9] pb-2">
+      <div className="flex items-center gap-4 overflow-x-auto border-b border-border-strong pb-2">
         <div className="flex h-11 shrink-0 items-center gap-2 text-sm font-semibold">
           <TabButton active={tab === 'products'} onClick={() => setTab('products')}>{t('all')}</TabButton>
           <TabButton active={tab === 'categories'} onClick={() => setTab('categories')}>{t('categories')}</TabButton>
           <TabButton active={offerOpen} onClick={() => setOfferOpen(true)}>{t('modifiers')}</TabButton>
         </div>
-        <div className="ms-auto grid h-11 shrink-0 grid-cols-4 overflow-hidden rounded-xl border border-[#E5E4DF] bg-white shadow-[0_1px_2px_rgba(18,18,18,.04)]">
-          <Metric icon={<Box />} label={t('total')} value={counts.total} tone="bg-[#F6F6F4]" />
-          <Metric icon={<CheckCircle2 className="text-[#1FA557]" />} label={t('availableToday')} value={counts.active} tone="bg-[#E7F8EE]" />
-          <Metric icon={<AlertCircle className="text-[#F26A21]" />} label={t('lowStock')} value={products.filter((product) => product.stock > 0 && product.stock <= 5).length} tone="bg-[#FFF1E8]" />
-          <Metric icon={<Folder />} label={t('categories')} value={categories.length} tone="bg-[#FFF7D6]" />
+        <div className="ms-auto grid h-11 shrink-0 grid-cols-4 overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+          <Metric icon={<Box />} label={t('total')} value={counts.total} tone="bg-muted" />
+          <Metric icon={<CheckCircle2 className="text-success" />} label={t('availableToday')} value={counts.active} tone="bg-success-soft" />
+          <Metric icon={<AlertCircle className="text-primary" />} label={t('lowStock')} value={products.filter((product) => product.stock > 0 && product.stock <= 5).length} tone="bg-primary-soft" />
+          <Metric icon={<Folder />} label={t('categories')} value={categories.length} tone="bg-primary-soft" />
         </div>
       </div>
 
-      {notice ? <p className="text-sm font-medium text-[#B42318]">{notice}</p> : null}
+      {notice ? <p className="text-sm font-medium text-destructive">{notice}</p> : null}
 
       {tab === 'categories' ? <CategoriesSection categories={categories} products={products} view={categoryView} query={categoryQuery} onQuery={setCategoryQuery} onView={setCategoryView} /> : null}
 
       {tab === 'products' ? <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="flex min-h-0 min-w-0 flex-col gap-3">
-          <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#E2E1DC] bg-white">
-            <div className="flex flex-col gap-2 border-b border-[#E8E7E3] p-2.5 lg:flex-row lg:items-center">
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border-strong bg-card">
+            <div className="flex flex-col gap-2 border-b border-border p-2.5 lg:flex-row lg:items-center">
               <label className="relative flex h-9 min-w-52 flex-1 items-center">
-                <Search className="pointer-events-none absolute start-3 size-4 text-[#8A8A86]" />
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('searchSku')} className="h-9 w-full rounded-lg border border-[#E4E3DE] bg-white ps-9 pe-3 text-xs outline-none" />
+                <Search className="pointer-events-none absolute start-3 size-4 text-subtle" />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('searchSku')} className="h-9 w-full rounded-lg border border-border-strong bg-card ps-9 pe-3 text-xs outline-none" />
               </label>
               <Button type="button" variant="yellow" className="h-9 shrink-0 rounded-lg px-3" onClick={() => setEditing('new')}><Plus className="size-4" /> {t('add')}</Button>
-              <button type="button" onClick={() => setImportOpen(true)} className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-[#E6E6E2] bg-white px-3 text-xs font-semibold text-[#161616]"><Upload className="size-4" /> {t('bulkUpload')}</button>
+              <button type="button" onClick={() => setImportOpen(true)} className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground"><Upload className="size-4" /> {t('bulkUpload')}</button>
               <div className="flex gap-2 overflow-x-auto">
                 <SelectFilter value={categoryId} onChange={setCategoryId} label={t('category')}>
                   <option value="all">{t('allCategories')}</option>
@@ -182,15 +182,15 @@ export function ProductsPage() {
                 <SelectFilter value={status} onChange={(value) => setStatus(value as 'all' | Status)} label={t('status')}>
                   <option value="all">{t('allStatus')}</option><option value="active">{t('active')}</option><option value="out">{t('out')}</option><option value="draft">{t('drafts')}</option>
                 </SelectFilter>
-                <div className="flex h-9 overflow-hidden rounded-lg border border-[#E4E3DE] bg-white">
-                  <button type="button" aria-label={t('grid')} className={`grid w-9 place-items-center ${view === 'grid' ? 'bg-[#FFC400]' : ''}`} onClick={() => setView('grid')}><LayoutGrid className="size-4" /></button>
-                  <button type="button" aria-label={t('list')} className={`grid w-9 place-items-center border-s border-[#E4E3DE] ${view === 'list' ? 'bg-[#FFC400]' : ''}`} onClick={() => setView('list')}><List className="size-4" /></button>
+                <div className="flex h-9 overflow-hidden rounded-lg border border-border-strong bg-card">
+                  <button type="button" aria-label={t('grid')} className={`grid w-9 place-items-center ${view === 'grid' ? 'bg-primary' : ''}`} onClick={() => setView('grid')}><LayoutGrid className="size-4" /></button>
+                  <button type="button" aria-label={t('list')} className={`grid w-9 place-items-center border-s border-border-strong ${view === 'list' ? 'bg-primary' : ''}`} onClick={() => setView('list')}><List className="size-4" /></button>
                 </div>
               </div>
             </div>
 
             {selected.length ? (
-              <div className="flex flex-wrap items-center gap-2 border-b border-[#E8E7E3] bg-[#FAFAF8] px-3 py-2 text-xs font-semibold">
+              <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted px-3 py-2 text-xs font-semibold">
                 <span className="me-2">{selected.length} {t('selected')}</span>
                 <BulkButton icon={<CheckCircle2 />} onClick={() => selected.forEach((id) => { const product = products.find((item) => item.id === id); if (product) quick(product, 'in'); })}>{t('setAvailable')}</BulkButton>
                 <BulkButton icon={<AlertCircle />} onClick={() => selected.forEach((id) => { const product = products.find((item) => item.id === id); if (product) quick(product, 'out'); })}>{t('setUnavailable')}</BulkButton>
@@ -200,10 +200,10 @@ export function ProductsPage() {
             ) : null}
 
             {products.length === 0 ? <EmptyState title={t('none')} body={t('noneBody')} /> : null}
-            {products.length > 0 && visible.length === 0 ? <p className="p-4 text-sm font-medium text-[#8A8A86]">{t('noMatch')}</p> : null}
+            {products.length > 0 && visible.length === 0 ? <p className="p-4 text-sm font-medium text-subtle">{t('noMatch')}</p> : null}
             <div className="min-h-0 flex-1 overflow-auto">
               <div className="min-w-[780px]">
-                <div className="grid grid-cols-[32px_minmax(210px,1.4fr)_110px_90px_72px_145px_82px_72px] items-center border-b border-[#E8E7E3] bg-[#FAFAF8] px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-[#777772]">
+                <div className="grid grid-cols-[32px_minmax(210px,1.4fr)_110px_90px_72px_145px_82px_72px] items-center border-b border-border bg-muted px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   <input type="checkbox" checked={visible.length > 0 && visible.every((product) => selected.includes(product.id))} onChange={(event) => setSelected(event.target.checked ? visible.map((product) => product.id) : [])} />
                   <span>{t('product')}</span><span>{t('category')}</span><span>{t('price')}</span><span>{t('quantity')}</span><span>{t('availabilityStock')}</span><span>{t('status')}</span><span>{t('actions')}</span>
                 </div>
@@ -215,39 +215,39 @@ export function ProductsPage() {
           </section>
         </div>
 
-        <aside className="rounded-xl border border-[#E2E1DC] bg-white p-3.5 shadow-[0_2px_8px_rgba(18,18,18,.03)]">
+        <aside className="rounded-xl border border-border-strong bg-card p-3.5 shadow-xs">
           <h2 className="text-base font-bold">{t('quickUpdate')}</h2>
-          <p className="text-xs text-[#777772]">{t('quickUpdateHint')}</p>
+          <p className="text-xs text-muted-foreground">{t('quickUpdateHint')}</p>
           {quickProduct ? (
             <>
               <button type="button" onClick={() => setEditing(quickProduct)} className="mt-3 flex w-full items-center gap-3 rounded-lg text-start">
                 <ProductPhoto src={quickProduct.imageUrl} alt={pickLocalized(quickProduct.name, locale)} className="size-16 shrink-0" />
-                <span className="min-w-0"><strong className="block truncate text-sm">{pickLocalized(quickProduct.name, locale)}</strong><span className="block text-[11px] text-[#777772]">SKU: {quickProduct.id.slice(0, 8).toUpperCase()}</span><strong className="mt-1 block text-sm">{formatMoney(quickProduct.price, locale)}</strong></span>
+                <span className="min-w-0"><strong className="block truncate text-sm">{pickLocalized(quickProduct.name, locale)}</strong><span className="block text-[11px] text-muted-foreground">SKU: {quickProduct.id.slice(0, 8).toUpperCase()}</span><strong className="mt-1 block text-sm">{formatMoney(quickProduct.price, locale)}</strong></span>
               </button>
               <QuickSection title={t('productStatus')}>
-                <div className="grid grid-cols-2 gap-1 rounded-lg bg-[#F5F5F2] p-1">
+                <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
                   <QuickToggle active={statusOf(quickProduct) === 'active'} onClick={() => quick(quickProduct, 'in')} label={t('active')} />
                   <QuickToggle active={statusOf(quickProduct) !== 'active'} onClick={() => quick(quickProduct, 'draft')} label={t('hidden')} />
                 </div>
               </QuickSection>
               <QuickSection title={t('inventoryMethod')}>
-                {inventoryMode ? <p className="text-xs font-semibold text-[#161616]">{inventoryMode === 'daily' ? t('dailyAvailability') : t('stockQuantity')}</p> : <p className="text-xs text-[#777772]">{t('chooseMethodFirst')}</p>}
-                <Link href="/settings" className="mt-1 inline-block text-xs font-semibold text-[#2871AE]">{t('inventorySettings')} →</Link>
+                {inventoryMode ? <p className="text-xs font-semibold text-foreground">{inventoryMode === 'daily' ? t('dailyAvailability') : t('stockQuantity')}</p> : <p className="text-xs text-muted-foreground">{t('chooseMethodFirst')}</p>}
+                <Link href="/settings" className="mt-1 inline-block text-xs font-semibold text-info">{t('inventorySettings')} →</Link>
               </QuickSection>
               {method === 'daily' ? (
                 <QuickSection title={t('dailySettings')}>
                   <label className="flex items-center justify-between text-xs"><span>{t('availableToday')}</span><input type="checkbox" checked={quickProduct.available} onChange={() => quick(quickProduct, quickProduct.available ? 'out' : 'in')} /></label>
-                  <label className="mt-3 block text-xs font-semibold">{t('todayQuantity')}<input type="number" value={dailyQuantity} onChange={(event) => setDailyQuantity(event.target.value)} className="mt-1 h-9 w-full rounded-lg border border-[#DEDDD8] px-3 outline-none" /></label>
+                  <label className="mt-3 block text-xs font-semibold">{t('todayQuantity')}<input type="number" value={dailyQuantity} onChange={(event) => setDailyQuantity(event.target.value)} className="mt-1 h-9 w-full rounded-lg border border-border-strong px-3 outline-none" /></label>
                 </QuickSection>
               ) : (
                 <QuickSection title={t('stockQuantity')}>
-                  <label className="block text-xs font-semibold">{t('stock')}<input type="number" value={quickProduct.stock} onChange={(event) => patch.mutate({ id: quickProduct.id, body: { stockQuantity: Math.max(0, Number(event.target.value) || 0) } })} className="mt-1 h-9 w-full rounded-lg border border-[#DEDDD8] px-3 outline-none" /></label>
+                  <label className="block text-xs font-semibold">{t('stock')}<input type="number" value={quickProduct.stock} onChange={(event) => patch.mutate({ id: quickProduct.id, body: { stockQuantity: Math.max(0, Number(event.target.value) || 0) } })} className="mt-1 h-9 w-full rounded-lg border border-border-strong px-3 outline-none" /></label>
                 </QuickSection>
               )}
               <Button type="button" variant="yellow" className="mt-4 h-10 w-full rounded-lg" disabled={!inventoryMode} onClick={() => patch.mutate({ id: quickProduct.id, body: method === 'daily' ? { stockQuantity: Math.max(0, Number(dailyQuantity) || 0), available: true } : { stockQuantity: quickProduct.stock } })}>{t('saveUpdate')}</Button>
-              <button type="button" onClick={() => setEditing(quickProduct)} className="mt-2 h-10 w-full rounded-lg border border-[#292927] text-xs font-semibold">{t('openEditor')} →</button>
+              <button type="button" onClick={() => setEditing(quickProduct)} className="mt-2 h-10 w-full rounded-lg border border-foreground text-xs font-semibold">{t('openEditor')} →</button>
             </>
-          ) : <p className="mt-4 text-sm text-[#777772]">{t('none')}</p>}
+          ) : <p className="mt-4 text-sm text-muted-foreground">{t('none')}</p>}
         </aside>
       </div> : null}
 
@@ -279,32 +279,32 @@ function ProductRow({ product, locale, checked, inventoryMode, active, onCheck, 
 }) {
   const state = statusOf(product);
   return (
-    <div onClick={onSelect} className={`grid cursor-pointer grid-cols-[32px_minmax(210px,1.4fr)_110px_90px_72px_145px_82px_72px] items-center border-b border-[#EEEDE9] px-3 py-2 text-xs transition-colors last:border-b-0 ${active ? 'bg-[#FFFDF4]' : 'hover:bg-[#FAFAF8]'}`}>
+    <div onClick={onSelect} className={`grid cursor-pointer grid-cols-[32px_minmax(210px,1.4fr)_110px_90px_72px_145px_82px_72px] items-center border-b border-border px-3 py-2 text-xs transition-colors last:border-b-0 ${active ? 'bg-primary-soft' : 'hover:bg-muted'}`}>
       <input type="checkbox" checked={checked} onClick={(event) => event.stopPropagation()} onChange={onCheck} />
       <div className="flex min-w-0 items-center gap-2.5">
         <ProductPhoto src={product.imageUrl} alt={pickLocalized(product.name, locale)} className="size-10 shrink-0" />
-        <span className="min-w-0"><strong className="block truncate text-xs text-[#1B1B19]">{pickLocalized(product.name, locale)}</strong><span className="block truncate text-[10px] text-[#858580]">SKU: {product.id.slice(0, 8).toUpperCase()}</span></span>
+        <span className="min-w-0"><strong className="block truncate text-xs text-foreground">{pickLocalized(product.name, locale)}</strong><span className="block truncate text-[10px] text-subtle">SKU: {product.id.slice(0, 8).toUpperCase()}</span></span>
       </div>
-      <span className="truncate text-[#555550]">{pickLocalized(product.category, locale)}</span>
+      <span className="truncate text-muted-foreground">{pickLocalized(product.category, locale)}</span>
       <strong>{formatMoney(product.price, locale)}</strong>
       <strong>{product.stock}</strong>
       <button type="button" onClick={(event) => { event.stopPropagation(); onToggle(); }} className="flex items-center gap-2 text-start">
-        <span className={`relative h-5 w-9 shrink-0 rounded-full ${state === 'active' ? 'bg-[#25B55B]' : 'bg-[#AAA]'}`}><span className={`absolute top-0.5 size-4 rounded-full bg-white transition-all ${state === 'active' ? 'end-0.5' : 'start-0.5'}`} /></span>
-        <span><strong className="block text-[11px]">{state === 'active' ? labels.available : labels.unavailable}</strong><span className="text-[9px] text-[#858580]">{inventoryMode === 'stock' ? `${product.stock} ${labels.stock}` : labels.daily}</span></span>
+        <span className={`relative h-5 w-9 shrink-0 rounded-full ${state === 'active' ? 'bg-success' : 'bg-subtle'}`}><span className={`absolute top-0.5 size-4 rounded-full bg-card transition-all ${state === 'active' ? 'end-0.5' : 'start-0.5'}`} /></span>
+        <span><strong className="block text-[11px]">{state === 'active' ? labels.available : labels.unavailable}</strong><span className="text-[9px] text-subtle">{inventoryMode === 'stock' ? `${product.stock} ${labels.stock}` : labels.daily}</span></span>
       </button>
-      <span className="inline-flex w-fit items-center gap-1.5 font-semibold"><span className={`size-1.5 rounded-full ${state === 'active' ? 'bg-[#22A85A]' : state === 'out' ? 'bg-[#E5484D]' : 'bg-[#F5B400]'}`} />{state === 'active' ? labels.active : labels.draft}</span>
-      <button type="button" onClick={(event) => { event.stopPropagation(); onEdit(); }} className="h-7 w-fit rounded-md border border-[#DDDCD7] px-2 font-semibold">{labels.edit}</button>
+      <span className="inline-flex w-fit items-center gap-1.5 font-semibold"><span className={`size-1.5 rounded-full ${state === 'active' ? 'bg-success' : state === 'out' ? 'bg-destructive' : 'bg-primary'}`} />{state === 'active' ? labels.active : labels.draft}</span>
+      <button type="button" onClick={(event) => { event.stopPropagation(); onEdit(); }} className="h-7 w-fit rounded-md border border-border-strong px-2 font-semibold">{labels.edit}</button>
     </div>
   );
 }
 
 function Metric({ icon, label, value, tone }: { icon: React.ReactElement<{ className?: string }>; label: string; value: number; tone: string }) {
   return (
-    <div className="flex h-full min-w-40 items-center gap-2.5 border-e border-[#E8E7E3] px-3 last:border-e-0">
-      <span className={`grid size-7 shrink-0 place-items-center rounded-lg text-[#161616] [&>svg]:size-4 ${tone}`}>{icon}</span>
+    <div className="flex h-full min-w-40 items-center gap-2.5 border-e border-border px-3 last:border-e-0">
+      <span className={`grid size-7 shrink-0 place-items-center rounded-lg text-foreground [&>svg]:size-4 ${tone}`}>{icon}</span>
       <span className="min-w-0">
-        <span className="block truncate text-[11px] font-medium leading-none text-[#777772]">{label}</span>
-        <span className="mt-1 block text-sm font-bold leading-none tabular-nums text-[#161616]">{value}</span>
+        <span className="block truncate text-[11px] font-medium leading-none text-muted-foreground">{label}</span>
+        <span className="mt-1 block text-sm font-bold leading-none tabular-nums text-foreground">{value}</span>
       </span>
     </div>
   );
@@ -312,10 +312,10 @@ function Metric({ icon, label, value, tone }: { icon: React.ReactElement<{ class
 
 function InventoryChoice({ active, icon, title, body, onClick, compact = false }: { active: boolean; icon: React.ReactNode; title: string; body: string; onClick: () => void; compact?: boolean }) {
   return (
-    <button type="button" onClick={onClick} className={`flex items-start gap-3 rounded-lg border p-3 text-start ${active ? 'border-[#F2C300] bg-[#FFFCEF] shadow-[0_0_0_1px_#F2C300]' : 'border-[#E3E2DD] bg-white'} ${compact ? 'p-2.5' : ''}`}>
-      <span className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border ${active ? 'border-[#FFC400] bg-[#FFC400]' : 'border-[#B9B8B3]'}`}>{active ? <span className="size-1.5 rounded-full bg-[#171715]" /> : null}</span>
-      <span className="text-[#161616] [&>svg]:size-5">{icon}</span>
-      <span><strong className="block text-xs">{title}</strong><span className="block text-[10px] leading-snug text-[#777772]">{body}</span></span>
+    <button type="button" onClick={onClick} className={`flex items-start gap-3 rounded-lg border p-3 text-start ${active ? 'border-primary bg-primary-soft ring-1 ring-primary' : 'border-border-strong bg-card'} ${compact ? 'p-2.5' : ''}`}>
+      <span className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border ${active ? 'border-primary bg-primary' : 'border-subtle'}`}>{active ? <span className="size-1.5 rounded-full bg-secondary" /> : null}</span>
+      <span className="text-foreground [&>svg]:size-5">{icon}</span>
+      <span><strong className="block text-xs">{title}</strong><span className="block text-[10px] leading-snug text-muted-foreground">{body}</span></span>
     </button>
   );
 }
@@ -324,22 +324,22 @@ function SelectFilter({ value, onChange, label, children }: { value: string; onC
   return (
     <label className="relative">
       <span className="sr-only">{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="h-9 min-w-28 appearance-none rounded-lg border border-[#E4E3DE] bg-white ps-3 pe-8 text-xs font-semibold outline-none">{children}</select>
-      <ChevronDown className="pointer-events-none absolute end-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[#777772]" />
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="h-9 min-w-28 appearance-none rounded-lg border border-border-strong bg-card ps-3 pe-8 text-xs font-semibold outline-none">{children}</select>
+      <ChevronDown className="pointer-events-none absolute end-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
     </label>
   );
 }
 
 function BulkButton({ icon, onClick, children, danger = false }: { icon: React.ReactNode; onClick: () => void; children: React.ReactNode; danger?: boolean }) {
-  return <button type="button" onClick={onClick} className={`inline-flex h-7 items-center gap-1.5 rounded-md border bg-white px-2 ${danger ? 'border-[#F0D7D4] text-[#B42318]' : 'border-[#DDDCD7]'}`}><span className="[&>svg]:size-3">{icon}</span>{children}</button>;
+  return <button type="button" onClick={onClick} className={`inline-flex h-7 items-center gap-1.5 rounded-md border bg-card px-2 ${danger ? 'border-destructive/30 text-destructive' : 'border-border-strong'}`}><span className="[&>svg]:size-3">{icon}</span>{children}</button>;
 }
 
 function QuickSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section className="mt-4 border-t border-[#E8E7E3] pt-3"><h3 className="mb-2 text-xs font-bold">{title}</h3>{children}</section>;
+  return <section className="mt-4 border-t border-border pt-3"><h3 className="mb-2 text-xs font-bold">{title}</h3>{children}</section>;
 }
 
 function QuickToggle({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
-  return <button type="button" onClick={onClick} className={`h-7 rounded-md text-[11px] font-semibold ${active ? 'bg-[#DDF5E5] text-[#157A3E] shadow-sm' : 'text-[#777772]'}`}>{label}</button>;
+  return <button type="button" onClick={onClick} className={`h-7 rounded-md text-[11px] font-semibold ${active ? 'bg-success-soft text-success shadow-sm' : 'text-muted-foreground'}`}>{label}</button>;
 }
 
 function ProductDialog({
@@ -419,9 +419,9 @@ function ProductDialog({
         <DialogDescription>{t('subtitle')}</DialogDescription>
         <div className="mt-4 grid gap-3">
           <div>
-            <p className="text-sm font-semibold text-[#161616]">{t('photo')}</p>
-            <label className="relative mx-auto mt-1.5 block size-56 cursor-pointer overflow-hidden rounded-xl border border-dashed border-[#E0E0DC] bg-[#F7F7F5]">
-              {imageUrl ? <img src={imageUrl} alt="" className="absolute inset-0 size-full object-cover" /> : <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-[#8A8A86]"><ImageIcon className="size-5" /> {uploading ? '…' : t('upload')}</span>}
+            <p className="text-sm font-semibold text-foreground">{t('photo')}</p>
+            <label className="relative mx-auto mt-1.5 block size-56 cursor-pointer overflow-hidden rounded-xl border border-dashed border-border-strong bg-muted">
+              {imageUrl ? <img src={imageUrl} alt="" className="absolute inset-0 size-full object-cover" /> : <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-subtle"><ImageIcon className="size-5" /> {uploading ? '…' : t('upload')}</span>}
               <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => {
                 const file = event.target.files?.[0];
                 event.target.value = '';
@@ -446,48 +446,48 @@ function ProductDialog({
               }}
             />
           </div>
-          <label className="relative block text-sm font-semibold text-[#161616]">
+          <label className="relative block text-sm font-semibold text-foreground">
             {t('name')}
-            <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none" />
+            <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" />
             {!product && name.trim() && productOptions.length ? (
-              <span className="absolute inset-x-0 top-[4.5rem] z-30 block rounded-xl border border-[#E4E3DE] bg-white p-1.5 shadow-lg">
-                <small className="block px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#777772]">{t('productSuggestions')}</small>
+              <span className="absolute inset-x-0 top-[4.5rem] z-30 block rounded-xl border border-border-strong bg-card p-1.5 shadow-lg">
+                <small className="block px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('productSuggestions')}</small>
                 {productOptions.map((option) => (
                   <button key={option.id} type="button" onClick={() => {
                     setName(pickLocalized(option.name, locale));
                     setDescription(pickLocalized(option.description, locale));
                     setImageUrl(option.imageUrl ?? '');
-                  }} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-start hover:bg-[#F7F7F5]">
+                  }} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-start hover:bg-muted">
                     <ProductPhoto src={option.imageUrl ?? null} alt="" className="size-8 shrink-0" />
                     <span className="min-w-0 flex-1 truncate text-xs font-semibold">{pickLocalized(option.name, locale)}</span>
-                    {option.status === 'PENDING' ? <small className="text-[9px] text-[#9A6700]">{t('productPending')}</small> : null}
+                    {option.status === 'PENDING' ? <small className="text-[9px] text-warning">{t('productPending')}</small> : null}
                   </button>
                 ))}
               </span>
             ) : null}
           </label>
           <Field label={t('description')} value={description} onChange={setDescription} />
-          <label className="block text-sm font-semibold text-[#161616]">
+          <label className="block text-sm font-semibold text-foreground">
             {t('category')}
-            <select className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+            <select className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
               {categories.map((category) => <option key={category.id} value={category.id}>{pickLocalized(category.name, locale)}</option>)}
             </select>
           </label>
-          {!categories.length ? <button type="button" className="text-start text-sm font-semibold text-[#161616] underline" onClick={onNeedCategory}>{t('addCategory')}</button> : null}
+          {!categories.length ? <button type="button" className="text-start text-sm font-semibold text-foreground underline" onClick={onNeedCategory}>{t('addCategory')}</button> : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t('price')} value={price} onChange={setPrice} />
             <Field label={t('stock')} value={stock} onChange={setStock} type="number" />
           </div>
-          <label className="block text-sm font-semibold text-[#161616]">
+          <label className="block text-sm font-semibold text-foreground">
             {t('status')}
-            <select className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none" value={status} onChange={(event) => setStatus(event.target.value as Status)}>
+            <select className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" value={status} onChange={(event) => setStatus(event.target.value as Status)}>
               <option value="active">{t('active')}</option>
               <option value="out">{t('out')}</option>
               <option value="draft">{t('draft')}</option>
             </select>
           </label>
         </div>
-        {error ? <p className="mt-3 text-sm font-medium text-[#B42318]">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-destructive">{error}</p> : null}
         <div className="mt-4 flex justify-end">
           <Button type="button" variant="yellow" className="h-11 rounded-xl px-4" loading={save.isPending || uploading} onClick={() => { setError(''); save.mutate(); }}>{t('save')}</Button>
         </div>
@@ -497,7 +497,7 @@ function ProductDialog({
 }
 
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" onClick={onClick} className={`shrink-0 rounded-lg px-3 py-1.5 ${active ? 'bg-[#FFC400] text-[#161616]' : 'text-[#666662]'}`}>{children}</button>;
+  return <button type="button" onClick={onClick} className={`shrink-0 rounded-lg px-3 py-1.5 ${active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>{children}</button>;
 }
 
 function readInventoryMethod(data: unknown): InventoryMethod | null {
@@ -526,7 +526,7 @@ function InventoryMethodDialog({ open }: { open: boolean }) {
           <InventoryChoice active={choice === 'daily'} icon={<UtensilsCrossed />} title={t('dailyAvailability')} body={t('dailyAvailabilityHint')} onClick={() => setChoice('daily')} />
           <InventoryChoice active={choice === 'stock'} icon={<Package />} title={t('stockQuantity')} body={t('stockQuantityHint')} onClick={() => setChoice('stock')} />
         </div>
-        {error ? <p className="mt-3 text-sm font-medium text-[#B42318]">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-destructive">{error}</p> : null}
         <div className="mt-4 flex justify-end">
           <Button type="button" variant="yellow" className="h-11 rounded-xl px-4" disabled={!choice} loading={save.isPending} onClick={() => { if (!choice) return; setError(''); save.mutate(choice); }}>{t('useMethod')}</Button>
         </div>
@@ -552,15 +552,15 @@ export function InventorySettings({ method }: { method: InventoryMethod | null }
     onError: (reason: Error) => { setSaved(''); setError(reason.message); },
   });
   return (
-    <section className="@container rounded-xl border border-[#E2E1DC] bg-white p-4">
-      <h2 className="font-bold text-[#161616]">{t('twoWays')}</h2>
-      <p className="mt-1 text-sm text-[#777772]">{t('inventorySettingsHint')}</p>
+    <section className="@container rounded-xl border border-border-strong bg-card p-4">
+      <h2 className="font-bold text-foreground">{t('twoWays')}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t('inventorySettingsHint')}</p>
       <div className="mt-4 grid gap-2 @min-[32rem]:grid-cols-2">
         <InventoryChoice active={choice === 'daily'} icon={<UtensilsCrossed />} title={t('dailyAvailability')} body={t('dailyAvailabilityHint')} onClick={() => { setChoice('daily'); setSaved(''); }} />
         <InventoryChoice active={choice === 'stock'} icon={<Package />} title={t('stockQuantity')} body={t('stockQuantityHint')} onClick={() => { setChoice('stock'); setSaved(''); }} />
       </div>
-      {error ? <p className="mt-3 text-sm font-medium text-[#B42318]">{error}</p> : null}
-      {saved ? <p className="mt-3 text-sm font-semibold text-[#157A3E]">{saved}</p> : null}
+      {error ? <p className="mt-3 text-sm font-medium text-destructive">{error}</p> : null}
+      {saved ? <p className="mt-3 text-sm font-semibold text-success">{saved}</p> : null}
       <Button type="button" variant="yellow" className="mt-4 h-10 rounded-lg px-4" loading={save.isPending} onClick={() => save.mutate(choice)}>{t('saveUpdate')}</Button>
     </section>
   );
@@ -630,39 +630,39 @@ function CategoriesSection({ categories, products, view, query, onQuery, onView 
     onError: (reason: Error) => setError(reason.message),
   });
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#E2E1DC] bg-white">
-      <div className="flex flex-col gap-2 border-b border-[#E8E7E3] p-3 lg:flex-row lg:items-center">
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border-strong bg-card">
+      <div className="flex flex-col gap-2 border-b border-border p-3 lg:flex-row lg:items-center">
         <label className="relative flex h-9 min-w-52 flex-1 items-center">
-          <Search className="pointer-events-none absolute start-3 size-4 text-[#8A8A86]" />
-          <input value={query} onChange={(event) => onQuery(event.target.value)} placeholder={t('categorySearch')} className="h-9 w-full rounded-lg border border-[#E4E3DE] bg-white ps-9 pe-3 text-xs outline-none" />
+          <Search className="pointer-events-none absolute start-3 size-4 text-subtle" />
+          <input value={query} onChange={(event) => onQuery(event.target.value)} placeholder={t('categorySearch')} className="h-9 w-full rounded-lg border border-border-strong bg-card ps-9 pe-3 text-xs outline-none" />
         </label>
         <div className="flex gap-2">
           <div className="relative">
-            <input value={name} onChange={(event) => { setName(event.target.value); setSaved(''); }} placeholder={t('newCategory')} className="h-9 w-52 rounded-lg border border-[#E4E3DE] px-3 text-xs outline-none" />
+            <input value={name} onChange={(event) => { setName(event.target.value); setSaved(''); }} placeholder={t('newCategory')} className="h-9 w-52 rounded-lg border border-border-strong px-3 text-xs outline-none" />
             {name.trim() && options.length ? (
-              <div className="absolute end-0 top-10 z-20 w-64 rounded-xl border border-[#E4E3DE] bg-white p-1.5 shadow-lg">
-                <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#777772]">{t('categorySuggestions')}</p>
+              <div className="absolute end-0 top-10 z-20 w-64 rounded-xl border border-border-strong bg-card p-1.5 shadow-lg">
+                <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('categorySuggestions')}</p>
                 {options.map((option) => (
-                  <button key={option.id} type="button" onClick={() => setName(pickLocalized(option.name, locale))} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-start text-xs hover:bg-[#F7F7F5]">
-                    <span className="grid size-7 place-items-center overflow-hidden rounded-lg bg-[#FFF7D6]"><CategoryIcon icon={option.icon} name={pickLocalized(option.name, locale)} /></span>
+                  <button key={option.id} type="button" onClick={() => setName(pickLocalized(option.name, locale))} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-start text-xs hover:bg-muted">
+                    <span className="grid size-7 place-items-center overflow-hidden rounded-lg bg-primary-soft"><CategoryIcon icon={option.icon} name={pickLocalized(option.name, locale)} /></span>
                     <span className="min-w-0 flex-1 truncate font-semibold">{pickLocalized(option.name, locale)}</span>
-                    {option.status === 'PENDING' ? <span className="text-[9px] text-[#9A6700]">{t('categoryPending')}</span> : null}
+                    {option.status === 'PENDING' ? <span className="text-[9px] text-warning">{t('categoryPending')}</span> : null}
                   </button>
                 ))}
               </div>
             ) : null}
           </div>
           <Button type="button" variant="yellow" className="h-9 rounded-lg px-3" loading={create.isPending} onClick={() => { setError(''); setSaved(''); create.mutate(); }}><Plus className="size-4" /> {t('addCategory')}</Button>
-          <div className="flex h-9 overflow-hidden rounded-lg border border-[#E4E3DE] bg-white">
-            <button type="button" aria-label={t('grid')} className={`grid w-9 place-items-center ${view === 'grid' ? 'bg-[#FFC400]' : ''}`} onClick={() => onView('grid')}><LayoutGrid className="size-4" /></button>
-            <button type="button" aria-label={t('list')} className={`grid w-9 place-items-center border-s border-[#E4E3DE] ${view === 'list' ? 'bg-[#FFC400]' : ''}`} onClick={() => onView('list')}><List className="size-4" /></button>
+          <div className="flex h-9 overflow-hidden rounded-lg border border-border-strong bg-card">
+            <button type="button" aria-label={t('grid')} className={`grid w-9 place-items-center ${view === 'grid' ? 'bg-primary' : ''}`} onClick={() => onView('grid')}><LayoutGrid className="size-4" /></button>
+            <button type="button" aria-label={t('list')} className={`grid w-9 place-items-center border-s border-border-strong ${view === 'list' ? 'bg-primary' : ''}`} onClick={() => onView('list')}><List className="size-4" /></button>
           </div>
         </div>
       </div>
-      {error ? <p className="px-3 pt-3 text-sm font-medium text-[#B42318]">{error}</p> : null}
-      {saved ? <p className="px-3 pt-3 text-sm font-medium text-[#157A3E]">{saved}</p> : null}
+      {error ? <p className="px-3 pt-3 text-sm font-medium text-destructive">{error}</p> : null}
+      {saved ? <p className="px-3 pt-3 text-sm font-medium text-success">{saved}</p> : null}
       {categories.length === 0 ? <EmptyState title={t('categoryEmpty')} body={t('categoryEmptyBody')} /> : null}
-      {categories.length > 0 && visible.length === 0 ? <p className="p-4 text-sm font-medium text-[#8A8A86]">{t('noMatch')}</p> : null}
+      {categories.length > 0 && visible.length === 0 ? <p className="p-4 text-sm font-medium text-subtle">{t('noMatch')}</p> : null}
       {view === 'grid' ? (
         <div className="grid gap-3 overflow-auto p-3 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((category) => (
@@ -671,16 +671,16 @@ function CategoriesSection({ categories, products, view, query, onQuery, onView 
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
-          <div className="grid grid-cols-[minmax(180px,1fr)_120px_160px] items-center border-b border-[#E8E7E3] bg-[#FAFAF8] px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-[#777772]">
+          <div className="grid grid-cols-[minmax(180px,1fr)_120px_160px] items-center border-b border-border bg-muted px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             <span>{t('category')}</span><span>{t('product')}</span><span>{t('actions')}</span>
           </div>
           {visible.map((category) => (
-            <div key={category.id} className="grid grid-cols-[minmax(180px,1fr)_120px_160px] items-center border-b border-[#EEEDE9] px-3 py-2 text-sm">
+            <div key={category.id} className="grid grid-cols-[minmax(180px,1fr)_120px_160px] items-center border-b border-border px-3 py-2 text-sm">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-[#FFF7D6] text-[#161616]"><CategoryIcon icon={category.icon} name={pickLocalized(category.name, locale)} /></span>
-                {editingId === category.id ? <input value={draft} onChange={(event) => setDraft(event.target.value)} className="h-8 min-w-0 flex-1 rounded-lg border border-[#DEDDD8] px-2 text-sm outline-none" /> : <span className="truncate font-semibold">{pickLocalized(category.name, locale)}</span>}
+                <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-primary-soft text-foreground"><CategoryIcon icon={category.icon} name={pickLocalized(category.name, locale)} /></span>
+                {editingId === category.id ? <input value={draft} onChange={(event) => setDraft(event.target.value)} className="h-8 min-w-0 flex-1 rounded-lg border border-border-strong px-2 text-sm outline-none" /> : <span className="truncate font-semibold">{pickLocalized(category.name, locale)}</span>}
               </div>
-              <span className="text-xs text-[#777772]">{t('categoryCount', { count: countOf(category.id) })}</span>
+              <span className="text-xs text-muted-foreground">{t('categoryCount', { count: countOf(category.id) })}</span>
               <CategoryActions editing={editingId === category.id} onEdit={() => { setEditingId(category.id); setDraft(pickLocalized(category.name, locale)); }} onCancel={() => setEditingId(null)} onSave={() => rename.mutate(category)} onDelete={() => remove.mutate(category.id)} saving={rename.isPending} removing={remove.isPending} labels={{ rename: t('rename'), remove: t('deleteCategory'), save: t('saveUpdate'), cancel: t('cancel') }} />
             </div>
           ))}
@@ -706,12 +706,12 @@ function CategoryCard({ category, locale, editing, draft, onDraft, onEdit, onCan
 }) {
   const label = pickLocalized(category.name, locale);
   return (
-    <article className="flex flex-col rounded-xl border border-[#E6E5E0] bg-white p-3">
+    <article className="flex flex-col rounded-xl border border-border bg-card p-3">
       <div className="flex items-start justify-between gap-2">
-        <span className="grid size-10 place-items-center overflow-hidden rounded-lg bg-[#FFF7D6] text-[#161616]"><CategoryIcon icon={category.icon} name={label} /></span>
-        <span className="text-end text-[11px] font-semibold text-[#777772]">{labels.products}{category.reviewStatus === 'PENDING' ? <small className="block text-[#9A6700]">{labels.pending}</small> : null}</span>
+        <span className="grid size-10 place-items-center overflow-hidden rounded-lg bg-primary-soft text-foreground"><CategoryIcon icon={category.icon} name={label} /></span>
+        <span className="text-end text-[11px] font-semibold text-muted-foreground">{labels.products}{category.reviewStatus === 'PENDING' ? <small className="block text-warning">{labels.pending}</small> : null}</span>
       </div>
-      {editing ? <input value={draft} onChange={(event) => onDraft(event.target.value)} className="mt-3 h-9 rounded-lg border border-[#DEDDD8] px-2 text-sm outline-none" /> : <h3 className="mt-3 truncate text-sm font-bold text-[#161616]">{label}</h3>}
+      {editing ? <input value={draft} onChange={(event) => onDraft(event.target.value)} className="mt-3 h-9 rounded-lg border border-border-strong px-2 text-sm outline-none" /> : <h3 className="mt-3 truncate text-sm font-bold text-foreground">{label}</h3>}
       <div className="mt-3">
         <CategoryActions editing={editing} onEdit={onEdit} onCancel={onCancel} onSave={onSave} onDelete={onDelete} saving={saving} removing={removing} labels={labels} />
       </div>
@@ -733,14 +733,14 @@ function CategoryActions({ editing, onEdit, onCancel, onSave, onDelete, saving, 
     return (
       <div className="flex gap-1">
         <Button type="button" variant="yellow" className="h-8 rounded-lg px-2 text-xs" loading={saving} onClick={onSave}>{labels.save}</Button>
-        <button type="button" onClick={onCancel} className="h-8 rounded-lg border border-[#DDDCD7] px-2 text-xs font-semibold">{labels.cancel}</button>
+        <button type="button" onClick={onCancel} className="h-8 rounded-lg border border-border-strong px-2 text-xs font-semibold">{labels.cancel}</button>
       </div>
     );
   }
   return (
     <div className="flex gap-1">
-      <button type="button" onClick={onEdit} className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#DDDCD7] px-2 text-xs font-semibold"><Pencil className="size-3.5" /> {labels.rename}</button>
-      <button type="button" onClick={onDelete} disabled={removing} className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#F0D7D4] px-2 text-xs font-semibold text-[#B42318]"><Trash2 className="size-3.5" /> {labels.remove}</button>
+      <button type="button" onClick={onEdit} className="inline-flex h-8 items-center gap-1 rounded-lg border border-border-strong px-2 text-xs font-semibold"><Pencil className="size-3.5" /> {labels.rename}</button>
+      <button type="button" onClick={onDelete} disabled={removing} className="inline-flex h-8 items-center gap-1 rounded-lg border border-destructive/30 px-2 text-xs font-semibold text-destructive"><Trash2 className="size-3.5" /> {labels.remove}</button>
     </div>
   );
 }
@@ -772,15 +772,15 @@ function OfferDialog({ open, products, onClose }: { open: boolean; products: Cat
         <DialogDescription>{t('subtitle')}</DialogDescription>
         <div className="mt-4 grid gap-3">
           <Field label={t('offerTitle')} value={title} onChange={setTitle} />
-          <label className="block text-sm font-semibold text-[#161616]">
+          <label className="block text-sm font-semibold text-foreground">
             {t('featureProduct')}
-            <select className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none" value={productId} onChange={(event) => setProductId(event.target.value)}>
+            <select className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" value={productId} onChange={(event) => setProductId(event.target.value)}>
               <option value="">{t('noFeature')}</option>
               {products.map((product) => <option key={product.id} value={product.id}>{pickLocalized(product.name, locale)}</option>)}
             </select>
           </label>
         </div>
-        {error ? <p className="mt-3 text-sm font-medium text-[#B42318]">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-destructive">{error}</p> : null}
         <div className="mt-4 flex justify-end">
           <Button type="button" variant="yellow" className="h-11 rounded-xl px-4" loading={save.isPending} onClick={() => { setError(''); save.mutate(); }}>{t('saveOffer')}</Button>
         </div>
@@ -864,32 +864,32 @@ function BulkUploadDialog({ open, onClose }: { open: boolean; onClose: () => voi
       <DialogContent className="max-h-[min(100%-2rem,44rem)] w-[min(100%-2rem,40rem)] overflow-y-auto">
         <DialogTitle>{t('bulkUploadTitle')}</DialogTitle>
         <DialogDescription>{t('bulkUploadHint')}</DialogDescription>
-        <p className="mt-3 text-xs leading-relaxed text-[#6F6F6B]">{t('bulkStatusHint')}</p>
-        <p className="mt-1 text-xs leading-relaxed text-[#6F6F6B]">{t('bulkSample')}</p>
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{t('bulkStatusHint')}</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t('bulkSample')}</p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" onClick={() => downloadText('products-template.csv', '\uFEFFname,name_ar,description,description_ar,category,price,stock,status\r\n')} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E6E6E2] bg-white px-3 text-sm font-semibold"><Download className="size-4" /> {t('downloadTemplate')}</button>
-          <button type="button" onClick={() => { void api.exportProducts().then((csv) => downloadText('products.csv', csv)).catch((reason: Error) => setError(reason.message)); }} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E6E6E2] bg-white px-3 text-sm font-semibold"><Download className="size-4" /> {t('downloadCatalog')}</button>
+          <button type="button" onClick={() => downloadText('products-template.csv', '\uFEFFname,name_ar,description,description_ar,category,price,stock,status\r\n')} className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-semibold"><Download className="size-4" /> {t('downloadTemplate')}</button>
+          <button type="button" onClick={() => { void api.exportProducts().then((csv) => downloadText('products.csv', csv)).catch((reason: Error) => setError(reason.message)); }} className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-semibold"><Download className="size-4" /> {t('downloadCatalog')}</button>
         </div>
-        <label onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const file = event.dataTransfer.files[0]; if (file) readFile(file); }} className="mt-4 grid cursor-pointer place-items-center rounded-xl border border-dashed border-[#E0E0DC] bg-[#F7F7F5] px-4 py-8 text-center">
-          <Upload className="size-5 text-[#8A8A86]" />
-          <span className="mt-2 text-sm font-semibold text-[#161616]">{fileName || t('chooseFile')}</span>
-          <span className="mt-1 text-xs text-[#8A8A86]">{t('bulkColumns')}</span>
+        <label onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const file = event.dataTransfer.files[0]; if (file) readFile(file); }} className="mt-4 grid cursor-pointer place-items-center rounded-xl border border-dashed border-border-strong bg-muted px-4 py-8 text-center">
+          <Upload className="size-5 text-subtle" />
+          <span className="mt-2 text-sm font-semibold text-foreground">{fileName || t('chooseFile')}</span>
+          <span className="mt-1 text-xs text-subtle">{t('bulkColumns')}</span>
           <input ref={inputRef} type="file" accept=".csv,text/csv,text/plain" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) readFile(file); }} />
         </label>
-        {fatalText ? <p className="mt-3 text-sm font-medium text-[#B42318]">{fatalText}</p> : null}
+        {fatalText ? <p className="mt-3 text-sm font-medium text-destructive">{fatalText}</p> : null}
         {parsed && !parsed.fatal ? (
           <div className="mt-4">
-            <p className="text-sm font-semibold text-[#161616]">{t('rowsReady', { count: parsed.rows.length })}</p>
-            {parsed.errors.length ? <p className="mt-1 text-sm font-medium text-[#B42318]">{t('rowsInvalid', { count: parsed.errors.length })}</p> : null}
+            <p className="text-sm font-semibold text-foreground">{t('rowsReady', { count: parsed.rows.length })}</p>
+            {parsed.errors.length ? <p className="mt-1 text-sm font-medium text-destructive">{t('rowsInvalid', { count: parsed.errors.length })}</p> : null}
             {preview.length ? (
-              <div className="mt-2 max-h-48 overflow-auto rounded-xl border border-[#E8E7E3]">
+              <div className="mt-2 max-h-48 overflow-auto rounded-xl border border-border">
                 <table className="w-full text-start text-xs">
-                  <thead className="bg-[#FAFAF8] text-[10px] font-semibold uppercase tracking-wide text-[#777772]">
+                  <thead className="bg-muted text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     <tr><th className="px-3 py-2 font-semibold">{t('product')}</th><th className="px-3 py-2 font-semibold">{t('category')}</th><th className="px-3 py-2 font-semibold">{t('price')}</th><th className="px-3 py-2 font-semibold">{t('stock')}</th><th className="px-3 py-2 font-semibold">{t('status')}</th></tr>
                   </thead>
                   <tbody>
                     {preview.map((row) => (
-                      <tr key={row.row} className="border-t border-[#E8E7E3]">
+                      <tr key={row.row} className="border-t border-border">
                         <td className="px-3 py-2 font-semibold">{row.name}</td>
                         <td className="px-3 py-2">{row.category}</td>
                         <td className="px-3 py-2">{row.price}</td>
@@ -901,11 +901,11 @@ function BulkUploadDialog({ open, onClose }: { open: boolean; onClose: () => voi
                 </table>
               </div>
             ) : null}
-            {parsed.errors.slice(0, 6).map((issue) => <p key={`${issue.row}-${issue.code}`} className="mt-1 text-xs font-medium text-[#B42318]">{t('rowLabel')} {issue.row}: {issueText[issue.code]}</p>)}
+            {parsed.errors.slice(0, 6).map((issue) => <p key={`${issue.row}-${issue.code}`} className="mt-1 text-xs font-medium text-destructive">{t('rowLabel')} {issue.row}: {issueText[issue.code]}</p>)}
           </div>
         ) : null}
-        {error ? <p className="mt-3 text-sm font-medium text-[#B42318]">{error}</p> : null}
-        {result ? <p className="mt-3 text-sm font-semibold text-[#157A3E]">{t('importCreated', { count: result.created })} {t('importUpdated', { count: result.updated })}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-destructive">{error}</p> : null}
+        {result ? <p className="mt-3 text-sm font-semibold text-success">{t('importCreated', { count: result.created })} {t('importUpdated', { count: result.updated })}</p> : null}
         <div className="mt-4 flex justify-end">
           {result ? <Button type="button" variant="yellow" className="h-11 rounded-xl px-4" onClick={onClose}>{t('importDone')}</Button> : <Button type="button" variant="yellow" className="h-11 rounded-xl px-4" loading={save.isPending} disabled={!parsed?.rows.length} onClick={() => { setError(''); save.mutate(); }}>{t('importProducts')}</Button>}
         </div>
@@ -1065,11 +1065,11 @@ function ProductsSkeleton() {
 
 function Stat({ label, value, marker }: { label: string; value: number; marker: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 border-[#EEEEEC] px-3 py-2 odd:border-e even:border-b sm:border-b-0 sm:border-e sm:px-3.5 sm:last:border-e-0">
+    <div className="flex items-center gap-2 border-border px-3 py-2 odd:border-e even:border-b sm:border-b-0 sm:border-e sm:px-3.5 sm:last:border-e-0">
       <span className="grid size-6 shrink-0 place-items-center">{marker}</span>
       <div className="leading-tight">
-        <p className="text-[11px] text-[#8A8A86]">{label}</p>
-        <p className="text-sm font-semibold text-[#161616]">{value}</p>
+        <p className="text-[11px] text-subtle">{label}</p>
+        <p className="text-sm font-semibold text-foreground">{value}</p>
       </div>
     </div>
   );
@@ -1077,7 +1077,7 @@ function Stat({ label, value, marker }: { label: string; value: number; marker: 
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className={`h-10 shrink-0 whitespace-nowrap rounded-full px-3.5 text-sm font-semibold ${active ? 'bg-[#FFC400] text-[#161616]' : 'border border-[#E8E8E4] bg-white text-[#161616]'}`}>
+    <button type="button" onClick={onClick} className={`h-10 shrink-0 whitespace-nowrap rounded-full px-3.5 text-sm font-semibold ${active ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-primary-foreground'}`}>
       {children}
     </button>
   );
@@ -1094,7 +1094,7 @@ function StatusPill({ status, label }: { status: Status; label: string }) {
 
 function FeaturedBadge({ label, compact = false }: { label: string; compact?: boolean }) {
   return (
-    <span className={`absolute start-2 top-2 inline-flex items-center gap-1 rounded-full bg-[#FFC400] font-semibold text-[#161616] shadow-sm ${compact ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[11px]'}`}>
+    <span className={`absolute start-2 top-2 inline-flex items-center gap-1 rounded-full bg-primary font-semibold text-primary-foreground shadow-sm ${compact ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[11px]'}`}>
       <Star className="size-3 fill-current" />
       {compact ? <span className="sr-only">{label}</span> : label}
     </span>
@@ -1104,21 +1104,21 @@ function FeaturedBadge({ label, compact = false }: { label: string; compact?: bo
 function ProductPhoto({ src, alt, className }: { src: string | null; alt: string; className: string }) {
   const [failed, setFailed] = useState(false);
   return (
-    <span className={`relative block shrink-0 overflow-hidden rounded-xl bg-[#F3F3F0] text-[#C8C8C4] ${className}`}>
+    <span className={`relative block shrink-0 overflow-hidden rounded-xl bg-muted text-faint ${className}`}>
       {!src || failed ? <span className="grid size-full place-items-center"><ImageIcon className="size-5" /></span> : <img src={src} alt={alt} className="absolute inset-0 size-full object-cover" onError={() => setFailed(true)} />}
     </span>
   );
 }
 
 function MenuItem({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" onClick={onClick} className="block w-full rounded-lg px-3 py-2 text-start text-sm font-medium text-[#161616] hover:bg-[#F7F7F5]">{children}</button>;
+  return <button type="button" onClick={onClick} className="block w-full rounded-lg px-3 py-2 text-start text-sm font-medium text-foreground hover:bg-muted">{children}</button>;
 }
 
 function Field({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
   return (
-    <label className="block text-sm font-semibold text-[#161616]">
+    <label className="block text-sm font-semibold text-foreground">
       {label}
-      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none" />
+      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" />
     </label>
   );
 }

@@ -290,10 +290,10 @@ export function stageOf(status: OrderStatus): Stage {
 }
 
 const stageTone: Record<Stage, string> = {
-  new: 'bg-[#FDECEA] text-[#B42318]',
-  toStart: 'bg-[#F0F0EC] text-[#4A4A46]',
-  cooking: 'bg-[#FFF4D6] text-[#8A5A00]',
-  ready: 'bg-[#E3F5EA] text-[#168A52]',
+  new: 'bg-destructive-soft text-destructive',
+  toStart: 'bg-surface-2 text-foreground',
+  cooking: 'bg-primary-soft text-warning',
+  ready: 'bg-success-soft text-success',
 };
 
 export function StagePill({ status, className }: { status: OrderStatus; className?: string }) {
@@ -301,17 +301,17 @@ export function StagePill({ status, className }: { status: OrderStatus; classNam
   const stage = stageOf(status);
   return (
     <span className={cn('inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold', stageTone[stage], className)}>
-      <span className={cn('size-1.5 rounded-full', stage === 'new' ? 'bg-[#B42318]' : stage === 'cooking' ? 'animate-pulse bg-[#C47D00]' : stage === 'ready' ? 'bg-[#168A52]' : 'bg-[#8A8A86]')} />
+      <span className={cn('size-1.5 rounded-full', stage === 'new' ? 'bg-destructive' : stage === 'cooking' ? 'animate-pulse bg-primary' : stage === 'ready' ? 'bg-success' : 'bg-subtle')} />
       {t(stage)}
     </span>
   );
 }
 
 export const tableTone: Record<TableStatus, { fill: string; ring: string; text: string; dot: string }> = {
-  AVAILABLE: { fill: 'bg-white', ring: 'border-[#BFE5CF]', text: 'text-[#168A52]', dot: 'bg-[#22A85A]' },
-  OCCUPIED: { fill: 'bg-[#FFF8DC]', ring: 'border-[#F0D27A]', text: 'text-[#8A5A00]', dot: 'bg-[#F5B400]' },
-  RESERVED: { fill: 'bg-[#EEF4FF]', ring: 'border-[#BCD3FA]', text: 'text-[#2F6FED]', dot: 'bg-[#3B82F6]' },
-  INACTIVE: { fill: 'bg-[#F2F2EF]', ring: 'border-[#DDDCD7]', text: 'text-[#696965]', dot: 'bg-[#8A8A86]' },
+  AVAILABLE: { fill: 'bg-card', ring: 'border-success', text: 'text-success', dot: 'bg-success' },
+  OCCUPIED: { fill: 'bg-primary-soft', ring: 'border-primary', text: 'text-warning', dot: 'bg-primary' },
+  RESERVED: { fill: 'bg-info-soft', ring: 'border-info/30', text: 'text-info', dot: 'bg-info' },
+  INACTIVE: { fill: 'bg-surface-2', ring: 'border-border-strong', text: 'text-muted-foreground', dot: 'bg-subtle' },
 };
 
 export function itemLine(item: { name: LocalizedText; addons: LocalizedText[] }, locale: Locale) {

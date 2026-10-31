@@ -2,12 +2,12 @@ import type * as React from 'react';
 import { cn } from '../lib/utils';
 
 const tones: Record<string, string> = {
-  default: 'bg-[#fff4cc] text-[#111111]',
+  default: 'bg-[var(--primary-soft,#fff4cc)] text-[var(--primary-soft-foreground,#111111)]',
   black: 'bg-secondary text-secondary-foreground',
   muted: 'bg-muted text-muted-foreground',
-  danger: 'bg-[#fdecea] text-[#d9342b]',
-  ok: 'bg-[#e7f6ee] text-[#168a52]',
-  info: 'bg-[#e8efff] text-[#2563eb]',
+  danger: 'bg-[var(--destructive-soft,#fdecea)] text-[var(--destructive,#d9342b)]',
+  ok: 'bg-[var(--success-soft,#e7f6ee)] text-[var(--success,#168a52)]',
+  info: 'bg-[var(--info-soft,#e8efff)] text-[var(--info,#2563eb)]',
 };
 
 export function Badge({

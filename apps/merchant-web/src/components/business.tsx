@@ -227,17 +227,17 @@ export function BusinessPage({ profile }: { profile: Profile }) {
 
   return (
     <div className="space-y-5">
-      <section className="flex flex-col gap-4 rounded-[20px] border border-[#EEEEEC] bg-white p-3 shadow-[0_8px_24px_rgba(17,17,17,0.04)] md:flex-row md:items-center">
+      <section className="flex flex-col gap-4 rounded-[20px] border border-border bg-card p-3 shadow-xs md:flex-row md:items-center">
         <div className="flex min-w-0 flex-1 items-center gap-4 px-2 py-1">
-          <label className="grid size-[72px] shrink-0 cursor-pointer place-items-center overflow-hidden rounded-2xl bg-[#F6F7F4]" aria-label={t('changeLogo')}>
-            {form.logoUrl ? <img src={form.logoUrl} alt="" className="h-full w-full object-contain p-1.5" /> : <Store className="h-7 w-7 text-[#8a8a86]" />}
+          <label className="grid size-[72px] shrink-0 cursor-pointer place-items-center overflow-hidden rounded-2xl bg-muted" aria-label={t('changeLogo')}>
+            {form.logoUrl ? <img src={form.logoUrl} alt="" className="h-full w-full object-contain p-1.5" /> : <Store className="h-7 w-7 text-subtle" />}
             <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => uploadImage(event.target.files?.[0], 'logoUrl')} />
           </label>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="truncate text-[22px] font-semibold tracking-tight text-[#161616]">{form.name}</h2>
-              <label className={`relative inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${form.availability === 'OPEN' ? 'bg-[#E7F8EE] text-[#16924A]' : form.availability === 'BUSY' ? 'bg-[#FFF4CC] text-[#8A6A00]' : 'bg-[#F1F1EE] text-[#696965]'}`}>
-                <span className={`size-1.5 rounded-full ${form.availability === 'OPEN' ? 'bg-[#22A85A]' : form.availability === 'BUSY' ? 'bg-[#C49200]' : 'bg-[#8a8a86]'}`} />
+              <h2 className="truncate text-[22px] font-semibold tracking-tight text-foreground">{form.name}</h2>
+              <label className={`relative inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${form.availability === 'OPEN' ? 'bg-success-soft text-success' : form.availability === 'BUSY' ? 'bg-primary-soft text-warning' : 'bg-surface-2 text-muted-foreground'}`}>
+                <span className={`size-1.5 rounded-full ${form.availability === 'OPEN' ? 'bg-success' : form.availability === 'BUSY' ? 'bg-primary' : 'bg-subtle'}`} />
                 {form.availability === 'OPEN' ? t('open') : form.availability === 'BUSY' ? t('busy') : t('closed')}
                 <ChevronDown className="size-3.5" />
                 <select className="absolute inset-0 cursor-pointer opacity-0" value={form.availability} aria-label={t('open')} onChange={(event) => setForm({ ...form, availability: event.target.value as 'OPEN' | 'CLOSED' | 'BUSY' })}>
@@ -247,29 +247,29 @@ export function BusinessPage({ profile }: { profile: Profile }) {
                 </select>
               </label>
               {profile.branches.length ? (
-                <label className="relative inline-flex h-7 items-center gap-1.5 rounded-full border border-[#E8E8E4] bg-white ps-2.5 pe-7 text-xs font-semibold text-[#161616]">
+                <label className="relative inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-card ps-2.5 pe-7 text-xs font-semibold text-foreground">
                   <span className="sr-only">{t('switchBranch')}</span>
                   <select className="max-w-40 appearance-none bg-transparent outline-none" value={branch?.id ?? ''} aria-label={t('switchBranch')} onChange={(event) => selectBranch(event.target.value)}>
                     {profile.branches.map((item) => <option key={item.id} value={item.id}>{pickLocalized(item.name, locale) || item.line1}</option>)}
                   </select>
-                  <ChevronDown className="pointer-events-none absolute end-2 size-3.5 text-[#8A8A86]" />
+                  <ChevronDown className="pointer-events-none absolute end-2 size-3.5 text-subtle" />
                 </label>
               ) : null}
             </div>
-            <p className="mt-1.5 flex items-center gap-1.5 text-sm text-[#8A8A86]"><MapPin className="size-3.5" /> {branch ? `${pickLocalized(branch.name, locale) || branch.line1} • ${branch.city}` : typeLabel}</p>
+            <p className="mt-1.5 flex items-center gap-1.5 text-sm text-subtle"><MapPin className="size-3.5" /> {branch ? `${pickLocalized(branch.name, locale) || branch.line1} • ${branch.city}` : typeLabel}</p>
           </div>
         </div>
-        <div className="relative h-[104px] overflow-hidden rounded-2xl bg-[#F3F3F0] md:h-[112px] md:w-[54%]">
+        <div className="relative h-[104px] overflow-hidden rounded-2xl bg-muted md:h-[112px] md:w-[54%]">
           <label className="absolute inset-0 cursor-pointer">
             {form.coverUrl ? <img src={form.coverUrl} alt="" className="h-full w-full object-cover" /> : <Placeholder className="h-full w-full rounded-none bg-transparent" />}
-            <span className="absolute bottom-3 end-3 inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-[#161616] shadow-[0_4px_16px_rgba(17,17,17,0.12)]">
+            <span className="absolute bottom-3 end-3 inline-flex items-center gap-2 rounded-xl bg-card px-3 py-2 text-sm font-semibold text-foreground shadow-md">
               <ImageIcon className="size-4" /> {t('editPhoto')}
             </span>
             <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => uploadImage(event.target.files?.[0], 'coverUrl')} />
           </label>
           <button
             type="button"
-            className="absolute top-3 end-3 z-10 inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-[#161616] shadow-[0_4px_16px_rgba(17,17,17,0.12)]"
+            className="absolute top-3 end-3 z-10 inline-flex items-center gap-2 rounded-xl bg-card px-3 py-2 text-sm font-semibold text-foreground shadow-md"
             onClick={() => { setBranchError(''); setAddingBranch(true); }}
           >
             <Plus className="size-4" /> {t('addBranch')}
@@ -284,40 +284,40 @@ export function BusinessPage({ profile }: { profile: Profile }) {
           {profile.branches.length ? (
             <ul className="mt-4 space-y-1.5">
               {profile.branches.map((item) => (
-                <li key={item.id} className="flex items-center gap-2 rounded-xl bg-[#F7F7F5] px-3 py-2 text-sm text-[#161616]">
-                  <MapPin className="size-3.5 shrink-0 text-[#8A8A86]" />
+                <li key={item.id} className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm text-foreground">
+                  <MapPin className="size-3.5 shrink-0 text-subtle" />
                   <span className="min-w-0 truncate">{pickLocalized(item.name, locale) || item.line1} · {item.city}</span>
                 </li>
               ))}
             </ul>
           ) : null}
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm font-semibold text-[#161616] sm:col-span-2">
+            <label className="block text-sm font-semibold text-foreground sm:col-span-2">
               {t('branchName')}
-              <input className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none" value={branchForm.name} onChange={(event) => setBranchForm({ ...branchForm, name: event.target.value })} />
+              <input className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" value={branchForm.name} onChange={(event) => setBranchForm({ ...branchForm, name: event.target.value })} />
             </label>
-            <label className="block text-sm font-semibold text-[#161616]">
+            <label className="block text-sm font-semibold text-foreground">
               {t('address')}
-              <input className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none" value={branchForm.line1} onChange={(event) => setBranchForm({ ...branchForm, line1: event.target.value })} />
+              <input className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" value={branchForm.line1} onChange={(event) => setBranchForm({ ...branchForm, line1: event.target.value })} />
             </label>
-            <label className="block text-sm font-semibold text-[#161616]">
+            <label className="block text-sm font-semibold text-foreground">
               {t('city')}
-              <input className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none" value={branchForm.city} onChange={(event) => setBranchForm({ ...branchForm, city: event.target.value })} />
+              <input className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" value={branchForm.city} onChange={(event) => setBranchForm({ ...branchForm, city: event.target.value })} />
             </label>
-            <label className="block text-sm font-semibold text-[#161616] sm:col-span-2">
+            <label className="block text-sm font-semibold text-foreground sm:col-span-2">
               {t('branchPhone')}
-              <input className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none" value={branchForm.phone} onChange={(event) => setBranchForm({ ...branchForm, phone: event.target.value })} />
+              <input className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" value={branchForm.phone} onChange={(event) => setBranchForm({ ...branchForm, phone: event.target.value })} />
             </label>
-            <label className="block text-sm font-semibold text-[#161616] sm:col-span-2">
+            <label className="block text-sm font-semibold text-foreground sm:col-span-2">
               {t('inCharge')}
-              <span className="mt-0.5 block text-xs font-medium text-[#8A8A86]">{t('storeManager')}</span>
-              <select className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none" value={branchForm.managerId} onChange={(event) => setBranchForm({ ...branchForm, managerId: event.target.value })}>
+              <span className="mt-0.5 block text-xs font-medium text-subtle">{t('storeManager')}</span>
+              <select className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" value={branchForm.managerId} onChange={(event) => setBranchForm({ ...branchForm, managerId: event.target.value })}>
                 <option value="">{t('chooseManager')}</option>
                 {managers.map((member) => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}
               </select>
             </label>
           </div>
-          <div className="relative mt-3 overflow-hidden rounded-2xl border border-[#ECECEA]">
+          <div className="relative mt-3 overflow-hidden rounded-2xl border border-border">
             {addingBranch ? <LocationMap point={branchPoint} onMark={setBranchPoint} zoomPosition="bottomright" className="z-0 h-56 w-full" /> : null}
             <LocationSearch
               locale={locale}
@@ -327,8 +327,8 @@ export function BusinessPage({ profile }: { profile: Profile }) {
             />
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-[#5C5C58]">{branchPoint ? `${branchPoint.lat.toFixed(6)}, ${branchPoint.lng.toFixed(6)}` : t('locationRequired')}</p>
-            <button type="button" className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E4E4E0] bg-white px-3 text-sm font-semibold text-[#161616]" onClick={() => {
+            <p className="text-sm text-muted-foreground">{branchPoint ? `${branchPoint.lat.toFixed(6)}, ${branchPoint.lng.toFixed(6)}` : t('locationRequired')}</p>
+            <button type="button" className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground" onClick={() => {
               if (!navigator.geolocation) { setBranchError(t('locationDenied')); return; }
               navigator.geolocation.getCurrentPosition(
                 (position) => setBranchPoint({ lat: position.coords.latitude, lng: position.coords.longitude }),
@@ -338,7 +338,7 @@ export function BusinessPage({ profile }: { profile: Profile }) {
               <LocateFixed className="size-4" /> {t('useLocation')}
             </button>
           </div>
-          {branchError ? <p className="mt-3 text-sm font-medium text-[#B42318]">{branchError}</p> : null}
+          {branchError ? <p className="mt-3 text-sm font-medium text-destructive">{branchError}</p> : null}
           <div className="mt-4 flex justify-end">
             <Button type="button" variant="yellow" className="h-11 rounded-xl px-4" loading={addBranch.isPending} onClick={() => { setBranchError(''); addBranch.mutate(); }}>{t('saveBranch')}</Button>
           </div>
@@ -347,7 +347,7 @@ export function BusinessPage({ profile }: { profile: Profile }) {
 
       <div className="flex gap-6 border-b text-sm font-semibold">
         {tabs.map((item) => (
-          <button key={item} type="button" className={`pb-3 ${tab === item ? 'border-b-2 border-[#111111]' : 'text-[#8a8a86]'}`} onClick={() => setTab(item)}>{t(item)}</button>
+          <button key={item} type="button" className={`pb-3 ${tab === item ? 'border-b-2 border-foreground' : 'text-subtle'}`} onClick={() => setTab(item)}>{t(item)}</button>
         ))}
       </div>
 
@@ -426,23 +426,23 @@ export function BusinessPage({ profile }: { profile: Profile }) {
 
       {tab === 'branches' ? (
         <div className="space-y-3">
-          {!staff.isLoading && managers.length === 0 ? <p className="text-sm text-[#8A8A86]">{t('noManagers')}</p> : null}
+          {!staff.isLoading && managers.length === 0 ? <p className="text-sm text-subtle">{t('noManagers')}</p> : null}
           {profile.branches.map((item) => (
-            <article key={item.id} className={`rounded-[20px] border bg-white p-5 shadow-[0_8px_30px_rgba(17,17,17,0.04)] ${item.id === branch?.id ? 'border-[#F5C400]' : 'border-[#ECECEA]'}`}>
+            <article key={item.id} className={`rounded-[20px] border bg-card p-5 shadow-xs ${item.id === branch?.id ? 'border-primary' : 'border-border'}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="text-lg font-semibold tracking-tight text-[#161616]">{pickLocalized(item.name, locale) || item.line1}</h3>
-                  <p className="mt-1 flex items-center gap-1.5 text-sm text-[#8A8A86]"><MapPin className="size-3.5" /> {item.line1}{item.city ? `, ${item.city}` : ''}</p>
+                  <h3 className="text-lg font-semibold tracking-tight text-foreground">{pickLocalized(item.name, locale) || item.line1}</h3>
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-subtle"><MapPin className="size-3.5" /> {item.line1}{item.city ? `, ${item.city}` : ''}</p>
                 </div>
-                {item.id === branch?.id ? <span className="rounded-full bg-[#FFF6D4] px-2.5 py-1 text-xs font-semibold text-[#8A6A00]">{t('currentBranch')}</span> : (
-                  <button type="button" className="h-9 rounded-xl border border-[#E4E4E0] bg-white px-3 text-sm font-semibold text-[#161616]" onClick={() => selectBranch(item.id)}>{t('useBranch')}</button>
+                {item.id === branch?.id ? <span className="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-semibold text-warning">{t('currentBranch')}</span> : (
+                  <button type="button" className="h-9 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground" onClick={() => selectBranch(item.id)}>{t('useBranch')}</button>
                 )}
               </div>
-              <label className="mt-4 block max-w-md text-sm font-semibold text-[#161616]">
-                <span className="inline-flex items-center gap-2"><UserRound className="size-4 text-[#8A8A86]" /> {t('inCharge')}</span>
-                <span className="mt-0.5 block text-xs font-medium text-[#8A8A86]">{t('storeManager')}</span>
+              <label className="mt-4 block max-w-md text-sm font-semibold text-foreground">
+                <span className="inline-flex items-center gap-2"><UserRound className="size-4 text-subtle" /> {t('inCharge')}</span>
+                <span className="mt-0.5 block text-xs font-medium text-subtle">{t('storeManager')}</span>
                 <select
-                  className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none"
+                  className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none"
                   value={item.manager?.id ?? ''}
                   disabled={assignManager.isPending || managers.length === 0}
                   onChange={(event) => assignManager.mutate({ id: item.id, managerId: event.target.value || null })}
@@ -461,14 +461,14 @@ export function BusinessPage({ profile }: { profile: Profile }) {
       ) : null}
 
       {tab === 'details' ? (
-        <section className="rounded-[20px] border border-[#ECECEA] bg-white p-5 shadow-[0_8px_30px_rgba(17,17,17,0.04)]">
+        <section className="rounded-[20px] border border-border bg-card p-5 shadow-xs">
           <div className="flex items-center gap-3">
-            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF3C4]">
+            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-soft">
               <Store className="size-5" />
             </span>
             <div>
-              <h3 className="text-lg font-semibold tracking-tight text-[#161616]">{t('details')}</h3>
-              <p className="text-sm text-[#9A9A96]">{t('detailsHint')}</p>
+              <h3 className="text-lg font-semibold tracking-tight text-foreground">{t('details')}</h3>
+              <p className="text-sm text-subtle">{t('detailsHint')}</p>
             </div>
           </div>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -476,9 +476,9 @@ export function BusinessPage({ profile }: { profile: Profile }) {
             <DetailField icon={Building} label={t('type')} value={form.businessType} onChange={(businessType) => setForm({ ...form, businessType })} />
             <DetailField icon={Phone} label={t('phone')} value={form.phone} onChange={(phone) => setForm({ ...form, phone })} />
             <DetailField icon={Mail} label={t('email')} value={form.email} onChange={(email) => setForm({ ...form, email })} />
-            <label className="block text-sm font-semibold text-[#161616]">
+            <label className="block text-sm font-semibold text-foreground">
               {t('description')}
-              <textarea className="mt-1.5 h-12 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 py-3 text-sm font-medium outline-none" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
+              <textarea className="mt-1.5 h-12 w-full rounded-xl border border-border bg-muted px-3 py-3 text-sm font-medium outline-none" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
             </label>
             <DetailField icon={MapPin} label={t('address')} value={form.address} onChange={(address) => setForm({ ...form, address })} />
           </div>
@@ -490,17 +490,17 @@ export function BusinessPage({ profile }: { profile: Profile }) {
 
       {tab === 'operations' ? (
         <div className="grid items-stretch gap-4 xl:grid-cols-2">
-          <section className="flex h-full flex-col rounded-[20px] border border-[#ECECEA] bg-white p-5 shadow-[0_8px_30px_rgba(17,17,17,0.04)]">
+          <section className="flex h-full flex-col rounded-[20px] border border-border bg-card p-5 shadow-xs">
             <div className="flex items-center gap-3">
-              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF3C4]">
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-soft">
                 <MapPin className="size-5" />
               </span>
               <div>
-                <h3 className="text-lg font-semibold tracking-tight text-[#161616]">{t('location')}</h3>
-                <p className="text-sm text-[#9A9A96]">{t('locationHint')}</p>
+                <h3 className="text-lg font-semibold tracking-tight text-foreground">{t('location')}</h3>
+                <p className="text-sm text-subtle">{t('locationHint')}</p>
               </div>
             </div>
-            <div className="relative mt-4 min-h-80 flex-1 overflow-hidden rounded-2xl border border-[#ECECEA]">
+            <div className="relative mt-4 min-h-80 flex-1 overflow-hidden rounded-2xl border border-border">
               <LocationMap className="absolute inset-0 z-0 h-full w-full" zoomPosition="bottomright" point={point} onMark={(next) => { setPoint(next); setPointDirty(true); }} />
               <LocationSearch
                 locale={locale}
@@ -509,9 +509,9 @@ export function BusinessPage({ profile }: { profile: Profile }) {
                 labels={{ search: t('setupLocationSearch'), placeholder: t('setupLocationPlaceholder'), noResults: t('setupLocationNoResults'), failed: t('setupLocationSearchFailed') }}
               />
             </div>
-            <p className="mt-3 text-sm text-[#5C5C58]">{point ? `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}` : '—'}</p>
+            <p className="mt-3 text-sm text-muted-foreground">{point ? `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}` : '—'}</p>
             <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <button type="button" className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#E4E4E0] bg-white px-4 text-sm font-semibold text-[#161616]" onClick={() => {
+              <button type="button" className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground" onClick={() => {
                 if (!navigator.geolocation) { setNotice(t('locationDenied')); return; }
                 navigator.geolocation.getCurrentPosition(
                   (position) => { setPoint({ lat: position.coords.latitude, lng: position.coords.longitude }); setPointDirty(true); },
@@ -527,20 +527,20 @@ export function BusinessPage({ profile }: { profile: Profile }) {
             const [opensAt, closesAt] = value.split('-');
             setForm({ ...form, hours: form.hours.map((item) => item.dayOfWeek === day ? { ...item, opensAt: (opensAt || item.opensAt).slice(0, 5), closesAt: (closesAt || item.closesAt).slice(0, 5), closed: !value } : item) });
           }} labels={{ title: t('hours'), hint: t('hoursHint'), edit: t('editHours'), allDay: t('allDay'), same: t('sameHours'), custom: t('customHours') }} />
-          <section className="rounded-[20px] border border-[#ECECEA] bg-white p-5 shadow-[0_8px_30px_rgba(17,17,17,0.04)] xl:col-span-2">
+          <section className="rounded-[20px] border border-border bg-card p-5 shadow-xs xl:col-span-2">
             <div className="flex items-center gap-3">
-              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF3C4]">
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-soft">
                 <Timer className="size-5" />
               </span>
               <div>
-                <h3 className="text-lg font-semibold tracking-tight text-[#161616]">{t('preparationTitle')}</h3>
-                <p className="text-sm text-[#9A9A96]">{t('preparationHint')}</p>
+                <h3 className="text-lg font-semibold tracking-tight text-foreground">{t('preparationTitle')}</h3>
+                <p className="text-sm text-subtle">{t('preparationHint')}</p>
               </div>
             </div>
             <div className="mt-4 max-w-xs">
               <SuffixField label={t('preparationLabel')} value={form.preparationMinutes} suffix={t('minutes')} onChange={(preparationMinutes) => setForm({ ...form, preparationMinutes: preparationMinutes.replace(/[^\d]/g, '').slice(0, 3) })} />
               {validPreparation(form.preparationMinutes) ? null : (
-                <p className="mt-1.5 text-sm font-medium text-[#B42318]" role="alert">{t('preparationInvalid', { min: PREPARATION_MIN, max: PREPARATION_MAX })}</p>
+                <p className="mt-1.5 text-sm font-medium text-destructive" role="alert">{t('preparationInvalid', { min: PREPARATION_MIN, max: PREPARATION_MAX })}</p>
               )}
             </div>
           </section>
@@ -630,38 +630,38 @@ function StoreVisibility({
     await copyLink();
   }
   const tone = availability === 'OPEN'
-    ? 'bg-[#E7F8EE] text-[#16924A]'
+    ? 'bg-success-soft text-success'
     : availability === 'BUSY'
-      ? 'bg-[#FFF4CC] text-[#8A6A00]'
-      : 'bg-[#F1F1EE] text-[#696965]';
-  const dot = availability === 'OPEN' ? 'bg-[#22A85A]' : availability === 'BUSY' ? 'bg-[#C4A000]' : 'bg-[#8a8a86]';
+      ? 'bg-primary-soft text-warning'
+      : 'bg-surface-2 text-muted-foreground';
+  const dot = availability === 'OPEN' ? 'bg-success' : availability === 'BUSY' ? 'bg-primary' : 'bg-subtle';
   const statusLabel = availability === 'OPEN' ? labels.open : availability === 'BUSY' ? labels.busy : labels.closed;
   return (
-    <section className="rounded-2xl border border-[#ECECEA] bg-white p-3.5">
+    <section className="rounded-2xl border border-border bg-card p-3.5">
       <div className="flex items-center gap-2.5">
-        <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[#E6E6E2]">
+        <span className="grid size-8 shrink-0 place-items-center rounded-full border border-border">
           <Eye className="size-3.5" />
         </span>
         <div>
-          <h3 className="text-sm font-semibold tracking-tight text-[#161616]">{labels.title}</h3>
-          <p className="text-xs text-[#9A9A96]">{labels.hint}</p>
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">{labels.title}</h3>
+          <p className="text-xs text-subtle">{labels.hint}</p>
         </div>
       </div>
       <div className="mt-3 grid items-stretch gap-2.5 grid-cols-[minmax(0,1fr)_132px]">
-        <div className="overflow-hidden rounded-xl border border-[#ECECEA] bg-white">
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="relative">
-            <div className="h-[72px] bg-[#eceae4]">
+            <div className="h-[72px] bg-primary-soft">
               {coverUrl ? <img src={coverUrl} alt="" className="h-full w-full object-cover" /> : <Placeholder className="h-full w-full rounded-none bg-transparent [&_svg]:size-5" />}
             </div>
             <div className="absolute bottom-0 start-2.5 translate-y-1/2">
-              <div className="grid size-11 place-items-center overflow-hidden rounded-lg border border-[#F0F0EC] bg-white shadow-sm">
-                {logoUrl ? <img src={logoUrl} alt="" className="h-full w-full object-contain p-1" /> : <Leaf className="size-5 text-[#168A52]" />}
+              <div className="grid size-11 place-items-center overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+                {logoUrl ? <img src={logoUrl} alt="" className="h-full w-full object-contain p-1" /> : <Leaf className="size-5 text-success" />}
               </div>
             </div>
           </div>
           <div className="px-2.5 pb-1 pt-7">
             <div className="flex items-center justify-between gap-1.5">
-              <p className="truncate text-sm font-semibold tracking-tight text-[#161616]">{name}</p>
+              <p className="truncate text-sm font-semibold tracking-tight text-foreground">{name}</p>
               <label className={`relative inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${tone}`}>
                 <span className={`size-1.5 rounded-full ${dot}`} />
                 {statusLabel}
@@ -673,18 +673,18 @@ function StoreVisibility({
                 </select>
               </label>
             </div>
-            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-[#8A8A86]">
+            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-subtle">
               <MapPin className="size-3 shrink-0" />
               <span className="truncate">{typeLabel}{city ? ` • ${city}` : ''}</span>
             </p>
           </div>
           <div className="mt-1.5 flex gap-4 px-2.5 text-xs font-semibold">
             <span className="border-b-2 border-primary pb-2">{labels.menu}</span>
-            <span className="pb-2 text-[#9A9A96]">{labels.about}</span>
-            <span className="pb-2 text-[#9A9A96]">{labels.reviews}</span>
+            <span className="pb-2 text-subtle">{labels.about}</span>
+            <span className="pb-2 text-subtle">{labels.reviews}</span>
           </div>
         </div>
-        <div className="flex flex-col items-center justify-center rounded-xl border border-[#ECECEA] px-2 py-3">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-border px-2 py-3">
           <div className="relative">
             <StoreQr value={storeUrl} />
             {tableNumber ? (
@@ -693,20 +693,20 @@ function StoreVisibility({
               </span>
             ) : null}
           </div>
-          <p className="mt-2 max-w-[7.5rem] text-center text-[11px] leading-snug text-[#9A9A96]">{labels.qr}</p>
+          <p className="mt-2 max-w-[7.5rem] text-center text-[11px] leading-snug text-subtle">{labels.qr}</p>
         </div>
       </div>
-      <div className="mt-2.5 flex items-center gap-1.5 rounded-xl border border-[#ECECEA] bg-[#F7F7F5] px-2.5 py-2">
-        <Link2 className="size-3.5 shrink-0 text-[#8A8A86]" />
-        <p className="min-w-0 flex-1 truncate text-[11px] text-[#6b6b66]">{storeUrl}</p>
-        <button type="button" className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg bg-white px-2 text-[11px] font-semibold text-[#161616]" onClick={() => void copyLink()}>
+      <div className="mt-2.5 flex items-center gap-1.5 rounded-xl border border-border bg-muted px-2.5 py-2">
+        <Link2 className="size-3.5 shrink-0 text-subtle" />
+        <p className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">{storeUrl}</p>
+        <button type="button" className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg bg-card px-2 text-[11px] font-semibold text-foreground" onClick={() => void copyLink()}>
           <Copy className="size-3" /> {copied ? labels.copied : labels.copy}
         </button>
-        <button type="button" className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg bg-white px-2 text-[11px] font-semibold text-[#161616]" onClick={() => void shareLink()}>
+        <button type="button" className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg bg-card px-2 text-[11px] font-semibold text-foreground" onClick={() => void shareLink()}>
           <Share2 className="size-3" /> {labels.share}
         </button>
       </div>
-      <button type="button" className="mt-2.5 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#F3F3F0] text-[13px] font-semibold text-[#161616]" onClick={onPreview}>
+      <button type="button" className="mt-2.5 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-muted text-[13px] font-semibold text-foreground" onClick={onPreview}>
         <ExternalLink className="size-3.5" />
         {labels.preview}
       </button>
@@ -762,11 +762,11 @@ function qrModules(value: string) {
 
 function Card({ title, hint, action, children }: { title: string; hint?: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border bg-white p-4">
+    <section className="rounded-2xl border bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold">{title}</h3>
-          {hint ? <p className="text-sm text-[#6b6b66]">{hint}</p> : null}
+          {hint ? <p className="text-sm text-muted-foreground">{hint}</p> : null}
         </div>
         {action}
       </div>
@@ -784,22 +784,22 @@ function HoursCard({ hours, days, editing, onToggle, onChange, labels }: {
   labels: { title: string; hint: string; edit: string; allDay: string; same: string; custom: string };
 }) {
   return (
-    <section className="h-full rounded-[20px] border border-[#ECECEA] bg-white p-5 shadow-[0_8px_30px_rgba(17,17,17,0.04)]">
+    <section className="h-full rounded-[20px] border border-border bg-card p-5 shadow-xs">
       <div className="flex items-center gap-3">
-        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF3C4]">
+        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-soft">
           <Clock className="size-5" />
         </span>
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-[#161616]">{labels.title}</h3>
-          <p className="text-sm text-[#9A9A96]">{labels.hint}</p>
+          <h3 className="text-lg font-semibold tracking-tight text-foreground">{labels.title}</h3>
+          <p className="text-sm text-subtle">{labels.hint}</p>
         </div>
       </div>
-      <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-[#FFF8D8] px-3 py-2.5">
-        <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-[#161616]">
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-primary-soft px-3 py-2.5">
+        <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
           <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary"><Clock className="size-3.5" /></span>
           <span className="truncate">{hoursBanner(hours, labels.allDay, labels.same, labels.custom)}</span>
         </span>
-        <button type="button" className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#161616] px-3.5 text-sm font-semibold text-white" onClick={onToggle}>
+        <button type="button" className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-secondary px-3.5 text-sm font-semibold text-secondary-foreground" onClick={onToggle}>
           <Pencil className="size-3.5" /> {labels.edit}
         </button>
       </div>
@@ -807,12 +807,12 @@ function HoursCard({ hours, days, editing, onToggle, onChange, labels }: {
         {dayOrder.map((day, index) => {
           const hour = hours.find((item) => item.dayOfWeek === day);
           return (
-            <li key={day} className="flex items-center justify-between gap-3 border-b border-[#F1F1EE] py-3 last:border-b-0">
-              <p className="text-sm font-semibold text-[#161616]">{days[index]}</p>
+            <li key={day} className="flex items-center justify-between gap-3 border-b border-border py-3 last:border-b-0">
+              <p className="text-sm font-semibold text-foreground">{days[index]}</p>
               {editing ? (
-                <input className="h-9 w-40 rounded-lg border bg-white px-2 text-end text-sm" value={hour?.closed ? '' : `${hour?.opensAt?.slice(0, 5) ?? '08:00'}-${hour?.closesAt?.slice(0, 5) ?? '23:00'}`} onChange={(event) => onChange(day, event.target.value)} />
+                <input className="h-9 w-40 rounded-lg border bg-card px-2 text-end text-sm" value={hour?.closed ? '' : `${hour?.opensAt?.slice(0, 5) ?? '08:00'}-${hour?.closesAt?.slice(0, 5) ?? '23:00'}`} onChange={(event) => onChange(day, event.target.value)} />
               ) : (
-                <p className="text-sm text-[#5C5C58]">{hour?.closed ? '—' : `${trimTime(hour?.opensAt)} – ${trimTime(hour?.closesAt)}`}</p>
+                <p className="text-sm text-muted-foreground">{hour?.closed ? '—' : `${trimTime(hour?.opensAt)} – ${trimTime(hour?.closesAt)}`}</p>
               )}
             </li>
           );
@@ -849,23 +849,23 @@ function DeliverySettingsCard<T extends { freeDeliveryEnabled: boolean; freeDeli
   labels: { title: string; hint: string; free: string; freeHint: string; freeKm: string; baseKm: string; baseFee: string; pricingMode: string; perKm: string; fixed: string; beyondPerKm: string; beyondFixed: string; area: string; minimum: string; note: string; save: string; km: string; bhd: string; bhdPerKm: string };
 }) {
   return (
-    <section className="rounded-[20px] border border-[#ECECEA] bg-white p-5 shadow-[0_8px_30px_rgba(17,17,17,0.04)]">
+    <section className="rounded-[20px] border border-border bg-card p-5 shadow-xs">
       <div className="flex items-center gap-3">
-        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF3C4]">
+        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-soft">
           <Truck className="size-5" />
         </span>
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-[#161616]">{labels.title}</h3>
-          <p className="text-sm text-[#9A9A96]">{labels.hint}</p>
+          <h3 className="text-lg font-semibold tracking-tight text-foreground">{labels.title}</h3>
+          <p className="text-sm text-subtle">{labels.hint}</p>
         </div>
       </div>
-      <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-[#F1F1EE] px-4 py-3">
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-3">
         <div>
-          <p className="text-sm font-semibold text-[#161616]">{labels.free}</p>
-          <p className="text-xs text-[#9A9A96]">{labels.freeHint}</p>
+          <p className="text-sm font-semibold text-foreground">{labels.free}</p>
+          <p className="text-xs text-subtle">{labels.freeHint}</p>
         </div>
-        <button type="button" role="switch" aria-checked={form.freeDeliveryEnabled} aria-label={labels.free} className={`relative h-7 w-12 shrink-0 rounded-full transition ${form.freeDeliveryEnabled ? 'bg-[#161616]' : 'bg-[#E4E4E0]'}`} onClick={() => setForm({ ...form, freeDeliveryEnabled: !form.freeDeliveryEnabled })}>
-          <span className={`absolute top-0.5 size-6 rounded-full bg-white shadow ${form.freeDeliveryEnabled ? 'start-5' : 'start-0.5'}`} />
+        <button type="button" role="switch" aria-checked={form.freeDeliveryEnabled} aria-label={labels.free} className={`relative h-7 w-12 shrink-0 rounded-full transition ${form.freeDeliveryEnabled ? 'bg-secondary' : 'bg-border-strong'}`} onClick={() => setForm({ ...form, freeDeliveryEnabled: !form.freeDeliveryEnabled })}>
+          <span className={`absolute top-0.5 size-6 rounded-full bg-card shadow ${form.freeDeliveryEnabled ? 'start-5' : 'start-0.5'}`} />
         </button>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -877,9 +877,9 @@ function DeliverySettingsCard<T extends { freeDeliveryEnabled: boolean; freeDeli
             <SuffixField label={labels.baseFee} value={form.baseDeliveryFee} suffix={labels.bhd} onChange={(baseDeliveryFee) => setForm({ ...form, baseDeliveryFee })} />
           </>
         )}
-        <label className="block text-sm font-semibold text-[#161616]">
+        <label className="block text-sm font-semibold text-foreground">
           {labels.pricingMode}
-          <select value={form.beyondDeliveryFeeMode} onChange={(event) => setForm({ ...form, beyondDeliveryFeeMode: event.target.value === 'FIXED' ? 'FIXED' : 'PER_KM' })} className="mt-1.5 h-12 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm outline-none">
+          <select value={form.beyondDeliveryFeeMode} onChange={(event) => setForm({ ...form, beyondDeliveryFeeMode: event.target.value === 'FIXED' ? 'FIXED' : 'PER_KM' })} className="mt-1.5 h-12 w-full rounded-xl border border-border bg-muted px-3 text-sm outline-none">
             <option value="PER_KM">{labels.perKm}</option>
             <option value="FIXED">{labels.fixed}</option>
           </select>
@@ -889,7 +889,7 @@ function DeliverySettingsCard<T extends { freeDeliveryEnabled: boolean; freeDeli
         <SuffixField label={labels.minimum} value={form.minimumOrder} suffix={labels.bhd} onChange={(minimumOrder) => setForm({ ...form, minimumOrder })} />
       </div>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <p className="inline-flex items-center gap-1.5 text-xs text-[#8A8A86]"><Info className="size-3.5" /> {labels.note}</p>
+        <p className="inline-flex items-center gap-1.5 text-xs text-subtle"><Info className="size-3.5" /> {labels.note}</p>
         <Button type="button" variant="yellow" className="h-11 rounded-xl px-4" loading={saving} onClick={onSave}>{labels.save}</Button>
       </div>
     </section>
@@ -898,10 +898,10 @@ function DeliverySettingsCard<T extends { freeDeliveryEnabled: boolean; freeDeli
 
 function DetailField({ icon: Icon, label, value, onChange }: { icon: typeof Store; label: string; value: string; onChange: (value: string) => void }) {
   return (
-    <label className="block text-sm font-semibold text-[#161616]">
+    <label className="block text-sm font-semibold text-foreground">
       {label}
-      <span className="mt-1.5 flex h-12 items-center gap-2 rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3">
-        <Icon className="size-4 shrink-0 text-[#8A8A86]" />
+      <span className="mt-1.5 flex h-12 items-center gap-2 rounded-xl border border-border bg-muted px-3">
+        <Icon className="size-4 shrink-0 text-subtle" />
         <input className="w-full bg-transparent text-sm font-medium outline-none" value={value} onChange={(event) => onChange(event.target.value)} />
       </span>
     </label>
@@ -918,11 +918,11 @@ function validPreparation(value: string) {
 
 function SuffixField({ label, value, suffix, onChange }: { label: string; value: string; suffix: string; onChange: (value: string) => void }) {
   return (
-    <label className="block text-sm font-semibold text-[#161616]">
+    <label className="block text-sm font-semibold text-foreground">
       {label}
-      <span className="mt-1.5 flex h-12 overflow-hidden rounded-xl border border-[#E8E8E4] bg-[#F7F7F5]">
+      <span className="mt-1.5 flex h-12 overflow-hidden rounded-xl border border-border bg-muted">
         <input className="w-full bg-transparent px-3 text-sm font-medium outline-none" value={value} onChange={(event) => onChange(event.target.value)} />
-        <span className="grid shrink-0 place-items-center border-s border-[#E8E8E4] bg-white px-3 text-xs font-medium text-[#8A8A86]">{suffix}</span>
+        <span className="grid shrink-0 place-items-center border-s border-border bg-card px-3 text-xs font-medium text-subtle">{suffix}</span>
       </span>
     </label>
   );
@@ -940,14 +940,14 @@ function OrderTypes({
   labels: { title: string; hint: string; delivery: string; pickup: string; dineIn: string };
 }) {
   return (
-    <section className="rounded-2xl border border-[#ECECEA] bg-white p-3.5">
+    <section className="rounded-2xl border border-border bg-card p-3.5">
       <div className="flex items-center gap-2.5">
-        <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[#E6E6E2]">
+        <span className="grid size-8 shrink-0 place-items-center rounded-full border border-border">
           <Utensils className="size-3.5" />
         </span>
         <div>
-          <h3 className="text-sm font-semibold tracking-tight text-[#161616]">{labels.title}</h3>
-          <p className="text-xs text-[#9A9A96]">{labels.hint}</p>
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">{labels.title}</h3>
+          <p className="text-xs text-subtle">{labels.hint}</p>
         </div>
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2">
@@ -965,18 +965,18 @@ function OrderTypeButton({ icon: Icon, label, on, filled = false, onClick }: { i
       type="button"
       onClick={onClick}
       aria-pressed={on}
-      className={`flex h-11 items-center justify-between gap-1 rounded-xl border px-2 text-[13px] font-semibold text-[#161616] ${filled ? 'border-[#E6C200] bg-[#FFF8D4]' : 'border-[#E6E6E2] bg-white'}`}
+      className={`flex h-11 items-center justify-between gap-1 rounded-xl border px-2 text-[13px] font-semibold text-foreground ${filled ? 'border-primary bg-primary-soft' : 'border-border bg-card'}`}
     >
       <span className="inline-flex min-w-0 items-center gap-1.5">
         <Icon className="size-4 shrink-0" strokeWidth={1.75} />
         <span className="truncate">{label}</span>
       </span>
       {on ? (
-        <span className="grid size-5 shrink-0 place-items-center rounded-full bg-primary text-[#161616]">
+        <span className="grid size-5 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
           <Check className="size-3" strokeWidth={3} />
         </span>
       ) : (
-        <span className="size-5 shrink-0 rounded-full border border-[#E0E0DC]" />
+        <span className="size-5 shrink-0 rounded-full border border-border-strong" />
       )}
     </button>
   );

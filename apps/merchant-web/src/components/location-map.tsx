@@ -126,29 +126,29 @@ export function LocationSearch({
 
   return (
     <div className={className} onPointerDown={(event) => event.stopPropagation()}>
-      <form className="flex gap-1.5 rounded-xl bg-white p-1.5 shadow-[0_4px_16px_rgba(17,17,17,0.16)]" onSubmit={(event) => void search(event)}>
+      <form className="flex gap-1.5 rounded-xl bg-card p-1.5 shadow-md" onSubmit={(event) => void search(event)}>
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">{labels.search}</span>
-          <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[#8A8A86]" />
+          <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
           <input
             value={query}
             onChange={(event) => { setQuery(event.target.value); setError(''); }}
             placeholder={labels.placeholder}
-            className="h-10 w-full rounded-lg border border-[#E8E8E4] bg-[#F7F7F5] ps-9 pe-3 text-sm outline-none focus:border-[#111111]"
+            className="h-10 w-full rounded-lg border border-border bg-muted ps-9 pe-3 text-sm outline-none focus:border-foreground"
           />
         </label>
-        <button type="submit" disabled={searching || !query.trim()} className="h-10 shrink-0 rounded-lg bg-[#161616] px-3 text-sm font-semibold text-white disabled:opacity-50">
+        <button type="submit" disabled={searching || !query.trim()} className="h-10 shrink-0 rounded-lg bg-secondary px-3 text-sm font-semibold text-secondary-foreground disabled:opacity-50">
           {labels.search}
         </button>
       </form>
-      {error ? <p className="mt-1.5 rounded-lg bg-white px-3 py-2 text-xs font-medium text-[#B42318] shadow" role="alert">{error}</p> : null}
+      {error ? <p className="mt-1.5 rounded-lg bg-card px-3 py-2 text-xs font-medium text-destructive shadow" role="alert">{error}</p> : null}
       {results.length ? (
-        <ul className="mt-1.5 max-h-48 overflow-y-auto rounded-xl border border-[#E4E4E0] bg-white p-1.5 shadow-xl">
+        <ul className="mt-1.5 max-h-48 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-xl">
           {results.map((result) => (
             <li key={`${result.lat}-${result.lon}`}>
               <button
                 type="button"
-                className="w-full rounded-lg px-3 py-2 text-start text-sm hover:bg-[#F7F7F5]"
+                className="w-full rounded-lg px-3 py-2 text-start text-sm hover:bg-muted"
                 onClick={() => {
                   setQuery(result.display_name);
                   setResults([]);

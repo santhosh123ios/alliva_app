@@ -27,8 +27,8 @@ export default function LoginPage() {
   });
 
   return (
-    <div className="grid min-h-screen bg-white lg:grid-cols-2">
-      <aside className="relative flex min-h-[28rem] flex-col justify-between overflow-hidden bg-primary px-6 py-10 text-[#111111] sm:px-10 lg:min-h-screen lg:px-14 lg:py-16">
+    <div className="grid min-h-screen bg-background lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+      <aside className="relative hidden flex-col justify-between overflow-hidden bg-primary px-14 py-16 text-primary-foreground lg:flex lg:min-h-screen">
         <img src="/route-map.png" alt="" className="pointer-events-none absolute inset-x-0 top-0 h-auto w-full opacity-25" />
         <div className="relative z-10 max-w-xl">
           <h1 className="font-display whitespace-pre-line text-4xl leading-[1.05] tracking-tight sm:text-5xl lg:text-[3.4rem]">{t('merchantHeadline')}</h1>
@@ -36,15 +36,15 @@ export default function LoginPage() {
         </div>
         <img src="/merchant-hero.png" alt="" className="relative z-10 mx-auto mt-8 h-auto max-h-80 w-auto max-w-md self-center object-contain" />
       </aside>
-      <main className="flex min-h-screen items-center justify-center px-6 py-12 sm:px-10">
+      <main className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-10">
         <form
-          className="w-full max-w-[420px]"
+          className="w-full max-w-[440px] rounded-3xl border bg-card p-6 shadow-lg sm:p-9 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
           onSubmit={form.handleSubmit((values) => login.mutate(values))}
         >
-          <img src="/logo-on-light.png" alt="Alliva" className="h-14 w-auto" />
-          <h2 className="font-display mt-8 text-3xl">{t('welcomeBack')}</h2>
+          <img src="/logo-on-light.png" alt="Alliva" className="h-11 w-auto dark:brightness-0 dark:invert" />
+          <h2 className="font-display mt-8 text-[1.75rem] font-semibold">{t('welcomeBack')}</h2>
           <p className="mt-2 text-sm text-muted-foreground">{t('merchantAccount')}</p>
-          <div className="mt-8 space-y-5">
+          <div className="mt-7 space-y-5">
             <div>
               <Label htmlFor="email">{t('emailAddress')}</Label>
               <div className="relative mt-2">
@@ -67,7 +67,7 @@ export default function LoginPage() {
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 end-0 flex w-11 items-center justify-center text-[#696965]"
+                  className="absolute inset-y-0 end-0 flex w-11 items-center justify-center text-muted-foreground"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   onClick={() => setShowPassword((value) => !value)}
                 >
@@ -78,24 +78,24 @@ export default function LoginPage() {
             </div>
             <div className="flex items-center justify-between gap-3 text-sm">
               <label className="flex items-center gap-2">
-                <input type="checkbox" className="size-4 rounded border-[#111111]" {...form.register('rememberDevice')} />
+                <input type="checkbox" className="size-4 rounded accent-[var(--foreground)]" {...form.register('rememberDevice')} />
                 {t('rememberMe')}
               </label>
-              <Link href="/forgot" className="font-semibold underline">
+              <Link href="/forgot" className="font-semibold text-foreground underline-offset-4 hover:underline">
                 {t('forgotQuestion')}
               </Link>
             </div>
-            <Button type="submit" className="w-full rounded-full text-base" loading={login.isPending}>
+            <Button type="submit" className="w-full text-base" loading={login.isPending}>
               {t('signIn')}
             </Button>
           </div>
-          <p className="mt-8 text-center text-sm text-muted-foreground">
+          <p className="mt-8 border-t pt-6 text-center text-sm text-muted-foreground">
             {t('newBusiness')}{' '}
-            <Link href="/register" className="font-semibold text-[#111111] underline">{t('createAccount')}</Link>
+            <Link href="/register" className="font-semibold text-foreground underline-offset-4 hover:underline">{t('createAccount')}</Link>
           </p>
           <p className="mt-3 text-center text-sm text-muted-foreground">
             {t('needHelp')}{' '}
-            <a className="font-semibold text-[#111111] underline" href="mailto:support@alliva.bh">
+            <a className="font-semibold text-foreground underline-offset-4 hover:underline" href="mailto:support@alliva.bh">
               {t('merchantSupport')}
             </a>
           </p>
@@ -107,7 +107,7 @@ export default function LoginPage() {
 
 function MailIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="pointer-events-none absolute start-3 top-1/2 size-5 -translate-y-1/2 text-[#696965]" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="pointer-events-none absolute start-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
       <rect x="3" y="5" width="18" height="14" rx="2" />
       <path d="m4 7 8 6 8-6" />
     </svg>
@@ -116,7 +116,7 @@ function MailIcon() {
 
 function LockIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="pointer-events-none absolute start-3 top-1/2 size-5 -translate-y-1/2 text-[#696965]" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="pointer-events-none absolute start-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
       <rect x="5" y="11" width="14" height="10" rx="2" />
       <path d="M8 11V8a4 4 0 0 1 8 0v3" />
     </svg>

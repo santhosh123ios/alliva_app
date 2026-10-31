@@ -41,30 +41,30 @@ export function ReferralWalletPage() {
   return (
     <div className="grid gap-4">
       <div>
-        <h1 className="text-[32px] font-semibold leading-tight tracking-tight text-[#161616]">{t('title')}</h1>
-        <p className="mt-1 text-sm text-[#8A8A86]">{t('subtitle')}</p>
+        <h1 className="text-[32px] font-semibold leading-tight tracking-tight text-foreground">{t('title')}</h1>
+        <p className="mt-1 text-sm text-subtle">{t('subtitle')}</p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-2xl border border-[#EEEEEC] bg-white p-5">
-          <h2 className="text-base font-semibold text-[#161616]">{t('yourReferral')}</h2>
-          <p className="mt-1 text-sm text-[#8A8A86]">{t('yourReferralHint')}</p>
+        <section className="rounded-2xl border border-border bg-card p-5">
+          <h2 className="text-base font-semibold text-foreground">{t('yourReferral')}</h2>
+          <p className="mt-1 text-sm text-subtle">{t('yourReferralHint')}</p>
           {referral ? (
             <>
-              <p className="mt-4 rounded-2xl bg-[#111111] px-5 py-6 text-center text-3xl font-semibold tracking-widest text-primary" dir="ltr">{referral.code}</p>
-              <p className="mt-3 text-sm text-[#161616]">{t('referredBy', { name: referral.staffName })}</p>
+              <p className="mt-4 rounded-2xl bg-secondary px-5 py-6 text-center text-3xl font-semibold tracking-widest text-primary" dir="ltr">{referral.code}</p>
+              <p className="mt-3 text-sm text-foreground">{t('referredBy', { name: referral.staffName })}</p>
             </>
           ) : (
-            <p className="mt-4 rounded-xl bg-[#F7F7F5] px-4 py-6 text-sm text-[#8A8A86]">{t('noReferral')}</p>
+            <p className="mt-4 rounded-xl bg-muted px-4 py-6 text-sm text-subtle">{t('noReferral')}</p>
           )}
         </section>
-        <section className="rounded-2xl border border-[#EEEEEC] bg-white p-5">
-          <h2 className="text-base font-semibold text-[#161616]">{t('wallet')}</h2>
-          <p className="mt-1 text-sm text-[#8A8A86]">{t('walletHint')}</p>
-          <p className="mt-6 text-xs font-semibold tracking-wide text-[#8A8A86] uppercase">{t('available')}</p>
-          <p className="mt-1 text-3xl font-semibold tracking-tight text-[#168A52]">{formatMoney(data.available, locale)}</p>
+        <section className="rounded-2xl border border-border bg-card p-5">
+          <h2 className="text-base font-semibold text-foreground">{t('wallet')}</h2>
+          <p className="mt-1 text-sm text-subtle">{t('walletHint')}</p>
+          <p className="mt-6 text-xs font-semibold tracking-wide text-subtle uppercase">{t('available')}</p>
+          <p className="mt-1 text-3xl font-semibold tracking-tight text-success">{formatMoney(data.available, locale)}</p>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <p><span className="block text-xs text-[#8A8A86]">{t('pending')}</span><span className="font-semibold">{formatMoney(data.pending, locale)}</span></p>
-            <p><span className="block text-xs text-[#8A8A86]">{t('withdrawn')}</span><span className="font-semibold">{formatMoney(data.withdrawn, locale)}</span></p>
+            <p><span className="block text-xs text-subtle">{t('pending')}</span><span className="font-semibold">{formatMoney(data.pending, locale)}</span></p>
+            <p><span className="block text-xs text-subtle">{t('withdrawn')}</span><span className="font-semibold">{formatMoney(data.withdrawn, locale)}</span></p>
           </div>
           <Button type="button" variant="yellow" className="mt-5 h-11" disabled={!data.canWithdraw || Number(data.available) <= 0} onClick={() => setOpen(true)}>
             {t('requestWithdrawal')}
@@ -109,7 +109,7 @@ export function ReferralWalletPage() {
 
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className={active ? 'rounded-full bg-[#111111] px-4 py-2 text-sm font-semibold text-white' : 'rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#161616] ring-1 ring-[#EEEEEC]'}>
+    <button type="button" onClick={onClick} className={active ? 'rounded-full bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground' : 'rounded-full bg-card px-4 py-2 text-sm font-semibold text-foreground ring-1 ring-border'}>
       {children}
     </button>
   );
@@ -119,16 +119,16 @@ function ActivityTable({ rows, emptyTitle, emptyBody, detailHeader }: { rows: { 
   const t = useTranslations('merchantReferral');
   if (!rows.length) {
     return (
-      <div className="rounded-2xl border border-[#EEEEEC] bg-white px-5 py-10 text-center">
-        <p className="font-semibold text-[#161616]">{emptyTitle}</p>
-        <p className="mt-1 text-sm text-[#8A8A86]">{emptyBody}</p>
+      <div className="rounded-2xl border border-border bg-card px-5 py-10 text-center">
+        <p className="font-semibold text-foreground">{emptyTitle}</p>
+        <p className="mt-1 text-sm text-subtle">{emptyBody}</p>
       </div>
     );
   }
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#EEEEEC] bg-white">
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
       <table className="w-full text-sm">
-        <thead className="text-xs font-semibold tracking-wide text-[#8A8A86] uppercase">
+        <thead className="text-xs font-semibold tracking-wide text-subtle uppercase">
           <tr>
             <th className="px-4 py-3 text-start font-semibold">{t('date')}</th>
             <th className="px-4 py-3 text-start font-semibold">{detailHeader}</th>
@@ -137,10 +137,10 @@ function ActivityTable({ rows, emptyTitle, emptyBody, detailHeader }: { rows: { 
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id} className="border-t border-[#EEEEEC]">
-              <td className="px-4 py-3 text-[#161616]">{row.date}</td>
-              <td className="px-4 py-3 text-[#161616]">{row.detail}</td>
-              <td className={`px-4 py-3 text-end font-semibold ${row.positive ? 'text-[#168A52]' : 'text-[#161616]'}`} dir="ltr">{row.amount}</td>
+            <tr key={row.id} className="border-t border-border">
+              <td className="px-4 py-3 text-foreground">{row.date}</td>
+              <td className="px-4 py-3 text-foreground">{row.detail}</td>
+              <td className={`px-4 py-3 text-end font-semibold ${row.positive ? 'text-success' : 'text-foreground'}`} dir="ltr">{row.amount}</td>
             </tr>
           ))}
         </tbody>

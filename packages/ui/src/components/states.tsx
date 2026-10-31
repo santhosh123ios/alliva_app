@@ -4,7 +4,7 @@ import { cn } from '../lib/utils';
 import { Mascot } from './logo';
 
 export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div aria-hidden className={cn('animate-pulse rounded-xl bg-[#E9E9E5]', className)} {...props} />;
+  return <div aria-hidden className={cn('animate-pulse rounded-xl bg-[var(--skeleton,#E9E9E5)]', className)} {...props} />;
 }
 
 export function SkeletonText({ lines = 3, className }: { lines?: number; className?: string }) {
@@ -61,7 +61,7 @@ export function EmptyState({ title, body, action }: { title: string; body: strin
 
 export function ErrorState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-2xl border border-[#f3c1bd] bg-[#fdecea] p-6 text-[#d9342b]">
+    <div className="rounded-2xl border border-[var(--destructive-border,#f3c1bd)] bg-[var(--destructive-soft,#fdecea)] p-6 text-[var(--destructive,#d9342b)]">
       <h3 className="font-semibold">{title}</h3>
       <p className="mt-1 text-sm">{body}</p>
     </div>
@@ -177,7 +177,7 @@ export function DashboardSkeleton({ chart = true }: { chart?: boolean }) {
             <div className="space-y-2"><Skeleton className="h-12 w-20" /><Skeleton className="h-3.5 w-28" /></div>
           </div>
         </section>
-        <section className="rounded-3xl bg-[#FFF6D4] p-5">
+        <section className="rounded-3xl bg-[var(--primary-soft,#FFF6D4)] p-5">
           <Skeleton className="h-3 w-24 bg-black/10" />
           <Skeleton className="mt-3 h-7 w-40 bg-black/10" />
           <div className="mt-4 space-y-3">
@@ -248,8 +248,8 @@ export function DetailSkeleton() {
 export function ShellSkeleton({ variant = 'dark' }: { variant?: 'dark' | 'light' } = {}) {
   const light = variant === 'light';
   return (
-    <div className="min-h-screen bg-[#F7F7F5] md:grid md:grid-cols-[260px_1fr]" aria-busy>
-      <aside className={`hidden flex-col p-5 md:flex ${light ? 'border-e border-[#EEEEEC] bg-white' : 'bg-[#111111]'}`}>
+    <div className="min-h-screen bg-background md:grid md:grid-cols-[260px_1fr]" aria-busy>
+      <aside className={`hidden flex-col p-5 md:flex ${light ? 'border-e border-[var(--border,#EEEEEC)] bg-card' : 'bg-[var(--sidebar,#111111)]'}`}>
         <Skeleton className={`h-7 w-28 ${light ? '' : 'bg-white/15'}`} />
         <Skeleton className={`mt-3 h-3 w-36 ${light ? '' : 'bg-white/10'}`} />
         <div className="mt-8 space-y-2">
@@ -261,7 +261,7 @@ export function ShellSkeleton({ variant = 'dark' }: { variant?: 'dark' | 'light'
         </div>
       </aside>
       <div className="min-w-0">
-        <header className="flex h-16 items-center gap-4 border-b bg-white px-4 md:px-6">
+        <header className="flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6">
           <Skeleton className="h-4 w-40" />
           <div className="ms-auto flex items-center gap-2">
             <Skeleton className="h-10 w-64 rounded-full" />

@@ -14,7 +14,7 @@ export default function ForgotPage() {
     onSuccess: (result) => setToken(result.devResetToken ?? 'sent'),
   });
   return (
-    <main className="flex min-h-screen items-center justify-center bg-white px-6">
+    <main className="flex min-h-screen items-center justify-center bg-card px-6">
       <form className="w-full max-w-md" onSubmit={(event) => { event.preventDefault(); send.mutate(); }}>
         <Logo className="h-14 w-auto" />
         <h1 className="font-display mt-8 text-3xl">{t('forgotQuestion')}</h1>

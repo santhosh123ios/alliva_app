@@ -67,31 +67,31 @@ function OrderDetail({ order }: { order: RiderOrder }) {
   return (
     <div className={cn('space-y-3', !done && 'pb-24 md:pb-24')}>
       <div className="flex items-center gap-2">
-        <Link href="/rider" className="grid size-10 place-items-center rounded-xl bg-white" aria-label={t('order.back')}>
+        <Link href="/rider" className="grid size-10 place-items-center rounded-xl bg-card" aria-label={t('order.back')}>
           <ArrowLeft className="size-5 rtl:rotate-180" />
         </Link>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-semibold">{t('order.title', { number: order.number })}</h1>
-          <p className="text-xs text-[#696965]">{order.scheduledFor ? t('order.scheduled', { time: dateTimeLabel(order.scheduledFor, locale) }) : t('order.placed', { time: timeLabel(order.createdAt, locale) })}</p>
+          <p className="text-xs text-muted-foreground">{order.scheduledFor ? t('order.scheduled', { time: dateTimeLabel(order.scheduledFor, locale) }) : t('order.placed', { time: timeLabel(order.createdAt, locale) })}</p>
         </div>
         <StagePill stage={stage} label={t(`stage.${stage}`)} />
       </div>
 
       <Progress order={order} stage={stage} />
 
-      <section className="rounded-3xl bg-white p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#8A8A86]">{t('order.customer')}</p>
+      <section className="rounded-3xl bg-card p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{t('order.customer')}</p>
         <div className="mt-2 flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-base font-semibold">{order.customer.name}</p>
-            {order.customer.phone ? <p className="text-sm text-[#5C5C58]" dir="ltr">{order.customer.phone}</p> : <p className="text-sm text-[#8A8A86]">{t('order.noPhone')}</p>}
+            {order.customer.phone ? <p className="text-sm text-muted-foreground" dir="ltr">{order.customer.phone}</p> : <p className="text-sm text-subtle">{t('order.noPhone')}</p>}
           </div>
           {order.customer.phone ? (
             <>
-              <a href={`https://wa.me/${order.customer.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="grid size-11 place-items-center rounded-2xl bg-[#F2F2EF]" aria-label={t('order.message')}>
+              <a href={`https://wa.me/${order.customer.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="grid size-11 place-items-center rounded-2xl bg-surface-2" aria-label={t('order.message')}>
                 <MessageSquareText className="size-5" />
               </a>
-              <a href={telHref(order.customer.phone)} className="flex h-11 items-center gap-2 rounded-2xl bg-[#168A52] px-4 text-sm font-semibold text-white">
+              <a href={telHref(order.customer.phone)} className="flex h-11 items-center gap-2 rounded-2xl bg-success px-4 text-sm font-semibold text-white">
                 <Phone className="size-4" />{t('order.call')}
               </a>
             </>
@@ -99,30 +99,30 @@ function OrderDetail({ order }: { order: RiderOrder }) {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-3xl bg-white">
+      <section className="overflow-hidden rounded-3xl bg-card">
         <RouteMap store={storePoint} routes={routes} me={me} className="z-0 h-52 w-full md:h-64" />
         <div className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#8A8A86]">{t('order.dropoff')}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{t('order.dropoff')}</p>
           <p className="mt-1 text-base font-semibold">{place.title}</p>
-          {place.detail ? <p className="text-sm text-[#5C5C58]">{place.detail}</p> : null}
-          {order.address.landmark ? <p className="mt-1 text-sm text-[#5C5C58]">{t('order.landmark', { value: order.address.landmark })}</p> : null}
-          {order.address.instructions ? <p className="mt-2 rounded-xl bg-[#FFF8E1] px-3 py-2 text-sm text-[#6B5A2A]">{order.address.instructions}</p> : null}
-          {order.address.pinCorrectedAt ? <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[#2F6FED]"><MapPinned className="size-3.5" />{t('order.pinCorrected')}</p> : null}
-          {!drop ? <p className="mt-2 text-sm font-medium text-[#B42318]">{t('order.noPin')}</p> : null}
+          {place.detail ? <p className="text-sm text-muted-foreground">{place.detail}</p> : null}
+          {order.address.landmark ? <p className="mt-1 text-sm text-muted-foreground">{t('order.landmark', { value: order.address.landmark })}</p> : null}
+          {order.address.instructions ? <p className="mt-2 rounded-xl bg-primary-soft px-3 py-2 text-sm text-warning">{order.address.instructions}</p> : null}
+          {order.address.pinCorrectedAt ? <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-info"><MapPinned className="size-3.5" />{t('order.pinCorrected')}</p> : null}
+          {!drop ? <p className="mt-2 text-sm font-medium text-destructive">{t('order.noPin')}</p> : null}
           <div className="mt-3 grid grid-cols-2 gap-2">
             {toCustomer ? (
-              <a href={toCustomer.google} target="_blank" rel="noreferrer" className="col-span-2 flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#111111] text-sm font-semibold text-white">
+              <a href={toCustomer.google} target="_blank" rel="noreferrer" className="col-span-2 flex h-12 items-center justify-center gap-2 rounded-2xl bg-secondary text-sm font-semibold text-secondary-foreground">
                 <Truck className="size-4" />{t('order.directions')}
               </a>
             ) : null}
             {toCustomer ? (
               <>
-                <a href={toCustomer.apple} target="_blank" rel="noreferrer" className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-[#E2E2DC] text-sm font-medium">{t('order.appleMaps')}<ExternalLink className="size-3.5" /></a>
-                <a href={toCustomer.waze} target="_blank" rel="noreferrer" className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-[#E2E2DC] text-sm font-medium">Waze<ExternalLink className="size-3.5" /></a>
+                <a href={toCustomer.apple} target="_blank" rel="noreferrer" className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-border-strong text-sm font-medium">{t('order.appleMaps')}<ExternalLink className="size-3.5" /></a>
+                <a href={toCustomer.waze} target="_blank" rel="noreferrer" className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-border-strong text-sm font-medium">Waze<ExternalLink className="size-3.5" /></a>
               </>
             ) : null}
             {!done ? (
-              <button type="button" onClick={() => setPinning(true)} className="col-span-2 flex h-10 items-center justify-center gap-2 rounded-xl border border-dashed border-[#C9C9C2] text-sm font-medium text-[#5C5C58]">
+              <button type="button" onClick={() => setPinning(true)} className="col-span-2 flex h-10 items-center justify-center gap-2 rounded-xl border border-dashed border-border-strong text-sm font-medium text-muted-foreground">
                 <MapPinned className="size-4" />{t('order.fixPin')}
               </button>
             ) : null}
@@ -131,58 +131,58 @@ function OrderDetail({ order }: { order: RiderOrder }) {
       </section>
 
       {!order.pickupVerifiedAt && !done ? (
-        <section className="rounded-3xl bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#8A8A86]">{t('order.pickupFrom')}</p>
+        <section className="rounded-3xl bg-card p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{t('order.pickupFrom')}</p>
           <div className="mt-2 flex items-center gap-3">
-            <span className="grid size-10 place-items-center rounded-2xl bg-[#FFF4D6]"><Store className="size-5 text-[#8A5A00]" /></span>
+            <span className="grid size-10 place-items-center rounded-2xl bg-primary-soft"><Store className="size-5 text-warning" /></span>
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">{pickLocalized(order.store.branch, locale) || pickLocalized(order.store.name, locale)}</p>
-              <p className="truncate text-sm text-[#5C5C58]">{[order.store.line1, order.store.city].filter(Boolean).join(', ')}</p>
+              <p className="truncate text-sm text-muted-foreground">{[order.store.line1, order.store.city].filter(Boolean).join(', ')}</p>
             </div>
-            {order.store.phone ? <a href={telHref(order.store.phone)} className="grid size-10 place-items-center rounded-xl bg-[#F2F2EF]" aria-label={t('order.callStore')}><Phone className="size-4" /></a> : null}
-            {toStore ? <a href={toStore.google} target="_blank" rel="noreferrer" className="grid size-10 place-items-center rounded-xl bg-[#F2F2EF]" aria-label={t('order.directionsStore')}><Truck className="size-4" /></a> : null}
+            {order.store.phone ? <a href={telHref(order.store.phone)} className="grid size-10 place-items-center rounded-xl bg-surface-2" aria-label={t('order.callStore')}><Phone className="size-4" /></a> : null}
+            {toStore ? <a href={toStore.google} target="_blank" rel="noreferrer" className="grid size-10 place-items-center rounded-xl bg-surface-2" aria-label={t('order.directionsStore')}><Truck className="size-4" /></a> : null}
           </div>
         </section>
       ) : null}
 
-      <section className="rounded-3xl bg-white p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#8A8A86]">{t('order.items', { count: order.items.reduce((total, item) => total + item.quantity, 0) })}</p>
-        <ul className="mt-2 divide-y divide-[#F0F0EC]">
+      <section className="rounded-3xl bg-card p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{t('order.items', { count: order.items.reduce((total, item) => total + item.quantity, 0) })}</p>
+        <ul className="mt-2 divide-y divide-border">
           {order.items.map((item, index) => (
             <li key={index} className="flex items-start gap-3 py-2.5 text-sm">
-              <span className="grid h-6 min-w-6 place-items-center rounded-md bg-[#F2F2EF] px-1 text-xs font-bold">{item.quantity}×</span>
+              <span className="grid h-6 min-w-6 place-items-center rounded-md bg-surface-2 px-1 text-xs font-bold">{item.quantity}×</span>
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{pickLocalized(item.name, locale)}</span>
-                {item.addons.length ? <span className="block text-xs text-[#696965]">{item.addons.map((addon) => pickLocalized(addon.name, locale)).join(', ')}</span> : null}
-                {item.notes ? <span className="block text-xs italic text-[#8A5A00]">{item.notes}</span> : null}
+                {item.addons.length ? <span className="block text-xs text-muted-foreground">{item.addons.map((addon) => pickLocalized(addon.name, locale)).join(', ')}</span> : null}
+                {item.notes ? <span className="block text-xs italic text-warning">{item.notes}</span> : null}
               </span>
             </li>
           ))}
         </ul>
-        {order.notes ? <p className="mt-2 rounded-xl bg-[#F7F7F5] px-3 py-2 text-sm">{t('order.note', { note: order.notes })}</p> : null}
+        {order.notes ? <p className="mt-2 rounded-xl bg-muted px-3 py-2 text-sm">{t('order.note', { note: order.notes })}</p> : null}
       </section>
 
-      <section className="rounded-3xl bg-white p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#8A8A86]">{t('order.payment')}</p>
+      <section className="rounded-3xl bg-card p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{t('order.payment')}</p>
         <div className="mt-2 flex items-center justify-between">
-          <span className="text-sm text-[#5C5C58]">{t(`payment.${order.paymentMethod ?? 'UNKNOWN'}`)}</span>
+          <span className="text-sm text-muted-foreground">{t(`payment.${order.paymentMethod ?? 'UNKNOWN'}`)}</span>
           <span className="text-sm">{t('order.total', { amount: money(order.total, locale) })}</span>
         </div>
         {order.cashDue ? (
-          <div className={cn('mt-3 flex items-center justify-between rounded-2xl px-4 py-3', order.cashCollected ? 'bg-[#E3F5EA]' : 'bg-[#FFF4D6]')}>
+          <div className={cn('mt-3 flex items-center justify-between rounded-2xl px-4 py-3', order.cashCollected ? 'bg-success-soft' : 'bg-primary-soft')}>
             <span className="text-sm font-semibold">{order.cashCollected ? t('order.cashCollected') : t('order.cashToCollect')}</span>
             <span className="text-lg font-bold tabular-nums">{money(order.cashCollected ?? order.cashDue, locale)}</span>
           </div>
         ) : (
-          <p className="mt-3 flex items-center gap-2 rounded-2xl bg-[#E3F5EA] px-4 py-3 text-sm font-semibold text-[#168A52]"><Check className="size-4" />{t('order.prepaid')}</p>
+          <p className="mt-3 flex items-center gap-2 rounded-2xl bg-success-soft px-4 py-3 text-sm font-semibold text-success"><Check className="size-4" />{t('order.prepaid')}</p>
         )}
       </section>
 
-      <section className="rounded-3xl bg-white p-4">
+      <section className="rounded-3xl bg-card p-4">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#8A8A86]">{t('order.issues')}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{t('order.issues')}</p>
           {!done ? (
-            <button type="button" onClick={() => setReporting(true)} className="flex h-9 items-center gap-1.5 rounded-xl bg-[#FDECEA] px-3 text-sm font-semibold text-[#B42318]">
+            <button type="button" onClick={() => setReporting(true)} className="flex h-9 items-center gap-1.5 rounded-xl bg-destructive-soft px-3 text-sm font-semibold text-destructive">
               <AlertTriangle className="size-4" />{t('order.reportIssue')}
             </button>
           ) : null}
@@ -190,18 +190,18 @@ function OrderDetail({ order }: { order: RiderOrder }) {
         {order.issues.length ? (
           <ul className="mt-2 space-y-2">
             {order.issues.map((issue) => (
-              <li key={issue.id} className="rounded-xl bg-[#F7F7F5] px-3 py-2 text-sm">
+              <li key={issue.id} className="rounded-xl bg-muted px-3 py-2 text-sm">
                 <span className="font-semibold">{t(`issue.types.${issue.type}`)}</span>
-                <span className="text-xs text-[#696965]"> · {timeLabel(issue.createdAt, locale)}</span>
-                {issue.note ? <span className="block text-[#5C5C58]">{issue.note}</span> : null}
+                <span className="text-xs text-muted-foreground"> · {timeLabel(issue.createdAt, locale)}</span>
+                {issue.note ? <span className="block text-muted-foreground">{issue.note}</span> : null}
               </li>
             ))}
           </ul>
-        ) : <p className="mt-2 text-sm text-[#8A8A86]">{t('order.noIssues')}</p>}
+        ) : <p className="mt-2 text-sm text-subtle">{t('order.noIssues')}</p>}
       </section>
 
       {!done ? (
-        <div className="fixed inset-x-0 bottom-[calc(max(0.7rem,env(safe-area-inset-bottom))+5.4rem)] z-30 border-t border-[#E6E6E1] bg-white/95 px-4 py-3 backdrop-blur md:bottom-0">
+        <div className="fixed inset-x-0 bottom-[calc(max(0.7rem,env(safe-area-inset-bottom))+5.4rem)] z-30 border-t border-border bg-white/95 px-4 py-3 backdrop-blur md:bottom-0">
           <div className="mx-auto max-w-3xl">
             {stage === 'assigned' ? (
               <ActionButton onClick={() => setVerifying(true)} icon={<QrCode className="size-5" />}>{t('order.verifyPickup')}</ActionButton>
@@ -228,7 +228,7 @@ function ActionButton({ children, onClick, icon, loading, tone = 'dark' }: { chi
       type="button"
       disabled={loading}
       onClick={onClick}
-      className={cn('flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-base font-semibold disabled:opacity-60', tone === 'success' ? 'bg-[#168A52] text-white' : 'bg-[#FFC400] text-[#111111]')}
+      className={cn('flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-base font-semibold disabled:opacity-60', tone === 'success' ? 'bg-success text-white' : 'bg-primary text-primary-foreground')}
     >
       {loading ? <Loader2 className="size-5 animate-spin" /> : icon}
       {children}
@@ -247,18 +247,18 @@ function Progress({ order, stage }: { order: RiderOrder; stage: RiderStage }) {
     { key: 'delivered', done: stage === 'delivered', time: at('DELIVERED') },
   ];
   return (
-    <ol className="grid grid-cols-4 gap-1 rounded-3xl bg-white p-3">
+    <ol className="grid grid-cols-4 gap-1 rounded-3xl bg-card p-3">
       {steps.map((step, index) => (
         <li key={step.key} className="flex flex-col items-center text-center">
           <div className="flex w-full items-center">
-            <span className={cn('h-0.5 flex-1', index === 0 ? 'opacity-0' : step.done ? 'bg-[#168A52]' : 'bg-[#E2E2DC]')} />
-            <span className={cn('grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold', step.done ? 'bg-[#168A52] text-white' : 'bg-[#F0F0EC] text-[#8A8A86]')}>
+            <span className={cn('h-0.5 flex-1', index === 0 ? 'opacity-0' : step.done ? 'bg-success' : 'bg-border-strong')} />
+            <span className={cn('grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold', step.done ? 'bg-success text-white' : 'bg-surface-2 text-subtle')}>
               {step.done ? <Check className="size-4" /> : index + 1}
             </span>
-            <span className={cn('h-0.5 flex-1', index === steps.length - 1 ? 'opacity-0' : steps[index + 1]!.done ? 'bg-[#168A52]' : 'bg-[#E2E2DC]')} />
+            <span className={cn('h-0.5 flex-1', index === steps.length - 1 ? 'opacity-0' : steps[index + 1]!.done ? 'bg-success' : 'bg-border-strong')} />
           </div>
           <span className="mt-1.5 text-[11px] font-semibold leading-tight">{t(`stage.${step.key}`)}</span>
-          <span className="text-[10px] text-[#8A8A86]">{step.done ? timeLabel(step.time, locale) : ''}</span>
+          <span className="text-[10px] text-subtle">{step.done ? timeLabel(step.time, locale) : ''}</span>
         </li>
       ))}
     </ol>
@@ -294,19 +294,19 @@ function DeliverDialog({ order, open, onOpenChange, onDone }: { order: RiderOrde
                   dir="ltr"
                   value={amount}
                   onChange={(event) => { setAmount(event.target.value.replace(/[^\d.]/g, '')); setError(''); }}
-                  className="h-14 w-full rounded-2xl border-2 border-[#E2E2DC] bg-white pe-16 ps-4 text-2xl font-bold tabular-nums outline-none focus:border-[#111111]"
+                  className="h-14 w-full rounded-2xl border-2 border-border-strong bg-card pe-16 ps-4 text-2xl font-bold tabular-nums outline-none focus:border-foreground"
                 />
-                <span className="absolute end-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#8A8A86]">BHD</span>
+                <span className="absolute end-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-subtle">BHD</span>
               </div>
-              {differs ? <p className="mt-1.5 text-xs font-medium text-[#B54708]">{t('differs')}</p> : null}
+              {differs ? <p className="mt-1.5 text-xs font-medium text-warning">{t('differs')}</p> : null}
             </div>
           ) : null}
           <div>
             <label htmlFor="deliver-note" className="text-sm font-medium">{differs ? t('noteRequired') : t('noteLabel')}</label>
-            <textarea id="deliver-note" value={note} onChange={(event) => setNote(event.target.value)} rows={2} maxLength={300} className="mt-1.5 w-full rounded-xl border border-[#E2E2DC] px-3 py-2 text-sm outline-none focus:border-[#111111]" />
+            <textarea id="deliver-note" value={note} onChange={(event) => setNote(event.target.value)} rows={2} maxLength={300} className="mt-1.5 w-full rounded-xl border border-border-strong px-3 py-2 text-sm outline-none focus:border-foreground" />
           </div>
-          {error ? <p className="rounded-xl bg-[#FDECEA] px-3 py-2 text-sm text-[#B42318]" role="alert">{error}</p> : null}
-          <button type="submit" disabled={invalid || save.isPending} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#168A52] text-sm font-semibold text-white disabled:opacity-40">
+          {error ? <p className="rounded-xl bg-destructive-soft px-3 py-2 text-sm text-destructive" role="alert">{error}</p> : null}
+          <button type="submit" disabled={invalid || save.isPending} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-success text-sm font-semibold text-white disabled:opacity-40">
             {save.isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
             {t('confirm')}
           </button>
@@ -335,7 +335,7 @@ function IssueDialog({ order, open, onOpenChange, onDone }: { order: RiderOrder;
           <fieldset className="grid grid-cols-2 gap-2">
             <legend className="sr-only">{t('typeLabel')}</legend>
             {ISSUE_TYPES.map((value) => (
-              <label key={value} className={cn('flex min-h-11 cursor-pointer items-center rounded-xl border px-3 py-2 text-sm font-medium', type === value ? 'border-[#111111] bg-[#111111] text-white' : 'border-[#E2E2DC]')}>
+              <label key={value} className={cn('flex min-h-11 cursor-pointer items-center rounded-xl border px-3 py-2 text-sm font-medium', type === value ? 'border-foreground bg-secondary text-secondary-foreground' : 'border-border-strong')}>
                 <input type="radio" name="issue-type" value={value} checked={type === value} onChange={() => setType(value)} className="sr-only" />
                 {t(`types.${value}`)}
               </label>
@@ -343,10 +343,10 @@ function IssueDialog({ order, open, onOpenChange, onDone }: { order: RiderOrder;
           </fieldset>
           <div>
             <label htmlFor="issue-note" className="text-sm font-medium">{type === 'OTHER' ? t('noteRequired') : t('noteLabel')}</label>
-            <textarea id="issue-note" value={note} onChange={(event) => setNote(event.target.value)} rows={3} maxLength={500} className="mt-1.5 w-full rounded-xl border border-[#E2E2DC] px-3 py-2 text-sm outline-none focus:border-[#111111]" />
+            <textarea id="issue-note" value={note} onChange={(event) => setNote(event.target.value)} rows={3} maxLength={500} className="mt-1.5 w-full rounded-xl border border-border-strong px-3 py-2 text-sm outline-none focus:border-foreground" />
           </div>
-          {error ? <p className="rounded-xl bg-[#FDECEA] px-3 py-2 text-sm text-[#B42318]" role="alert">{error}</p> : null}
-          <button type="submit" disabled={save.isPending || (type === 'OTHER' && !note.trim())} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#B42318] text-sm font-semibold text-white disabled:opacity-40">
+          {error ? <p className="rounded-xl bg-destructive-soft px-3 py-2 text-sm text-destructive" role="alert">{error}</p> : null}
+          <button type="submit" disabled={save.isPending || (type === 'OTHER' && !note.trim())} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-destructive text-sm font-semibold text-white disabled:opacity-40">
             {save.isPending ? <Loader2 className="size-4 animate-spin" /> : <AlertTriangle className="size-4" />}
             {t('submit')}
           </button>
@@ -379,15 +379,15 @@ function PinDialog({ order, open, onOpenChange, onDone }: { order: RiderOrder; o
         <div className="relative mt-3 min-h-0 flex-1">
           {open ? <LocationMap point={point} onMark={setPoint} className="z-0 h-full min-h-72 w-full" zoomPosition="bottomright" /> : null}
           {here ? (
-            <button type="button" onClick={() => setPoint({ lat: here.latitude, lng: here.longitude })} className="absolute start-3 top-3 z-[500] flex h-10 items-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold shadow-md">
+            <button type="button" onClick={() => setPoint({ lat: here.latitude, lng: here.longitude })} className="absolute start-3 top-3 z-[500] flex h-10 items-center gap-2 rounded-xl bg-card px-3 text-sm font-semibold shadow-md">
               <MapPinned className="size-4" />{t('useMine')}
             </button>
           ) : null}
         </div>
         <form className="space-y-2 px-5 py-4" onSubmit={(event) => { event.preventDefault(); if (point) save.mutate(); }}>
-          <input value={note} onChange={(event) => setNote(event.target.value)} maxLength={300} placeholder={t('notePlaceholder')} className="h-11 w-full rounded-xl border border-[#E2E2DC] px-3 text-sm outline-none focus:border-[#111111]" />
-          {error ? <p className="rounded-xl bg-[#FDECEA] px-3 py-2 text-sm text-[#B42318]" role="alert">{error}</p> : null}
-          <button type="submit" disabled={!moved || save.isPending} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#111111] text-sm font-semibold text-white disabled:opacity-40">
+          <input value={note} onChange={(event) => setNote(event.target.value)} maxLength={300} placeholder={t('notePlaceholder')} className="h-11 w-full rounded-xl border border-border-strong px-3 text-sm outline-none focus:border-foreground" />
+          {error ? <p className="rounded-xl bg-destructive-soft px-3 py-2 text-sm text-destructive" role="alert">{error}</p> : null}
+          <button type="submit" disabled={!moved || save.isPending} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-secondary text-sm font-semibold text-secondary-foreground disabled:opacity-40">
             {save.isPending ? <Loader2 className="size-4 animate-spin" /> : <MapPinned className="size-4" />}
             {t('save')}
           </button>

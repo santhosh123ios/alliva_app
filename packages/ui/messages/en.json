@@ -677,6 +677,11 @@
     }
   },
   "workspace": {
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "darkMode": "Dark mode",
+    "lightMode": "Light mode",
+    "switchLanguage": "العربية",
     "overview": "Overview",
     "management": "Management",
     "insights": "Insights",

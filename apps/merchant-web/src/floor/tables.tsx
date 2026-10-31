@@ -13,7 +13,7 @@ import { placeTables } from './plan';
 import { callsFor, tableNo, floorKey, itemLine, money, StagePill, tableTone, useAge, useDraft, useFloorBoard, useFloorLocale, useFloorSettings, useNow, useOrderStep, type TableStatus } from './shared';
 
 const VIEW_KEY = 'alliva.floor.tablesView';
-const ZONE_TONES = ['bg-[#FFF9DE]/70', 'bg-[#EEF6FF]/70', 'bg-[#EFF9F2]/70', 'bg-[#F7F0FF]/70'];
+const ZONE_TONES = ['bg-primary-soft/70', 'bg-info-soft/70', 'bg-success-soft/70', 'bg-violet-soft/70'];
 
 export default function FloorTables() {
   const t = useTranslations('floor.tables');
@@ -73,9 +73,9 @@ export default function FloorTables() {
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">{t('title')}</h1>
-        <div className="ms-auto flex h-10 overflow-hidden rounded-xl border border-[#E6E6E2] bg-white">
-          <button type="button" aria-pressed={view === 'plan'} onClick={() => choose('plan')} className={cn('inline-flex items-center gap-1.5 px-3 text-sm font-semibold', view === 'plan' ? 'bg-[#111111] text-white' : 'text-[#5C5C58]')}><Grid3X3 className="size-4" />{t('plan')}</button>
-          <button type="button" aria-pressed={view === 'list'} onClick={() => choose('list')} className={cn('inline-flex items-center gap-1.5 px-3 text-sm font-semibold', view === 'list' ? 'bg-[#111111] text-white' : 'text-[#5C5C58]')}><List className="size-4" />{t('list')}</button>
+        <div className="ms-auto flex h-10 overflow-hidden rounded-xl border border-border bg-card">
+          <button type="button" aria-pressed={view === 'plan'} onClick={() => choose('plan')} className={cn('inline-flex items-center gap-1.5 px-3 text-sm font-semibold', view === 'plan' ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground')}><Grid3X3 className="size-4" />{t('plan')}</button>
+          <button type="button" aria-pressed={view === 'list'} onClick={() => choose('list')} className={cn('inline-flex items-center gap-1.5 px-3 text-sm font-semibold', view === 'list' ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground')}><List className="size-4" />{t('list')}</button>
         </div>
       </div>
 
@@ -84,25 +84,25 @@ export default function FloorTables() {
         {zones.map((floor) => <Chip key={floor.id} active={zone === floor.id} onClick={() => setZone(floor.id)}>{pickLocalized(floor.name, locale)}</Chip>)}
       </div>
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#5C5C58]">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         {counts.map(([status, count]) => (
-          <span key={status} className="inline-flex items-center gap-1.5"><span className={cn('size-2.5 rounded-full', tableTone[status].dot)} />{t(`status.${status}`)} <strong className="tabular-nums text-[#161616]">{count}</strong></span>
+          <span key={status} className="inline-flex items-center gap-1.5"><span className={cn('size-2.5 rounded-full', tableTone[status].dot)} />{t(`status.${status}`)} <strong className="tabular-nums text-foreground">{count}</strong></span>
         ))}
       </div>
 
       {view === 'plan' ? (
-        <section className="overflow-x-auto rounded-3xl border border-[#E6E6E2] bg-white">
+        <section className="overflow-x-auto rounded-3xl border border-border bg-card">
           <div
             style={{ aspectRatio: `${(2.1 * frame.width) / frame.height}` }}
-            className={cn('relative bg-[#FBFAF6] [background-image:linear-gradient(#EFEDE6_1px,transparent_1px),linear-gradient(90deg,#EFEDE6_1px,transparent_1px)] [background-size:40px_40px]', zone === 'all' && 'min-w-[720px]')}
+            className={cn('relative bg-muted [background-image:linear-gradient(var(--border)_1px,transparent_1px),linear-gradient(90deg,var(--border)_1px,transparent_1px)] [background-size:40px_40px]', zone === 'all' && 'min-w-[720px]')}
             dir="ltr"
           >
             {plan.floors.filter((id) => zone === 'all' || id === zone).map((id) => {
               const rect = toFrame(plan.rects[id]!);
               const floor = zones.find((row) => row.id === id)!;
               return (
-                <div key={id} style={{ left: `${rect.x}%`, top: `${rect.y}%`, width: `${rect.width}%`, height: `${rect.height}%` }} className={cn('absolute border-2 border-dashed border-[#D6D3C8]', ZONE_TONES[plan.floors.indexOf(id) % ZONE_TONES.length])}>
-                  <span className="absolute start-2 top-2 rounded-md bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-[#4A4A46]" dir="auto">{pickLocalized(floor.name, locale)}</span>
+                <div key={id} style={{ left: `${rect.x}%`, top: `${rect.y}%`, width: `${rect.width}%`, height: `${rect.height}%` }} className={cn('absolute border-2 border-dashed border-primary', ZONE_TONES[plan.floors.indexOf(id) % ZONE_TONES.length])}>
+                  <span className="absolute start-2 top-2 rounded-md bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-foreground" dir="auto">{pickLocalized(floor.name, locale)}</span>
                 </div>
               );
             })}
@@ -124,7 +124,7 @@ export default function FloorTables() {
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" aria-pressed={active} onClick={onClick} className={cn('h-9 shrink-0 rounded-full px-4 text-sm font-semibold', active ? 'bg-[#111111] text-white' : 'bg-white text-[#5C5C58]')}>
+    <button type="button" aria-pressed={active} onClick={onClick} className={cn('h-9 shrink-0 rounded-full px-4 text-sm font-semibold', active ? 'bg-secondary text-secondary-foreground' : 'bg-card text-muted-foreground')}>
       {children}
     </button>
   );
@@ -148,21 +148,21 @@ function PlanTable({ table, board, position, onOpen }: { table: FloorTable; boar
       onClick={onOpen}
       style={{ left: `${position.x}%`, top: `${position.y}%` }}
       className={cn(
-        'absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center border-2 shadow-[0_5px_16px_rgba(23,23,18,.08)]',
+        'absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center border-2 shadow-xs',
         table.capacity >= 6 ? 'h-[64px] w-[124px]' : 'h-[64px] w-[96px]',
         table.capacity <= 2 ? 'rounded-full' : 'rounded-2xl',
         tone.fill,
-        waiting ? 'border-[#B42318] ring-4 ring-[#B42318]/20' : tone.ring,
+        waiting ? 'border-destructive ring-4 ring-destructive/20' : tone.ring,
       )}
       aria-label={t('tableAria', { table: tableNo(table.number), status: t(`status.${table.status}`) })}
     >
       <span className={cn('absolute -end-1.5 -top-1.5 size-3.5 rounded-full border-[3px] border-white', tone.dot)} />
       {calls.length ? (
-        <span className={cn('absolute -start-2 -top-2 grid size-6 place-items-center rounded-full text-white', waiting ? 'animate-pulse bg-[#B42318]' : 'bg-[#168A52]')}><BellRing className="size-3.5" /></span>
+        <span className={cn('absolute -start-2 -top-2 grid size-6 place-items-center rounded-full text-white', waiting ? 'animate-pulse bg-destructive' : 'bg-success')}><BellRing className="size-3.5" /></span>
       ) : null}
       <span className="text-center leading-tight">
         <strong className="block text-base">{tableNo(table.number)}</strong>
-        <span className="block text-[10px] text-[#74746D]">{t('seats', { count: table.capacity })}</span>
+        <span className="block text-[10px] text-muted-foreground">{t('seats', { count: table.capacity })}</span>
       </span>
       {lead ? <StagePill status={lead.status} className="absolute -bottom-3 px-2 py-0.5 text-[10px]" /> : null}
     </button>
@@ -175,13 +175,13 @@ function ListTable({ table, board, onOpen }: { table: FloorTable; board: FloorBo
   const tone = tableTone[table.status];
   const { calls, waiting, lead } = tableState(table, board);
   return (
-    <button type="button" onClick={onOpen} className={cn('relative rounded-2xl border-2 p-3 text-start', tone.fill, waiting ? 'border-[#B42318]' : tone.ring)}>
+    <button type="button" onClick={onOpen} className={cn('relative rounded-2xl border-2 p-3 text-start', tone.fill, waiting ? 'border-destructive' : tone.ring)}>
       <div className="flex items-center gap-2">
         <strong className="text-xl">{tableNo(table.number)}</strong>
-        {calls.length ? <BellRing className={cn('size-4', waiting ? 'animate-pulse text-[#B42318]' : 'text-[#168A52]')} /> : null}
+        {calls.length ? <BellRing className={cn('size-4', waiting ? 'animate-pulse text-destructive' : 'text-success')} /> : null}
         <span className={cn('ms-auto text-xs font-semibold', tone.text)}>{t(`status.${table.status}`)}</span>
       </div>
-      <p className="mt-0.5 flex items-center gap-1 text-xs text-[#696965]"><Users className="size-3.5" />{t('seats', { count: table.capacity })} · {pickLocalized(table.floor.name, locale)}</p>
+      <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground"><Users className="size-3.5" />{t('seats', { count: table.capacity })} · {pickLocalized(table.floor.name, locale)}</p>
       <div className="mt-2 min-h-6">{lead ? <StagePill status={lead.status} /> : null}</div>
     </button>
   );
@@ -231,18 +231,18 @@ function TableSheet({ table, board, onClose }: { table: FloorTable; board: Floor
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={t('tableNumber', { table: tableNo(table.number) })} onClick={(event) => event.stopPropagation()} className="max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-[#F7F7F5] pb-[max(1rem,env(safe-area-inset-bottom))] sm:rounded-3xl">
-        <header className="sticky top-0 z-10 flex items-start gap-3 bg-white px-5 pb-3 pt-4">
+      <div role="dialog" aria-modal="true" aria-label={t('tableNumber', { table: tableNo(table.number) })} onClick={(event) => event.stopPropagation()} className="max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-muted pb-[max(1rem,env(safe-area-inset-bottom))] sm:rounded-3xl">
+        <header className="sticky top-0 z-10 flex items-start gap-3 bg-card px-5 pb-3 pt-4">
           <span className={cn('grid size-12 shrink-0 place-items-center rounded-2xl border-2 text-lg font-bold', tableTone[table.status].fill, tableTone[table.status].ring)}>{tableNo(table.number)}</span>
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-semibold">{t('tableNumber', { table: tableNo(table.number) })}</h2>
-            <p className="text-xs text-[#696965]">{t('seats', { count: table.capacity })} · {pickLocalized(table.floor.name, locale)}{table.openedAt ? ` · ${t('seatedFor', { age: age(table.openedAt, now) })}` : ''}</p>
+            <p className="text-xs text-muted-foreground">{t('seats', { count: table.capacity })} · {pickLocalized(table.floor.name, locale)}{table.openedAt ? ` · ${t('seatedFor', { age: age(table.openedAt, now) })}` : ''}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label={t('close')} className="grid size-9 place-items-center rounded-full bg-[#F2F2EF]"><X className="size-4" /></button>
+          <button type="button" onClick={onClose} aria-label={t('close')} className="grid size-9 place-items-center rounded-full bg-surface-2"><X className="size-4" /></button>
         </header>
 
         <div className="space-y-3 px-4 pt-3">
-          <div className="grid grid-cols-4 gap-1 rounded-2xl bg-white p-1">
+          <div className="grid grid-cols-4 gap-1 rounded-2xl bg-card p-1">
             {STATUSES.map((value) => (
               <button
                 key={value}
@@ -250,7 +250,7 @@ function TableSheet({ table, board, onClose }: { table: FloorTable; board: Floor
                 aria-pressed={table.status === value}
                 disabled={status.isPending}
                 onClick={() => table.status !== value && status.mutate(value)}
-                className={cn('flex h-11 flex-col items-center justify-center rounded-xl text-[11px] font-semibold', table.status === value ? 'bg-[#111111] text-white' : 'text-[#5C5C58]')}
+                className={cn('flex h-11 flex-col items-center justify-center rounded-xl text-[11px] font-semibold', table.status === value ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground')}
               >
                 <span className={cn('mb-0.5 size-2 rounded-full', tableTone[value].dot)} />
                 {t(`status.${value}`)}
@@ -259,23 +259,23 @@ function TableSheet({ table, board, onClose }: { table: FloorTable; board: Floor
           </div>
 
           {calls.length ? (
-            <section className="overflow-hidden rounded-2xl bg-white">
+            <section className="overflow-hidden rounded-2xl bg-card">
               <h3 className="px-5 pt-3 text-sm font-semibold">{t('calls')}</h3>
-              <ul className="divide-y divide-[#F0F0EC]">{calls.map((call) => <CallRow key={call.id} call={call} now={now} />)}</ul>
+              <ul className="divide-y divide-border">{calls.map((call) => <CallRow key={call.id} call={call} now={now} />)}</ul>
             </section>
           ) : null}
 
-          <section className="rounded-2xl bg-white">
+          <section className="rounded-2xl bg-card">
             <h3 className="px-5 pt-3 text-sm font-semibold">{t('orders')}</h3>
-            {orders.length ? <ul className="divide-y divide-[#F0F0EC]">{orders.map((order) => <SheetOrder key={order.id} order={order} />)}</ul> : <p className="px-5 pb-4 pt-1 text-sm text-[#8A8A86]">{t('noOrders')}</p>}
+            {orders.length ? <ul className="divide-y divide-border">{orders.map((order) => <SheetOrder key={order.id} order={order} />)}</ul> : <p className="px-5 pb-4 pt-1 text-sm text-subtle">{t('noOrders')}</p>}
           </section>
 
           <div className="grid gap-2">
-            <button type="button" onClick={takeOrder} className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#FFC400] text-sm font-semibold text-[#111111]">
+            <button type="button" onClick={takeOrder} className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-primary-foreground">
               <Plus className="size-4" />{orders.length ? t('addOrder') : t('takeOrder')}
             </button>
             {table.status === 'OCCUPIED' && !orders.length ? (
-              <button type="button" disabled={status.isPending} onClick={() => status.mutate('AVAILABLE')} className="h-12 rounded-2xl border border-[#E6E6E2] bg-white text-sm font-semibold">{t('clearTable')}</button>
+              <button type="button" disabled={status.isPending} onClick={() => status.mutate('AVAILABLE')} className="h-12 rounded-2xl border border-border bg-card text-sm font-semibold">{t('clearTable')}</button>
             ) : null}
           </div>
         </div>
@@ -295,13 +295,13 @@ function SheetOrder({ order }: { order: FloorOrder }) {
         <StagePill status={order.status} />
         <span className="ms-auto text-sm font-semibold tabular-nums">{money(order.total, locale)}</span>
       </div>
-      <ul className="mt-1.5 space-y-0.5 text-sm text-[#3A3A36]">
+      <ul className="mt-1.5 space-y-0.5 text-sm text-foreground">
         {order.items.map((item, index) => (
-          <li key={index}><span className="font-semibold tabular-nums">{item.quantity}×</span> {itemLine(item, locale)}{item.notes ? <span className="text-xs text-[#8A5A00]"> · <bdi>{item.notes}</bdi></span> : null}</li>
+          <li key={index}><span className="font-semibold tabular-nums">{item.quantity}×</span> {itemLine(item, locale)}{item.notes ? <span className="text-xs text-warning"> · <bdi>{item.notes}</bdi></span> : null}</li>
         ))}
       </ul>
       {order.status === 'READY_FOR_PICKUP' ? (
-        <button type="button" disabled={step.isPending} onClick={() => step.mutate({ order, status: 'DELIVERED' })} className="mt-2 h-10 w-full rounded-xl bg-[#168A52] text-sm font-semibold text-white disabled:opacity-50">{t('actions.served')}</button>
+        <button type="button" disabled={step.isPending} onClick={() => step.mutate({ order, status: 'DELIVERED' })} className="mt-2 h-10 w-full rounded-xl bg-success text-sm font-semibold text-white disabled:opacity-50">{t('actions.served')}</button>
       ) : null}
     </li>
   );

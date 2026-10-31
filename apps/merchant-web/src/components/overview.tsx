@@ -317,17 +317,17 @@ export function Overview({ dash }: { dash: MerchantDashboard }) {
   }
 
   const lanes: { key: Lane; title: string; icon: LucideIcon; tint: string; iconTint: string }[] = [
-    { key: 'new', title: ordersT('new'), icon: ClipboardList, tint: 'bg-[#FFF8E4]', iconTint: 'text-[#C49200]' },
-    { key: 'preparing', title: ordersT('preparing'), icon: Settings2, tint: 'bg-[#EEF3FF]', iconTint: 'text-[#3B6FE8]' },
-    { key: 'ready', title: ordersT('ready'), icon: Check, tint: 'bg-[#EAF8EF]', iconTint: 'text-[#16924A]' },
+    { key: 'new', title: ordersT('new'), icon: ClipboardList, tint: 'bg-primary', iconTint: 'bg-primary-soft text-primary-soft-foreground' },
+    { key: 'preparing', title: ordersT('preparing'), icon: Settings2, tint: 'bg-info', iconTint: 'bg-info-soft text-info' },
+    { key: 'ready', title: ordersT('ready'), icon: Check, tint: 'bg-success', iconTint: 'bg-success-soft text-success' },
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-[#161616]">{t('title')}</h1>
-          <p className="mt-1 text-sm text-[#6E6E69]">{hello} — {t('happening', { name })}</p>
+          <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-foreground">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{hello} — {t('happening', { name })}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
@@ -336,22 +336,22 @@ export function Overview({ dash }: { dash: MerchantDashboard }) {
             aria-checked={accepting}
             title={t('acceptingHint')}
             onClick={() => void toggleAccepting()}
-            className="inline-flex items-center gap-2 rounded-full py-1 text-sm font-semibold text-[#161616]"
+            className="inline-flex items-center gap-2 rounded-full py-1 text-sm font-semibold text-foreground"
           >
-            <span className={`relative h-6 w-11 rounded-full transition ${accepting ? 'bg-[#22A85A]' : 'bg-[#D5D5D0]'}`}>
-              <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-[inset-inline-start] ${accepting ? 'start-5' : 'start-0.5'}`} />
+            <span className={`relative h-6 w-11 rounded-full transition ${accepting ? 'bg-success' : 'bg-border-strong'}`}>
+              <span className={`absolute top-0.5 size-5 rounded-full bg-card shadow transition-[inset-inline-start] ${accepting ? 'start-5' : 'start-0.5'}`} />
             </span>
             {t('acceptingOrders')}
-            <Info className="size-4 text-[#9A9A94]" />
+            <Info className="size-4 text-subtle" />
           </button>
-          <Link href="/products?new=1" className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-[#111111] hover:bg-[#ffcf33]">
+          <Link href="/products?new=1" className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-xs transition-colors hover:bg-[var(--primary-hover)]">
             <span className="text-lg leading-none">+</span> {t('addProduct')}
           </Link>
         </div>
       </div>
-      {notice ? <p className="text-sm font-medium text-[#B42318]">{notice}</p> : null}
+      {notice ? <p className="text-sm font-medium text-destructive">{notice}</p> : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Metric href="/orders" icon={ShoppingBag} label={t('todaysOrders')} value={String(dash.ordersToday)} detail={<Change value={dash.ordersChange} suffix={t('vsYesterday')} />} />
         <Metric href="/orders" icon={BarChart3} label={t('netSales')} value={formatMoney(dash.netSales, locale)} detail={<Change value={dash.salesChange} suffix={t('vsYesterday')} />} />
         <Metric
@@ -359,26 +359,26 @@ export function Overview({ dash }: { dash: MerchantDashboard }) {
           icon={ClipboardList}
           label={t('activeOrders')}
           value={String(dash.activeOrders)}
-          detail={dash.attentionOrders > 0 ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#D9342B]"><span className="size-1.5 rounded-full bg-[#D9342B]" />{t('needAttention', { count: dash.attentionOrders })}</span> : null}
+          detail={dash.attentionOrders > 0 ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-destructive"><span className="size-1.5 rounded-full bg-destructive" />{t('needAttention', { count: dash.attentionOrders })}</span> : null}
         />
         <Metric
           href="/business"
           icon={Clock}
           label={t('averagePreparation')}
           value={dash.averagePreparationMinutes === null ? '—' : t('minutesShort', { count: dash.averagePreparationMinutes })}
-          detail={<span className="text-xs text-[#8A8A86]">{t('targetMinutes', { count: dash.preparationTargetMinutes })}</span>}
+          detail={<span className="text-xs text-subtle">{t('targetMinutes', { count: dash.preparationTargetMinutes })}</span>}
         />
       </section>
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.82fr)]">
+      <div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-4">
-          <section className="rounded-2xl border border-[#EEEEEC] bg-white p-4 shadow-[0_8px_24px_rgba(17,17,17,0.03)]">
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-xs">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h2 className="text-base font-semibold text-[#161616]">{t('liveBoard')}</h2>
-                <p className="mt-0.5 text-sm text-[#8A8A86]">{t('liveHint')}</p>
+                <h2 className="text-base font-semibold text-foreground">{t('liveBoard')}</h2>
+                <p className="mt-0.5 text-sm text-subtle">{t('liveHint')}</p>
               </div>
-              <div className="inline-flex w-fit gap-1 self-start rounded-full bg-[#F4F4F1] p-1 text-xs font-semibold">
+              <div className="inline-flex w-fit gap-1 self-start rounded-full bg-muted p-1 text-xs font-semibold">
                 <FilterChip active={channel === 'all'} onClick={() => setChannel('all')}>{t('allCount', { count: counts.all })}</FilterChip>
                 <FilterChip active={channel === 'DELIVERY'} onClick={() => setChannel('DELIVERY')}>{t('deliveryCount', { count: counts.DELIVERY })}</FilterChip>
                 <FilterChip active={channel === 'TAKEAWAY'} onClick={() => setChannel('TAKEAWAY')}>{t('takeawayCount', { count: counts.TAKEAWAY })}</FilterChip>
@@ -396,16 +396,17 @@ export function Overview({ dash }: { dash: MerchantDashboard }) {
                 const dropState = !dragging || source
                   ? ''
                   : allowed
-                    ? `outline-2 outline-offset-2 outline-[#22A85A] ${hovered ? 'outline-solid brightness-[0.97]' : 'outline-dashed'}`
-                    : `${hovered ? 'outline-2 outline-offset-2 outline-dashed outline-[#D9342B]' : ''} opacity-50`;
+                    ? `outline-2 outline-offset-2 outline-success ${hovered ? 'outline-solid brightness-[0.97]' : 'outline-dashed'}`
+                    : `${hovered ? 'outline-2 outline-offset-2 outline-dashed outline-destructive' : ''} opacity-50`;
                 return (
-                  <div key={lane.key} data-lane-drop={lane.key} className={`rounded-2xl p-3 transition-[opacity,filter] ${lane.tint} ${dropState}`}>
+                  <div key={lane.key} data-lane-drop={lane.key} className={`relative overflow-hidden rounded-2xl border bg-muted/60 p-3 transition-[opacity,filter] ${dropState}`}>
+                    <span aria-hidden className={`absolute inset-x-0 top-0 h-[3px] ${lane.tint}`} />
                     <div className="flex items-center gap-2 px-1">
-                      <span className={`grid size-7 place-items-center rounded-full bg-white ${lane.iconTint}`}><lane.icon className="size-3.5" /></span>
-                      <h3 className="text-sm font-semibold text-[#161616]">{lane.title}</h3>
-                      <span className="text-sm font-semibold text-[#8A8A86]">{rows.length}</span>
+                      <span className={`grid size-7 place-items-center rounded-lg ${lane.iconTint}`}><lane.icon className="size-3.5" /></span>
+                      <h3 className="text-sm font-semibold text-foreground">{lane.title}</h3>
+                      <span className="rounded-full bg-card px-2 py-0.5 text-xs font-semibold text-muted-foreground shadow-xs">{rows.length}</span>
                       {dragging && !source ? (
-                        <span className={`ms-auto rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold ${allowed ? 'text-[#16924A]' : 'text-[#D9342B]'}`}>
+                        <span className={`ms-auto rounded-full bg-card px-2 py-0.5 text-[11px] font-semibold ${allowed ? 'text-success' : 'text-destructive'}`}>
                           {allowed ? t('dropHere') : t('cannotDrop')}
                         </span>
                       ) : null}
@@ -432,7 +433,7 @@ export function Overview({ dash }: { dash: MerchantDashboard }) {
                           onReady={() => void move(order.id, { status: 'READY_FOR_PICKUP' })}
                           onHandOver={() => handOver(order)}
                         />
-                      )) : <li className="rounded-xl bg-white/70 px-3 py-6 text-center text-xs font-medium text-[#8A8A86]">{t('laneEmpty')}</li>}
+                      )) : <li className="rounded-xl border border-dashed border-border-strong px-3 py-8 text-center text-xs font-medium text-subtle">{t('laneEmpty')}</li>}
                     </ul>
                   </div>
                 );
@@ -463,16 +464,16 @@ export function Overview({ dash }: { dash: MerchantDashboard }) {
             ) : null}
           </section>
 
-          <section className="rounded-2xl border border-[#EEEEEC] bg-white p-4 shadow-[0_8px_24px_rgba(17,17,17,0.03)]">
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-xs">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-start gap-2">
-                <span className="mt-0.5 grid size-8 place-items-center rounded-full bg-[#FFF6D4] text-[#161616]"><BarChart3 className="size-4" /></span>
+                <span className="mt-0.5 grid size-8 place-items-center rounded-lg bg-primary-soft text-foreground"><BarChart3 className="size-4" /></span>
                 <div>
-                  <h2 className="text-base font-semibold text-[#161616]">{t('salesOverview')}</h2>
-                  <p className="text-sm text-[#8A8A86]">{t('salesHint')}</p>
+                  <h2 className="text-base font-semibold text-foreground">{t('salesOverview')}</h2>
+                  <p className="text-sm text-subtle">{t('salesHint')}</p>
                 </div>
               </div>
-              <div className="inline-flex gap-1 rounded-full bg-[#F4F4F1] p-1 text-xs font-semibold">
+              <div className="inline-flex gap-1 rounded-full bg-muted p-1 text-xs font-semibold">
                 <FilterChip active={range === 'today'} onClick={() => setRange('today')}>{t('today')}</FilterChip>
                 <FilterChip active={range === 'week'} onClick={() => setRange('week')}>{t('days7')}</FilterChip>
                 <FilterChip active={range === 'month'} onClick={() => setRange('month')}>{t('days30')}</FilterChip>
@@ -483,10 +484,10 @@ export function Overview({ dash }: { dash: MerchantDashboard }) {
               <ul className="space-y-3">
                 {dash.channels[range].map((row) => (
                   <li key={row.fulfillment} className="flex items-center gap-3">
-                    <span className="grid size-8 place-items-center rounded-full bg-[#F7F7F5] text-[#161616]">{channelIcon(row.fulfillment)}</span>
+                    <span className="grid size-8 place-items-center rounded-lg bg-muted text-foreground">{channelIcon(row.fulfillment)}</span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs text-[#8A8A86]">{t(channelKey(row.fulfillment))}</p>
-                      <p className="text-sm font-semibold text-[#161616]">{formatMoney(row.amount, locale)}</p>
+                      <p className="text-xs text-subtle">{t(channelKey(row.fulfillment))}</p>
+                      <p className="text-sm font-semibold text-foreground">{formatMoney(row.amount, locale)}</p>
                     </div>
                     <Change value={row.change} />
                   </li>
@@ -496,10 +497,10 @@ export function Overview({ dash }: { dash: MerchantDashboard }) {
           </section>
         </div>
 
-        <div className="space-y-4">
-          <section className="rounded-2xl border border-[#EEEEEC] bg-white p-4 shadow-[0_8px_24px_rgba(17,17,17,0.03)]">
-            <h2 className="flex items-center gap-2 text-base font-semibold text-[#161616]">
-              <span className="grid size-8 place-items-center rounded-full bg-[#FFF6D4]"><Zap className="size-4" /></span>
+        <div className="grid items-start gap-4 md:grid-cols-2 2xl:grid-cols-1">
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-xs">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
+              <span className="grid size-8 place-items-center rounded-lg bg-primary-soft"><Zap className="size-4" /></span>
               {workspace('quickActions')}
             </h2>
             <div className="mt-3 grid grid-cols-3 gap-2">
@@ -512,70 +513,70 @@ export function Overview({ dash }: { dash: MerchantDashboard }) {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-[#EEEEEC] bg-white p-4 shadow-[0_8px_24px_rgba(17,17,17,0.03)]">
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-xs">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="flex items-center gap-2 text-base font-semibold text-[#161616]">
-                <span className="grid size-8 place-items-center rounded-full bg-[#FFF6D4]"><BarChart3 className="size-4" /></span>
+              <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
+                <span className="grid size-8 place-items-center rounded-lg bg-primary-soft"><BarChart3 className="size-4" /></span>
                 {t('topProducts')}
               </h2>
-              <Link href="/products" className="text-sm font-semibold text-[#3B6FE8]">{t('viewAll')}</Link>
+              <Link href="/products" className="text-sm font-semibold text-info">{t('viewAll')}</Link>
             </div>
             {dash.topProducts.length ? (
               <ol className="mt-3 space-y-3">
                 {dash.topProducts.map((product, index) => (
                   <li key={product.id} className="flex items-center gap-3">
-                    <span className="grid size-6 place-items-center rounded-full bg-[#FFF6D4] text-xs font-semibold text-[#161616]">{index + 1}</span>
+                    <span className="grid size-6 place-items-center rounded-full bg-primary-soft text-xs font-semibold text-foreground">{index + 1}</span>
                     {product.imageUrl ? (
                       <img src={product.imageUrl} alt="" className="size-11 rounded-xl object-cover" />
                     ) : (
-                      <span className="grid size-11 place-items-center rounded-xl bg-[#F7F7F5] text-[#8A8A86]"><UtensilsCrossed className="size-4" /></span>
+                      <span className="grid size-11 place-items-center rounded-xl bg-muted text-subtle"><UtensilsCrossed className="size-4" /></span>
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-[#161616]">{pickLocalized(product.name, locale)}</span>
-                      <span className="block text-xs text-[#8A8A86]">{t('productOrders', { count: product.orders })}</span>
+                      <span className="block truncate text-sm font-semibold text-foreground">{pickLocalized(product.name, locale)}</span>
+                      <span className="block text-xs text-subtle">{t('productOrders', { count: product.orders })}</span>
                     </span>
-                    <span className="text-sm font-semibold text-[#161616]">{formatMoney(product.revenue, locale)}</span>
+                    <span className="text-sm font-semibold text-foreground">{formatMoney(product.revenue, locale)}</span>
                   </li>
                 ))}
               </ol>
-            ) : <p className="mt-4 text-sm text-[#8A8A86]">{t('noProducts')}</p>}
+            ) : <p className="mt-4 text-sm text-subtle">{t('noProducts')}</p>}
           </section>
         </div>
       </div>
 
       <section className="grid items-start gap-4 lg:grid-cols-3">
-        <article className="rounded-2xl border border-[#EEEEEC] bg-white p-4 shadow-[0_8px_24px_rgba(17,17,17,0.03)]">
+        <article className="rounded-2xl border border-border bg-card p-5 shadow-xs">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-2">
-              <span className="grid size-8 place-items-center rounded-full bg-[#FDECEA] text-[#D9342B]"><TriangleAlert className="size-4" /></span>
+              <span className="grid size-8 place-items-center rounded-lg bg-destructive-soft text-destructive"><TriangleAlert className="size-4" /></span>
               <div>
-                <h2 className="text-base font-semibold text-[#161616]">{t('inventoryAlerts')}</h2>
-                <p className="text-sm text-[#8A8A86]">{dash.lowStock.length ? t('lowStockCount', { count: dash.lowStock.length }) : t('noAlerts')}</p>
+                <h2 className="text-base font-semibold text-foreground">{t('inventoryAlerts')}</h2>
+                <p className="text-sm text-subtle">{dash.lowStock.length ? t('lowStockCount', { count: dash.lowStock.length }) : t('noAlerts')}</p>
               </div>
             </div>
-            <Link href="/products" className="shrink-0 text-sm font-semibold text-[#3B6FE8]">{t('viewAll')}</Link>
+            <Link href="/products" className="shrink-0 text-sm font-semibold text-info">{t('viewAll')}</Link>
           </div>
           <ul className="mt-4 space-y-3">
             {stock.map((item) => (
               <li key={item.id} className="flex items-center gap-3">
-                <span className="grid size-9 place-items-center rounded-xl bg-[#F7F7F5] text-[#8A8A86]"><ShoppingBag className="size-4" /></span>
+                <span className="grid size-9 place-items-center rounded-xl bg-muted text-subtle"><ShoppingBag className="size-4" /></span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-[#161616]">{pickLocalized(item.name, locale)}</span>
-                  <span className="block text-xs text-[#8A8A86]">{t('left', { count: item.quantity })}</span>
+                  <span className="block truncate text-sm font-semibold text-foreground">{pickLocalized(item.name, locale)}</span>
+                  <span className="block text-xs text-subtle">{t('left', { count: item.quantity })}</span>
                 </span>
-                <span className="rounded-full bg-[#FDECEA] px-2 py-1 text-[11px] font-semibold text-[#D9342B]">{t('lowStock')}</span>
+                <span className="rounded-full bg-destructive-soft px-2 py-1 text-[11px] font-semibold text-destructive">{t('lowStock')}</span>
               </li>
             ))}
           </ul>
-          {stock.length ? <div className="mt-4 flex justify-end"><Link href="/products" className="inline-flex h-9 items-center rounded-xl border border-[#E6E6E2] px-3 text-sm font-semibold text-[#161616]">{t('manageStock')}</Link></div> : null}
+          {stock.length ? <div className="mt-4 flex justify-end"><Link href="/products" className="inline-flex h-9 items-center rounded-xl border border-border px-3 text-sm font-semibold text-foreground">{t('manageStock')}</Link></div> : null}
         </article>
 
-        <article className="rounded-2xl border border-[#EEEEEC] bg-white p-4 shadow-[0_8px_24px_rgba(17,17,17,0.03)]">
+        <article className="rounded-2xl border border-border bg-card p-5 shadow-xs">
           <div className="flex items-start gap-2">
-            <span className="grid size-8 place-items-center rounded-full bg-[#EEF3FF] text-[#3B6FE8]"><Bike className="size-4" /></span>
+            <span className="grid size-8 place-items-center rounded-lg bg-info-soft text-info"><Bike className="size-4" /></span>
             <div>
-              <h2 className="text-base font-semibold text-[#161616]">{t('deliveryPerformance')}</h2>
-              <p className="text-sm text-[#8A8A86]">{t('deliveryHint')}</p>
+              <h2 className="text-base font-semibold text-foreground">{t('deliveryPerformance')}</h2>
+              <p className="text-sm text-subtle">{t('deliveryHint')}</p>
             </div>
           </div>
           <div className="mt-5 grid grid-cols-3 gap-2">
@@ -583,19 +584,19 @@ export function Overview({ dash }: { dash: MerchantDashboard }) {
             <Stat label={t('avgDistance')} value={dash.delivery.averageDistanceKm ? `${dash.delivery.averageDistanceKm} km` : '—'} change={dash.delivery.distanceChange} invert />
             <Stat label={t('driversOnline')} value={String(dash.delivery.driversOnline)} hint={dash.delivery.driversOnline > 0 ? t('ofAssigned', { count: dash.delivery.driversAssigned, total: dash.delivery.driversOnline }) : t('assignedOnly', { count: dash.delivery.driversAssigned })} />
           </div>
-          {!dash.delivery.onTimeRate && !dash.delivery.averageDistanceKm ? <p className="mt-3 text-xs text-[#8A8A86]">{t('noDelivery')}</p> : null}
+          {!dash.delivery.onTimeRate && !dash.delivery.averageDistanceKm ? <p className="mt-3 text-xs text-subtle">{t('noDelivery')}</p> : null}
         </article>
 
-        <article className="rounded-2xl border border-[#EEEEEC] bg-white p-4 shadow-[0_8px_24px_rgba(17,17,17,0.03)]">
+        <article className="rounded-2xl border border-border bg-card p-5 shadow-xs">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-2">
-              <span className="grid size-8 place-items-center rounded-full bg-[#FFF6D4]"><Zap className="size-4" /></span>
+              <span className="grid size-8 place-items-center rounded-lg bg-primary-soft"><Zap className="size-4" /></span>
               <div>
-                <h2 className="text-base font-semibold text-[#161616]">{dash.plan.name ? t('corePlan', { name: planName }) : t('noPlan')}</h2>
-                <p className="text-sm text-[#8A8A86]">{t('planHint')}</p>
+                <h2 className="text-base font-semibold text-foreground">{dash.plan.name ? t('corePlan', { name: planName }) : t('noPlan')}</h2>
+                <p className="text-sm text-subtle">{t('planHint')}</p>
               </div>
             </div>
-            <Link href="/subscription" className="shrink-0 text-sm font-semibold text-[#3B6FE8]">{t('manageSubscription')}</Link>
+            <Link href="/subscription" className="shrink-0 text-sm font-semibold text-info">{t('manageSubscription')}</Link>
           </div>
           <div className="mt-4 space-y-3">
             <Usage label={t('products')} used={dash.plan.products.used} limit={dash.plan.products.limit} icon={ShoppingBag} />
@@ -610,36 +611,36 @@ export function Overview({ dash }: { dash: MerchantDashboard }) {
 
 function Metric({ href, icon: Icon, label, value, detail }: { href: string; icon: LucideIcon; label: string; value: string; detail: React.ReactNode }) {
   return (
-    <Link href={href} className="flex items-center gap-3 rounded-2xl border border-[#EEEEEC] bg-white px-4 py-3.5 shadow-[0_8px_24px_rgba(17,17,17,0.03)]">
-      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FFF6D4] text-[#161616]"><Icon className="size-5" /></span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-xs text-[#8A8A86]">{label}</span>
-        <span className="mt-0.5 block truncate text-2xl font-semibold tracking-tight text-[#161616]">{value}</span>
+    <Link href={href} className="group flex flex-col items-start gap-3 rounded-2xl border border-border bg-card p-3.5 shadow-xs sm:flex-row sm:items-center sm:gap-3.5 sm:px-4 sm:py-4 transition-[box-shadow,border-color] hover:border-border-strong hover:shadow-md">
+      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-soft-foreground sm:size-11"><Icon className="size-[18px] sm:size-5" /></span>
+      <span className="w-full min-w-0 flex-1">
+        <span className="block truncate text-xs font-medium text-muted-foreground">{label}</span>
+        <span className="mt-0.5 block truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{value}</span>
         {detail ? <span className="mt-0.5 block">{detail}</span> : null}
       </span>
-      <ChevronRight className="size-4 shrink-0 text-[#C8C8C2] rtl:rotate-180" />
+      <ChevronRight className="hidden size-4 shrink-0 text-faint transition-transform sm:block group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5" />
     </Link>
   );
 }
 
 function Change({ value, suffix, invert = false }: { value: string | null; suffix?: string; invert?: boolean }) {
-  if (!value) return suffix ? <span className="text-xs text-[#8A8A86]">{suffix}</span> : null;
+  if (!value) return suffix ? <span className="text-xs text-subtle">{suffix}</span> : null;
   const negative = value.trim().startsWith('-');
   const flat = value === '0%';
   const good = flat || (invert ? negative : !negative);
   const Icon = negative ? ArrowDownRight : ArrowUpRight;
   return (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${good ? 'text-[#16924A]' : 'text-[#D9342B]'}`}>
+    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${good ? 'text-success' : 'text-destructive'}`}>
       {flat ? null : <Icon className="size-3.5" />}
       {value}
-      {suffix ? <span className="font-medium text-[#8A8A86]"> {suffix}</span> : null}
+      {suffix ? <span className="font-medium text-subtle"> {suffix}</span> : null}
     </span>
   );
 }
 
 function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className={`rounded-full px-3 py-1.5 ${active ? 'bg-white text-[#161616] shadow-sm' : 'text-[#6E6E69]'}`}>
+    <button type="button" onClick={onClick} className={`rounded-full px-3 py-1.5 transition-colors ${active ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
       {children}
     </button>
   );
@@ -674,28 +675,30 @@ function OrderCard({
       ref={cardRef}
       data-lane={lane}
       onPointerDown={onPointerDown}
-      className={`flex select-none items-center gap-1.5 rounded-xl bg-white py-2.5 pe-3 ps-1 ${
+      className={`flex select-none items-center gap-1.5 rounded-xl border border-border bg-card py-2.5 pe-2.5 ps-1 ${
         floating
-          ? `shadow-[0_14px_30px_rgba(17,17,17,0.18)] ring-2 ${floating === 'allowed' ? 'ring-[#22A85A]' : floating === 'refused' ? 'ring-[#D9342B]' : 'ring-transparent'}`
-          : 'shadow-[0_1px_2px_rgba(17,17,17,0.04)]'
+          ? `shadow-lg ring-2 ${floating === 'allowed' ? 'ring-success' : floating === 'refused' ? 'ring-destructive' : 'ring-transparent'}`
+          : 'shadow-xs'
       } ${busy ? 'opacity-60' : ''} ${lifted ? 'opacity-30' : ''} ${onPointerDown && !busy ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
       <span
         data-drag-handle
         aria-hidden
         title={dragLabel}
-        className="grid h-9 w-4 shrink-0 cursor-grab touch-none place-items-center rounded-md text-[#B8B8B2] hover:bg-[#F4F4F1] hover:text-[#6E6E69]"
+        className="grid h-9 w-4 shrink-0 cursor-grab touch-none place-items-center rounded-md text-subtle hover:bg-muted hover:text-muted-foreground"
       >
         <GripVertical className="size-4" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-[#161616]" dir="ltr">#{order.number.replace(/^#/, '')}</p>
-        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[#5C5C58]">
-          <Icon className="size-3.5 shrink-0" />
-          <span className="truncate">{who}</span>
-          <span className="text-[#A3A39E]">· {elapsed < 1 ? labels.justNow : labels.minutes(elapsed)}</span>
+        <p className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-sm font-semibold text-foreground" dir="ltr">#{order.number.replace(/^#/, '')}</span>
+          <span className={`shrink-0 text-[11px] font-medium ${elapsed >= 30 ? 'text-destructive' : 'text-subtle'}`}>{elapsed < 1 ? labels.justNow : labels.minutes(elapsed)}</span>
         </p>
-        <p className="mt-0.5 text-xs font-semibold text-[#161616]">{formatMoney(order.amount, locale)}</p>
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Icon className="size-3.5 shrink-0 text-subtle" />
+          <span className="truncate">{who}</span>
+        </p>
+        <p className="mt-1 text-xs font-semibold text-foreground">{formatMoney(order.amount, locale)}</p>
       </div>
       <OrderAction order={order} labels={labels} disabled={busy} onAccept={onAccept} onStart={onStart} onReady={onReady} onHandOver={onHandOver} />
     </li>
@@ -712,23 +715,23 @@ function OrderAction({ order, labels, disabled, onAccept, onStart, onReady, onHa
   onHandOver: () => void;
 }) {
   if (order.status === 'PENDING') {
-    return <button type="button" disabled={disabled} onClick={onAccept} className="h-8 shrink-0 rounded-lg bg-primary px-3 text-xs font-semibold text-[#111111] disabled:opacity-60">{labels.accept}</button>;
+    return <button type="button" disabled={disabled} onClick={onAccept} className="h-8 shrink-0 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-60">{labels.accept}</button>;
   }
   if (order.status === 'ACCEPTED') {
-    return <button type="button" disabled={disabled} onClick={onStart} className="h-8 shrink-0 rounded-lg border border-[#E6E6E2] bg-white px-3 text-xs font-semibold text-[#161616] disabled:opacity-60">{labels.start}</button>;
+    return <button type="button" disabled={disabled} onClick={onStart} className="h-8 shrink-0 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground disabled:opacity-60">{labels.start}</button>;
   }
   if (order.status === 'PREPARING') {
-    return <button type="button" disabled={disabled} onClick={onReady} className="h-8 shrink-0 rounded-lg border border-[#E6E6E2] bg-white px-3 text-xs font-semibold text-[#161616] disabled:opacity-60">{labels.markReady}</button>;
+    return <button type="button" disabled={disabled} onClick={onReady} className="h-8 shrink-0 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground disabled:opacity-60">{labels.markReady}</button>;
   }
   if (order.status === 'ASSIGNED_TO_DRIVER') {
-    return <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-[#16924A]"><Check className="size-3.5" />{labels.handedOver}</span>;
+    return <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-success"><Check className="size-3.5" />{labels.handedOver}</span>;
   }
-  return <button type="button" disabled={disabled} onClick={onHandOver} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#16924A] disabled:opacity-60"><Check className="size-3.5" />{labels.handedOver}</button>;
+  return <button type="button" disabled={disabled} onClick={onHandOver} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-success disabled:opacity-60"><Check className="size-3.5" />{labels.handedOver}</button>;
 }
 
 function QuickAction({ icon: Icon, label, href, onClick }: { icon: LucideIcon; label: string; href?: string; onClick?: () => void }) {
-  const className = 'flex flex-col items-center justify-center gap-2 rounded-xl border border-[#EEEEEC] bg-[#FAFAF8] px-2 py-3 text-center text-xs font-semibold text-[#161616] hover:bg-[#F4F4F1]';
-  const body = (<><span className="grid size-9 place-items-center rounded-xl bg-white text-[#161616] shadow-sm"><Icon className="size-4" /></span><span className="leading-tight">{label}</span></>);
+  const className = 'group flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card px-2 py-3.5 text-center text-xs font-semibold text-foreground transition-[border-color,background-color] hover:border-primary/60 hover:bg-primary-soft/50';
+  const body = (<><span className="grid size-9 place-items-center rounded-xl bg-muted text-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground"><Icon className="size-4" /></span><span className="leading-tight">{label}</span></>);
   if (href) return <Link href={href} className={className}>{body}</Link>;
   return <button type="button" onClick={onClick} className={className}>{body}</button>;
 }
@@ -750,24 +753,24 @@ function SalesChart({ points, range, locale }: { points: MerchantSalesPoint[]; r
   return (
     <div dir="ltr">
       <div className="grid grid-cols-[36px_minmax(0,1fr)] gap-2">
-        <div className="flex h-[150px] flex-col justify-between pb-5 text-[11px] text-[#A3A39E]">
+        <div className="flex h-[150px] flex-col justify-between pb-5 text-[11px] text-subtle">
           <span>{Math.round(ceiling)}</span>
           <span>{Math.round(ceiling / 2)}</span>
           <span>0</span>
         </div>
         <div>
           <svg viewBox={`0 0 ${width} ${height}`} className="h-[150px] w-full" role="img">
-            <line x1="0" y1={height - 12} x2={width} y2={height - 12} stroke="#EEEEEC" />
+            <line x1="0" y1={height - 12} x2={width} y2={height - 12} style={{ stroke: 'var(--border)' }} />
             <defs>
               <linearGradient id="merchant-sales" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#F5C400" stopOpacity="0.45" />
-                <stop offset="100%" stopColor="#F5C400" stopOpacity="0.02" />
+                <stop offset="0%" style={{ stopColor: 'var(--primary)' }} stopOpacity="0.4" />
+                <stop offset="100%" style={{ stopColor: 'var(--primary)' }} stopOpacity="0.02" />
               </linearGradient>
             </defs>
             {area ? <path d={area} fill="url(#merchant-sales)" /> : null}
-            {line ? <path d={line} fill="none" stroke="#F5C400" strokeWidth="2.5" /> : null}
+            {line ? <path d={line} fill="none" style={{ stroke: 'var(--primary)' }} strokeWidth="2.5" strokeLinecap="round" /> : null}
           </svg>
-          <div className="mt-1 flex justify-between text-[11px] text-[#A3A39E]">
+          <div className="mt-1 flex justify-between text-[11px] text-subtle">
             {ticks.map((tick) => <span key={tick}>{tick}</span>)}
           </div>
         </div>
@@ -779,10 +782,10 @@ function SalesChart({ points, range, locale }: { points: MerchantSalesPoint[]; r
 function Stat({ label, value, change, hint, invert = false }: { label: string; value: string; change?: string | null; hint?: string; invert?: boolean }) {
   return (
     <div>
-      <p className="text-[11px] text-[#8A8A86]">{label}</p>
-      <p className="mt-1 text-xl font-semibold tracking-tight text-[#161616]">{value}</p>
+      <p className="text-[11px] text-subtle">{label}</p>
+      <p className="mt-1 text-xl font-semibold tracking-tight text-foreground">{value}</p>
       {change ? <Change value={change} invert={invert} /> : null}
-      {hint ? <p className="mt-0.5 text-[11px] text-[#8A8A86]">{hint}</p> : null}
+      {hint ? <p className="mt-0.5 text-[11px] text-subtle">{hint}</p> : null}
     </div>
   );
 }
@@ -792,14 +795,14 @@ function Usage({ label, used, limit, icon: Icon }: { label: string; used: number
   const over = limit !== null && used > limit;
   return (
     <div className="flex items-center gap-3">
-      <Icon className="size-4 shrink-0 text-[#8A8A86]" />
+      <Icon className="size-4 shrink-0 text-subtle" />
       <div className="min-w-0 flex-1">
         <div className="mb-1 flex items-center justify-between text-xs">
-          <span className="font-medium text-[#161616]">{label}</span>
-          <span className="text-[#8A8A86]">{limit === null ? used : `${used} / ${limit}`}</span>
+          <span className="font-medium text-foreground">{label}</span>
+          <span className="text-subtle">{limit === null ? used : `${used} / ${limit}`}</span>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-[#F1F1EE]">
-          <div className={`h-full rounded-full ${over ? 'bg-[#D9342B]' : 'bg-[#F5C400]'}`} style={{ width: `${Math.round(ratio * 100)}%` }} />
+        <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+          <div className={`h-full rounded-full ${over ? 'bg-destructive' : 'bg-primary'}`} style={{ width: `${Math.round(ratio * 100)}%` }} />
         </div>
       </div>
     </div>

@@ -60,26 +60,26 @@ export function FrontBoard({ user }: { user: AuthUser }) {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-[#161616]">{t('title')}</h1>
-          <p className="mt-1 text-sm text-[#696965]">{t('subtitle')}</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/tables" className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#E6E6E2] bg-white px-4 text-sm font-semibold text-[#161616]">
+          <Link href="/tables" className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground">
             <UtensilsCrossed className="size-4" />
             {tables.data ? t('tablesFree', { free: tableRows.filter((row) => row.status === 'AVAILABLE').length, total: tableRows.length }) : t('tables')}
           </Link>
-          <Link href="/orders" className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#E6E6E2] bg-white px-4 text-sm font-semibold text-[#161616]">
+          <Link href="/orders" className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground">
             <ClipboardList className="size-4" />{t('allOrders')}
           </Link>
-          <button type="button" onClick={newOrder} disabled={!slug} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#F5C400] px-4 text-sm font-semibold text-[#111111] disabled:opacity-50">
+          <button type="button" onClick={newOrder} disabled={!slug} className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50">
             <Plus className="size-4" />{t('newOrder')}
           </button>
         </div>
       </div>
 
-      <div className="flex gap-1 rounded-xl bg-[#F4F4F1] p-1 lg:hidden" role="tablist" aria-label={t('title')}>
+      <div className="flex gap-1 rounded-xl bg-muted p-1 lg:hidden" role="tablist" aria-label={t('title')}>
         {LANES.map((entry) => (
-          <button key={entry.key} type="button" role="tab" aria-selected={lane === entry.key} onClick={() => setLane(entry.key)} className={cn('flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold', lane === entry.key ? 'bg-[#F5C400] text-[#111111]' : 'text-[#5C5C58]')}>
+          <button key={entry.key} type="button" role="tab" aria-selected={lane === entry.key} onClick={() => setLane(entry.key)} className={cn('flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold', lane === entry.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>
             {t(`lanes.${entry.key}`)}<span className="rounded-full bg-black/5 px-1.5 text-xs">{byLane(entry.key).length}</span>
           </button>
         ))}
@@ -94,13 +94,13 @@ export function FrontBoard({ user }: { user: AuthUser }) {
           {LANES.map((entry) => {
             const rows = byLane(entry.key);
             return (
-              <section key={entry.key} className={cn('rounded-2xl border border-[#EEEEEC] bg-white lg:block', lane === entry.key ? 'block' : 'hidden')} aria-label={t(`lanes.${entry.key}`)}>
-                <h2 className="hidden items-center justify-between border-b border-[#F1F1EE] px-4 py-3 font-semibold text-[#161616] lg:flex">
+              <section key={entry.key} className={cn('rounded-2xl border border-border bg-card lg:block', lane === entry.key ? 'block' : 'hidden')} aria-label={t(`lanes.${entry.key}`)}>
+                <h2 className="hidden items-center justify-between border-b border-border px-4 py-3 font-semibold text-foreground lg:flex">
                   {t(`lanes.${entry.key}`)}
-                  <span className={cn('rounded-full px-2.5 py-0.5 text-xs', entry.key === 'new' && rows.length ? 'bg-[#F5C400] text-[#111111]' : 'bg-[#F1F1EE] text-[#5C5C58]')}>{rows.length}</span>
+                  <span className={cn('rounded-full px-2.5 py-0.5 text-xs', entry.key === 'new' && rows.length ? 'bg-primary text-primary-foreground' : 'bg-surface-2 text-muted-foreground')}>{rows.length}</span>
                 </h2>
                 <div className="space-y-2 p-3">
-                  {rows.length === 0 ? <p className="py-10 text-center text-sm text-[#8A8A86]">{t(`empty.${entry.key}`)}</p> : null}
+                  {rows.length === 0 ? <p className="py-10 text-center text-sm text-subtle">{t(`empty.${entry.key}`)}</p> : null}
                   {rows.map((order) => (
                     <OrderCard key={order.id} order={order} user={user} locale={locale} now={now} busy={save.isPending && save.variables?.order.id === order.id} onSave={(status, preparationMinutes) => save.mutate({ order, status, preparationMinutes })} />
                   ))}
@@ -124,25 +124,25 @@ function OrderCard({ order, user, locale, now, busy, onSave }: { order: Merchant
   const can = (status: OrderStatus) => canSetStatus(user, status, order.fulfillmentType);
 
   return (
-    <article className={cn('rounded-xl border p-3', order.status === 'PENDING' ? 'border-[#F5C400] bg-[#FFFBEA]' : 'border-[#EEEEEC]')}>
+    <article className={cn('rounded-xl border p-3', order.status === 'PENDING' ? 'border-primary bg-primary-soft' : 'border-border')}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-[#161616]"><bdi dir="ltr">#{order.number}</bdi></p>
-          <p className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-[#696965]">
+          <p className="truncate text-sm font-semibold text-foreground"><bdi dir="ltr">#{order.number}</bdi></p>
+          <p className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
             <Icon className="size-3.5 shrink-0" />
             <span className="truncate">{order.fulfillmentType === 'DINE_IN' && order.tableNumber ? t('table', { number: order.tableNumber }) : t(`type.${order.fulfillmentType}`)} · {order.customerName || '—'} · {t('itemsCount', { count })} · {formatMoney(order.pricing.total, locale)}</span>
           </p>
         </div>
-        <span className={cn('shrink-0 text-xs font-semibold tabular-nums', age >= 10 && order.status === 'PENDING' ? 'text-[#D9342B]' : 'text-[#8A8A86]')}>{age < 60 ? t('minutesAgo', { count: age }) : t('hoursAgo', { hours: Math.floor(age / 60), minutes: age % 60 })}</span>
+        <span className={cn('shrink-0 text-xs font-semibold tabular-nums', age >= 10 && order.status === 'PENDING' ? 'text-destructive' : 'text-subtle')}>{age < 60 ? t('minutesAgo', { count: age }) : t('hoursAgo', { hours: Math.floor(age / 60), minutes: age % 60 })}</span>
       </div>
-      <p className="mt-2 line-clamp-2 text-sm text-[#3A3A36]">{order.items.map((item) => `${item.quantity}× ${pickLocalized(item.name, locale)}`).join(', ')}</p>
+      <p className="mt-2 line-clamp-2 text-sm text-foreground">{order.items.map((item) => `${item.quantity}× ${pickLocalized(item.name, locale)}`).join(', ')}</p>
 
       {order.status === 'PENDING' && can('ACCEPTED') ? (
         <div className="mt-3 space-y-2">
-          <p className="text-xs font-semibold text-[#5C5C58]">{t('acceptWith')}</p>
+          <p className="text-xs font-semibold text-muted-foreground">{t('acceptWith')}</p>
           <div className="grid grid-cols-3 gap-2">
             {PREP_CHOICES.map((minutes) => (
-              <button key={minutes} type="button" disabled={busy} onClick={() => onSave('ACCEPTED', minutes)} className="h-11 rounded-xl bg-[#161616] text-sm font-semibold text-white disabled:opacity-60">
+              <button key={minutes} type="button" disabled={busy} onClick={() => onSave('ACCEPTED', minutes)} className="h-11 rounded-xl bg-secondary text-sm font-semibold text-secondary-foreground disabled:opacity-60">
                 {t('minutes', { count: minutes })}
               </button>
             ))}
@@ -150,20 +150,20 @@ function OrderCard({ order, user, locale, now, busy, onSave }: { order: Merchant
           {can('CANCELLED') ? (
             confirmReject ? (
               <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => setConfirmReject(false)} className="h-10 rounded-xl border border-[#E6E6E2] text-sm font-semibold">{t('keep')}</button>
-                <button type="button" disabled={busy} onClick={() => onSave('CANCELLED')} className="h-10 rounded-xl bg-[#D9342B] text-sm font-semibold text-white disabled:opacity-60">{t('confirmReject')}</button>
+                <button type="button" onClick={() => setConfirmReject(false)} className="h-10 rounded-xl border border-border text-sm font-semibold">{t('keep')}</button>
+                <button type="button" disabled={busy} onClick={() => onSave('CANCELLED')} className="h-10 rounded-xl bg-destructive text-sm font-semibold text-white disabled:opacity-60">{t('confirmReject')}</button>
               </div>
             ) : (
-              <button type="button" onClick={() => setConfirmReject(true)} className="h-10 w-full rounded-xl border border-[#F3C1BC] text-sm font-semibold text-[#D9342B]">{t('reject')}</button>
+              <button type="button" onClick={() => setConfirmReject(true)} className="h-10 w-full rounded-xl border border-destructive text-sm font-semibold text-destructive">{t('reject')}</button>
             )
           ) : null}
         </div>
       ) : order.status === 'READY_FOR_PICKUP' && order.fulfillmentType !== 'DELIVERY' && can('DELIVERED') ? (
-        <button type="button" disabled={busy} onClick={() => onSave('DELIVERED')} className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#16924A] text-sm font-semibold text-white disabled:opacity-60">
+        <button type="button" disabled={busy} onClick={() => onSave('DELIVERED')} className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-white disabled:opacity-60">
           {t(order.fulfillmentType === 'DINE_IN' ? 'served' : 'handOver')}<ArrowRight className="size-4 rtl:-scale-x-100" />
         </button>
       ) : (
-        <p className="mt-2 inline-flex rounded-full bg-[#F1F1EE] px-2.5 py-1 text-xs font-semibold text-[#5C5C58]">{statusText(statusKey(order.status))}</p>
+        <p className="mt-2 inline-flex rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold text-muted-foreground">{statusText(statusKey(order.status))}</p>
       )}
     </article>
   );

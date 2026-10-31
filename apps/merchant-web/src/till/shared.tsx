@@ -78,7 +78,7 @@ export function MethodPill({ method, className }: { method: BillMethod; classNam
   const t = useTranslations('till.methods');
   const Icon = methodIcon[method];
   return (
-    <span className={cn('inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#F0F0EC] px-2.5 py-1 text-xs font-semibold text-[#4A4A46]', className)}>
+    <span className={cn('inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold text-foreground', className)}>
       <Icon className="size-3.5" />{t(method)}
     </span>
   );

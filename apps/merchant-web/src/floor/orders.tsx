@@ -39,9 +39,9 @@ export default function FloorOrders() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">{t('title')}</h1>
-        <div className="ms-auto grid grid-cols-2 gap-1 rounded-xl bg-white p-1">
+        <div className="ms-auto grid grid-cols-2 gap-1 rounded-xl bg-card p-1">
           {([false, true] as const).map((value) => (
-            <button key={String(value)} type="button" aria-pressed={mine === value} onClick={() => setMine(value)} className={cn('h-9 rounded-lg px-3 text-sm font-semibold', mine === value ? 'bg-[#111111] text-white' : 'text-[#5C5C58]')}>
+            <button key={String(value)} type="button" aria-pressed={mine === value} onClick={() => setMine(value)} className={cn('h-9 rounded-lg px-3 text-sm font-semibold', mine === value ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground')}>
               {value ? t('mine') : t('all')}
             </button>
           ))}
@@ -54,9 +54,9 @@ export default function FloorOrders() {
           .sort((a, b) => (section.key === 'ready' ? (a.readyAt ?? a.createdAt).localeCompare(b.readyAt ?? b.createdAt) : a.createdAt.localeCompare(b.createdAt)));
         return (
           <section key={section.key}>
-            <h2 className="mb-2 flex items-center gap-2 px-1 text-sm font-semibold text-[#696965]">
+            <h2 className="mb-2 flex items-center gap-2 px-1 text-sm font-semibold text-muted-foreground">
               {t(`sections.${section.key}`)}
-              <span className="rounded-full bg-white px-2 py-0.5 text-xs tabular-nums text-[#161616]">{rows.length}</span>
+              <span className="rounded-full bg-card px-2 py-0.5 text-xs tabular-nums text-foreground">{rows.length}</span>
             </h2>
             {rows.length ? (
               <div className="grid gap-2 md:grid-cols-2">
@@ -64,7 +64,7 @@ export default function FloorOrders() {
                   <OrderCard key={order.id} order={order} now={now} open={expanded === order.id} onToggle={() => setExpanded((current) => (current === order.id ? null : order.id))} />
                 ))}
               </div>
-            ) : <p className="rounded-2xl bg-white px-4 py-4 text-sm text-[#8A8A86]">{t(`empty.${section.key}`)}</p>}
+            ) : <p className="rounded-2xl bg-card px-4 py-4 text-sm text-subtle">{t(`empty.${section.key}`)}</p>}
           </section>
         );
       })}

@@ -49,16 +49,16 @@ const methodMeta: Record<string, { label: string; icon: LucideIcon; color: strin
   CASH: { label: 'Cash on delivery', icon: Banknote, color: '#E4A321', pale: '#FFF6DE' },
   BANK_TRANSFER: { label: 'Bank transfer', icon: CircleDollarSign, color: '#7B61D1', pale: '#F1EDFF' },
   PAYPAL: { label: 'PayPal', icon: WalletCards, color: '#269A5F', pale: '#E9F8F0' },
-  APPLE_PAY: { label: 'Apple Pay', icon: Apple, color: '#161616', pale: '#F1F1EF' },
+  APPLE_PAY: { label: 'Apple Pay', icon: Apple, color: 'var(--foreground)', pale: '#F1F1EF' },
 };
 
 const statusStyles: Record<string, string> = {
-  CAPTURED: 'bg-[#E9F8F0] text-[#168A52]',
-  AUTHORIZED: 'bg-[#EAF2FF] text-[#3475CC]',
-  PENDING: 'bg-[#FFF5D8] text-[#A66B00]',
-  FAILED: 'bg-[#FDEBED] text-[#C53B48]',
-  REFUNDED: 'bg-[#F1EDFF] text-[#7352C3]',
-  PARTIALLY_REFUNDED: 'bg-[#FFF0E5] text-[#C36624]',
+  CAPTURED: 'bg-success-soft text-success',
+  AUTHORIZED: 'bg-info-soft text-info',
+  PENDING: 'bg-primary-soft text-warning',
+  FAILED: 'bg-destructive-soft text-destructive',
+  REFUNDED: 'bg-violet-soft text-violet',
+  PARTIALLY_REFUNDED: 'bg-primary-soft text-primary',
 };
 
 const tabs: { key: Tab; label: string }[] = [
@@ -130,16 +130,16 @@ export function PaymentsPage({ payments }: { payments: MerchantPayment[] }) {
   }
 
   return (
-    <div className="space-y-3 pb-4 text-[#161616]">
+    <div className="space-y-3 pb-4 text-foreground">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em]">Payments</h1>
-          <p className="mt-1 text-sm text-[#777773]">Track transactions, COD collections and settlements.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Track transactions, COD collections and settlements.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ActionButton icon={CalendarDays}>This month <ChevronDown className="size-3.5" /></ActionButton>
           <ActionButton icon={Download} onClick={exportReport}>Export report</ActionButton>
-          <button type="button" className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-[#161616] hover:bg-[#F1BB00]">
+          <button type="button" className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary">
             <Plus className="size-4" /> Record cash handover
           </button>
         </div>
@@ -156,15 +156,15 @@ export function PaymentsPage({ payments }: { payments: MerchantPayment[] }) {
 
       {canConfirmCash ? <CashDepositsCard /> : null}
 
-      <section className="overflow-hidden rounded-2xl border border-[#E8E8E5] bg-white">
-        <div className="overflow-x-auto border-b border-[#EEEEEB] px-3">
+      <section className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="overflow-x-auto border-b border-border px-3">
           <div className="flex min-w-max gap-1">
             {tabs.map((item) => (
               <button
                 key={item.key}
                 type="button"
                 onClick={() => setTab(item.key)}
-                className={`relative px-3 py-3 text-xs font-semibold ${tab === item.key ? 'text-[#161616]' : 'text-[#777773]'}`}
+                className={`relative px-3 py-3 text-xs font-semibold ${tab === item.key ? 'text-foreground' : 'text-muted-foreground'}`}
               >
                 {item.label}
                 {tab === item.key ? <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-primary" /> : null}
@@ -178,15 +178,15 @@ export function PaymentsPage({ payments }: { payments: MerchantPayment[] }) {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold">{tab === 'cash' ? 'Cash on delivery collections' : tab === 'refunds' ? 'Refund activity' : 'Payment transactions'}</h2>
-                <p className="mt-0.5 text-xs text-[#777773]">Monitor payment status, methods and references.</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Monitor payment status, methods and references.</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <label className="relative">
-                  <Search className="pointer-events-none absolute start-3 top-1/2 size-3.5 -translate-y-1/2 text-[#999995]" />
-                  <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search transactions" className="h-9 w-48 rounded-xl border border-[#E6E6E2] ps-8 pe-3 text-xs outline-none focus:ring-2 focus:ring-primary" />
+                  <Search className="pointer-events-none absolute start-3 top-1/2 size-3.5 -translate-y-1/2 text-subtle" />
+                  <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search transactions" className="h-9 w-48 rounded-xl border border-border ps-8 pe-3 text-xs outline-none focus:ring-2 focus:ring-primary" />
                 </label>
                 <label className="relative">
-                  <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-9 appearance-none rounded-xl border border-[#E6E6E2] bg-white ps-3 pe-8 text-xs font-medium outline-none">
+                  <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-9 appearance-none rounded-xl border border-border bg-card ps-3 pe-8 text-xs font-medium outline-none">
                     <option value="ALL">All statuses</option>
                     <option value="CAPTURED">Captured</option>
                     <option value="PENDING">Pending</option>
@@ -194,20 +194,20 @@ export function PaymentsPage({ payments }: { payments: MerchantPayment[] }) {
                     <option value="REFUNDED">Refunded</option>
                     <option value="FAILED">Failed</option>
                   </select>
-                  <ChevronDown className="pointer-events-none absolute end-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[#777773]" />
+                  <ChevronDown className="pointer-events-none absolute end-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 </label>
               </div>
             </div>
             <PaymentTable rows={visible.slice(0, 8)} currency={currency} locale={locale} />
           </div>
 
-          <aside className="space-y-3 border-t border-[#EEEEEB] bg-[#FCFCFB] p-3 xl:border-s xl:border-t-0">
-            <div className="rounded-xl border border-[#E8E8E5] bg-white p-3.5">
+          <aside className="space-y-3 border-t border-border bg-muted p-3 xl:border-s xl:border-t-0">
+            <div className="rounded-xl border border-border bg-card p-3.5">
               <div className="flex items-center justify-between">
-                <h3 className="flex items-center gap-1.5 text-sm font-semibold">Payment mix <Info className="size-3.5 text-[#999995]" /></h3>
-                <button type="button" className="text-[11px] font-semibold text-[#3377C5]">View details</button>
+                <h3 className="flex items-center gap-1.5 text-sm font-semibold">Payment mix <Info className="size-3.5 text-subtle" /></h3>
+                <button type="button" className="text-[11px] font-semibold text-info">View details</button>
               </div>
-              <p className="mt-0.5 text-xs text-[#777773]">Captured payments by method</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Captured payments by method</p>
               <div className="mt-4 flex items-center gap-5">
                 <PaymentDonut methods={methods} total={collected} currency={currency} />
                 <div className="min-w-0 flex-1 space-y-2">
@@ -221,14 +221,14 @@ export function PaymentsPage({ payments }: { payments: MerchantPayment[] }) {
                       </div>
                     );
                   })}
-                  {!methods.length ? <p className="text-xs text-[#8A8A86]">No captured payments yet.</p> : null}
+                  {!methods.length ? <p className="text-xs text-subtle">No captured payments yet.</p> : null}
                 </div>
               </div>
             </div>
-            <div className="rounded-xl border border-[#E8E8E5] bg-white p-3.5">
+            <div className="rounded-xl border border-border bg-card p-3.5">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Collection alerts</h3>
-                <span className="text-[11px] font-semibold text-[#3377C5]">View all</span>
+                <span className="text-[11px] font-semibold text-info">View all</span>
               </div>
               <AlertRow icon={pending > 0 ? Clock3 : Check} color={pending > 0 ? '#C98910' : '#168A52'} pale={pending > 0 ? '#FFF5D8' : '#E9F8F0'} title={pending > 0 ? 'Payments awaiting capture' : 'All payments are up to date'} detail={pending > 0 ? `${formatMoney(pending, currency, locale)} pending` : 'No pending collections'} />
               <AlertRow icon={fees > 0 ? AlertTriangle : Check} color={fees > collected * 0.05 ? '#CF3C49' : '#168A52'} pale={fees > collected * 0.05 ? '#FDEBED' : '#E9F8F0'} title="Gateway fee check" detail={`${formatMoney(fees, currency, locale)} in processing fees`} />
@@ -238,10 +238,10 @@ export function PaymentsPage({ payments }: { payments: MerchantPayment[] }) {
       </section>
 
       <section className="grid gap-3 xl:grid-cols-[1.05fr_1fr]">
-        <div className="rounded-2xl border border-[#E8E8E5] bg-white p-3.5">
+        <div className="rounded-2xl border border-border bg-card p-3.5">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="flex items-center gap-1.5 text-sm font-semibold">Payment method summary <Info className="size-3.5 text-[#999995]" /></h2>
-            <span className="text-[11px] font-semibold text-[#3377C5]">View transactions <ChevronRight className="inline size-3" /></span>
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold">Payment method summary <Info className="size-3.5 text-subtle" /></h2>
+            <span className="text-[11px] font-semibold text-info">View transactions <ChevronRight className="inline size-3" /></span>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {(methods.length ? methods : [['CARD', 0], ['BENEFIT_PAY', 0], ['CASH', 0]]).slice(0, 6).map(([method, value]) => (
@@ -249,10 +249,10 @@ export function PaymentsPage({ payments }: { payments: MerchantPayment[] }) {
             ))}
           </div>
         </div>
-        <div className="rounded-2xl border border-[#E8E8E5] bg-white p-3.5">
+        <div className="rounded-2xl border border-border bg-card p-3.5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold">Recent payments</h2>
-            <span className="text-[11px] font-semibold text-[#3377C5]">View all <ChevronRight className="inline size-3" /></span>
+            <span className="text-[11px] font-semibold text-info">View all <ChevronRight className="inline size-3" /></span>
           </div>
           <PaymentTable rows={normalized.slice(0, 4)} currency={currency} locale={locale} compact />
         </div>
@@ -262,18 +262,18 @@ export function PaymentsPage({ payments }: { payments: MerchantPayment[] }) {
 }
 
 function ActionButton({ icon: Icon, children, onClick }: { icon: LucideIcon; children: React.ReactNode; onClick?: () => void }) {
-  return <button type="button" onClick={onClick} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E5E5E1] bg-white px-3 text-sm font-semibold hover:bg-[#FAFAF8]"><Icon className="size-4" />{children}</button>;
+  return <button type="button" onClick={onClick} className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-semibold hover:bg-muted"><Icon className="size-4" />{children}</button>;
 }
 
 function Metric({ icon: Icon, label, value, currency, note, color, pale }: { icon: LucideIcon; label: string; value: number; currency: string; note: string; color: string; pale: string }) {
   return (
-    <article className="rounded-2xl border border-[#E8E8E5] bg-white p-3">
+    <article className="rounded-2xl border border-border bg-card p-3">
       <div className="flex items-start gap-2.5">
-        <span className="grid size-8 shrink-0 place-items-center rounded-xl" style={{ color, background: pale }}><Icon className="size-4" /></span>
+        <span className="grid size-8 shrink-0 place-items-center rounded-xl" style={{ color, background: `color-mix(in srgb, ${color} 14%, transparent)` }}><Icon className="size-4" /></span>
         <div className="min-w-0">
-          <p className="truncate text-[10px] font-medium text-[#777773]">{label}</p>
+          <p className="truncate text-[10px] font-medium text-muted-foreground">{label}</p>
           <p className="mt-0.5 truncate text-[13px] font-bold tracking-[-0.01em]">{formatMoney(value, currency)}</p>
-          <p className="mt-1 truncate text-[9px] text-[#8A8A86]">{note}</p>
+          <p className="mt-1 truncate text-[9px] text-subtle">{note}</p>
         </div>
       </div>
     </article>
@@ -282,14 +282,14 @@ function Metric({ icon: Icon, label, value, currency, note, color, pale }: { ico
 
 function PaymentTable({ rows, currency, locale, compact = false }: { rows: Array<MerchantPayment & { amountNumber: number; feeNumber: number }>; currency: string; locale: string; compact?: boolean }) {
   if (!rows.length) return (
-    <div className="grid min-h-44 place-items-center rounded-xl border border-dashed border-[#DEDEDA] bg-[#FCFCFB] p-5 text-center">
-      <div><ReceiptText className="mx-auto size-6 text-[#AAA9A4]" /><p className="mt-2 text-sm font-semibold">No payments found</p><p className="mt-1 text-xs text-[#777773]">Transactions will appear here when available.</p></div>
+    <div className="grid min-h-44 place-items-center rounded-xl border border-dashed border-border-strong bg-muted p-5 text-center">
+      <div><ReceiptText className="mx-auto size-6 text-subtle" /><p className="mt-2 text-sm font-semibold">No payments found</p><p className="mt-1 text-xs text-muted-foreground">Transactions will appear here when available.</p></div>
     </div>
   );
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] border-collapse text-start">
-        <thead><tr className="border-b border-[#EEEEEB] text-[9px] font-semibold uppercase tracking-wide text-[#858580]">
+        <thead><tr className="border-b border-border text-[9px] font-semibold uppercase tracking-wide text-subtle">
           <th className="px-2 py-2 text-start">Reference</th>
           {!compact ? <th className="px-2 py-2 text-start">Method</th> : null}
           <th className="px-2 py-2 text-start">Date</th>
@@ -302,13 +302,13 @@ function PaymentTable({ rows, currency, locale, compact = false }: { rows: Array
             const meta = getMethodMeta(payment.method);
             const MethodIcon = meta.icon;
             return (
-              <tr key={payment.id} className="border-b border-[#F0F0ED] last:border-0">
-                <td className="px-2 py-2.5"><p className="max-w-40 truncate text-[11px] font-semibold">{shortReference(payment)}</p><p className="mt-0.5 text-[9px] text-[#858580]">{payment.provider ?? 'Alliva payment'}</p></td>
-                {!compact ? <td className="px-2 py-2.5"><span className="inline-flex items-center gap-2 text-[10px] font-medium"><span className="grid size-6 place-items-center rounded-lg" style={{ color: meta.color, background: meta.pale }}><MethodIcon className="size-3.5" /></span>{meta.label}</span></td> : null}
-                <td className="whitespace-nowrap px-2 py-2.5 text-[10px] text-[#5F5F5B]">{formatDate(payment.createdAt, locale)}</td>
+              <tr key={payment.id} className="border-b border-border last:border-0">
+                <td className="px-2 py-2.5"><p className="max-w-40 truncate text-[11px] font-semibold">{shortReference(payment)}</p><p className="mt-0.5 text-[9px] text-subtle">{payment.provider ?? 'Alliva payment'}</p></td>
+                {!compact ? <td className="px-2 py-2.5"><span className="inline-flex items-center gap-2 text-[10px] font-medium"><span className="grid size-6 place-items-center rounded-lg" style={{ color: meta.color, background: `color-mix(in srgb, ${meta.color} 14%, transparent)` }}><MethodIcon className="size-3.5" /></span>{meta.label}</span></td> : null}
+                <td className="whitespace-nowrap px-2 py-2.5 text-[10px] text-muted-foreground">{formatDate(payment.createdAt, locale)}</td>
                 <td className="whitespace-nowrap px-2 py-2.5 text-end text-[10px] font-semibold">{formatMoney(payment.amountNumber, payment.currency ?? currency, locale)}</td>
                 <td className="px-2 py-2.5 text-center"><StatusBadge status={payment.status} /></td>
-                {!compact ? <td className="px-2 py-2.5"><button type="button" aria-label="Payment actions" className="grid size-6 place-items-center rounded-lg hover:bg-[#F3F3F0]"><MoreHorizontal className="size-3.5" /></button></td> : null}
+                {!compact ? <td className="px-2 py-2.5"><button type="button" aria-label="Payment actions" className="grid size-6 place-items-center rounded-lg hover:bg-muted"><MoreHorizontal className="size-3.5" /></button></td> : null}
               </tr>
             );
           })}
@@ -319,7 +319,7 @@ function PaymentTable({ rows, currency, locale, compact = false }: { rows: Array
 }
 
 function StatusBadge({ status = 'PENDING' }: { status?: string }) {
-  return <span className={`inline-flex rounded-full px-2 py-1 text-[8px] font-bold capitalize ${statusStyles[status] ?? 'bg-[#F1F1EF] text-[#666662]'}`}>{status.toLowerCase().replaceAll('_', ' ')}</span>;
+  return <span className={`inline-flex rounded-full px-2 py-1 text-[8px] font-bold capitalize ${statusStyles[status] ?? 'bg-surface-2 text-muted-foreground'}`}>{status.toLowerCase().replaceAll('_', ' ')}</span>;
 }
 
 function PaymentDonut({ methods, total, currency }: { methods: [string, number][]; total: number; currency: string }) {
@@ -331,8 +331,8 @@ function PaymentDonut({ methods, total, currency }: { methods: [string, number][
   });
   return (
     <div className="relative grid size-24 shrink-0 place-items-center rounded-full" style={{ background: methods.length ? `conic-gradient(${stops.join(',')})` : '#ECECE8' }}>
-      <div className="grid size-16 place-items-center rounded-full bg-white text-center">
-        <div><p className="text-[8px] text-[#858580]">{currency}</p><p className="text-xs font-bold">{compactNumber(total)}</p></div>
+      <div className="grid size-16 place-items-center rounded-full bg-card text-center">
+        <div><p className="text-[8px] text-subtle">{currency}</p><p className="text-xs font-bold">{compactNumber(total)}</p></div>
       </div>
     </div>
   );
@@ -340,10 +340,10 @@ function PaymentDonut({ methods, total, currency }: { methods: [string, number][
 
 function AlertRow({ icon: Icon, color, pale, title, detail }: { icon: LucideIcon; color: string; pale: string; title: string; detail: string }) {
   return (
-    <div className="mt-3 flex items-center gap-2.5 border-t border-[#F0F0ED] pt-3 first:border-0">
-      <span className="grid size-7 shrink-0 place-items-center rounded-full" style={{ color, background: pale }}><Icon className="size-3.5" /></span>
-      <div className="min-w-0 flex-1"><p className="truncate text-[10px] font-semibold">{title}</p><p className="mt-0.5 truncate text-[9px] text-[#858580]">{detail}</p></div>
-      <ChevronRight className="size-3.5 text-[#AAA9A4]" />
+    <div className="mt-3 flex items-center gap-2.5 border-t border-border pt-3 first:border-0">
+      <span className="grid size-7 shrink-0 place-items-center rounded-full" style={{ color, background: `color-mix(in srgb, ${color} 14%, transparent)` }}><Icon className="size-3.5" /></span>
+      <div className="min-w-0 flex-1"><p className="truncate text-[10px] font-semibold">{title}</p><p className="mt-0.5 truncate text-[9px] text-subtle">{detail}</p></div>
+      <ChevronRight className="size-3.5 text-subtle" />
     </div>
   );
 }
@@ -352,9 +352,9 @@ function MethodCard({ method, value, total, currency, locale }: { method: string
   const meta = getMethodMeta(method);
   const Icon = meta.icon;
   return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-[#EEEEEB] p-2.5">
-      <span className="grid size-8 shrink-0 place-items-center rounded-xl" style={{ color: meta.color, background: meta.pale }}><Icon className="size-4" /></span>
-      <div className="min-w-0"><p className="truncate text-[9px] text-[#777773]">{meta.label}</p><p className="truncate text-[11px] font-bold">{formatMoney(value, currency, locale)}</p><p className="text-[8px] text-[#8A8A86]">{percentage(value, total)}% of total</p></div>
+    <div className="flex items-center gap-2.5 rounded-xl border border-border p-2.5">
+      <span className="grid size-8 shrink-0 place-items-center rounded-xl" style={{ color: meta.color, background: `color-mix(in srgb, ${meta.color} 14%, transparent)` }}><Icon className="size-4" /></span>
+      <div className="min-w-0"><p className="truncate text-[9px] text-muted-foreground">{meta.label}</p><p className="truncate text-[11px] font-bold">{formatMoney(value, currency, locale)}</p><p className="text-[8px] text-subtle">{percentage(value, total)}% of total</p></div>
     </div>
   );
 }

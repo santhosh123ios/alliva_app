@@ -677,6 +677,11 @@
     }
   },
   "workspace": {
+    "openMenu": "فتح القائمة",
+    "closeMenu": "إغلاق القائمة",
+    "darkMode": "الوضع الداكن",
+    "lightMode": "الوضع الفاتح",
+    "switchLanguage": "English",
     "overview": "نظرة عامة",
     "management": "الإدارة",
     "insights": "الرؤى",

@@ -51,31 +51,31 @@ export default function FloorMenu() {
     <div className="space-y-3">
       <TargetBar />
 
-      <div className="sticky top-14 z-20 -mx-4 space-y-2 bg-[#F7F7F5]/95 px-4 pb-2 pt-1 backdrop-blur">
+      <div className="sticky top-14 z-20 -mx-4 space-y-2 bg-muted/95 px-4 pb-2 pt-1 backdrop-blur">
         <label className="relative flex items-center">
-          <Search className="pointer-events-none absolute start-3 size-4 text-[#8A8A86]" />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('search')} className="h-11 w-full rounded-xl border border-[#E6E6E2] bg-white pe-3 ps-9 text-sm outline-none focus:border-[#111111]" />
+          <Search className="pointer-events-none absolute start-3 size-4 text-subtle" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('search')} className="h-11 w-full rounded-xl border border-border bg-card pe-3 ps-9 text-sm outline-none focus:border-foreground" />
         </label>
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4">
-          <button type="button" aria-pressed={category === 'all'} onClick={() => setCategory('all')} className={cn('h-9 shrink-0 rounded-full px-4 text-sm font-semibold', category === 'all' ? 'bg-[#111111] text-white' : 'bg-white text-[#5C5C58]')}>{t('all')}</button>
+          <button type="button" aria-pressed={category === 'all'} onClick={() => setCategory('all')} className={cn('h-9 shrink-0 rounded-full px-4 text-sm font-semibold', category === 'all' ? 'bg-secondary text-secondary-foreground' : 'bg-card text-muted-foreground')}>{t('all')}</button>
           {menu.data.categories.map((row) => (
-            <button key={row.id} type="button" aria-pressed={category === row.id} onClick={() => setCategory(row.id)} className={cn('h-9 shrink-0 rounded-full px-4 text-sm font-semibold', category === row.id ? 'bg-[#111111] text-white' : 'bg-white text-[#5C5C58]')}>{text(row.name, locale)}</button>
+            <button key={row.id} type="button" aria-pressed={category === row.id} onClick={() => setCategory(row.id)} className={cn('h-9 shrink-0 rounded-full px-4 text-sm font-semibold', category === row.id ? 'bg-secondary text-secondary-foreground' : 'bg-card text-muted-foreground')}>{text(row.name, locale)}</button>
           ))}
         </div>
       </div>
 
       {categories.length ? categories.map((row) => (
         <section key={row.id}>
-          <h2 className="mb-2 px-1 text-sm font-semibold text-[#696965]">{text(row.name, locale)}</h2>
+          <h2 className="mb-2 px-1 text-sm font-semibold text-muted-foreground">{text(row.name, locale)}</h2>
           <div className="grid gap-2 sm:grid-cols-2">
             {row.products.map((product) => <ProductRow key={product.id} product={product} onAdd={() => quickAdd(product)} />)}
           </div>
         </section>
-      )) : <p className="py-10 text-center text-sm text-[#8A8A86]">{t('noMatch')}</p>}
+      )) : <p className="py-10 text-center text-sm text-subtle">{t('noMatch')}</p>}
 
       {draft.count ? (
         <div className="pointer-events-none fixed inset-x-0 bottom-[calc(max(0.7rem,env(safe-area-inset-bottom))+5.4rem)] z-40 px-3 lg:bottom-4">
-          <button type="button" onClick={() => setReviewing(true)} className="pointer-events-auto mx-auto flex h-12 w-full max-w-[520px] items-center gap-3 rounded-2xl bg-[#111111] px-4 text-sm font-semibold text-white shadow-[0_10px_28px_rgba(0,0,0,0.25)]">
+          <button type="button" onClick={() => setReviewing(true)} className="pointer-events-auto mx-auto flex h-12 w-full max-w-[520px] items-center gap-3 rounded-2xl bg-secondary px-4 text-sm font-semibold text-secondary-foreground shadow-lg">
             <ShoppingBag className="size-4" />
             <span className="flex-1 text-start">{t('review', { count: draft.count })}</span>
             <span className="tabular-nums">{money(draft.subtotal, locale)}</span>
@@ -146,13 +146,13 @@ function Sheet({ title, onClose, children, footer }: { title: string; onClose: (
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()} className="flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-white sm:rounded-3xl">
-        <header className="flex items-center gap-3 border-b border-[#F0F0EC] px-5 py-4">
+      <div role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()} className="flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card sm:rounded-3xl">
+        <header className="flex items-center gap-3 border-b border-border px-5 py-4">
           <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{title}</h2>
-          <button type="button" onClick={onClose} aria-label={t('close')} className="grid size-9 place-items-center rounded-full bg-[#F2F2EF]"><X className="size-4" /></button>
+          <button type="button" onClick={onClose} aria-label={t('close')} className="grid size-9 place-items-center rounded-full bg-surface-2"><X className="size-4" /></button>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
-        <footer className="border-t border-[#F0F0EC] px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">{footer}</footer>
+        <footer className="border-t border-border px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">{footer}</footer>
       </div>
     </div>
   );
@@ -161,7 +161,7 @@ function Sheet({ title, onClose, children, footer }: { title: string; onClose: (
 function Stepper({ value, onChange, min = 1 }: { value: number; onChange: (next: number) => void; min?: number }) {
   const t = useTranslations('floor.menu');
   return (
-    <div className="flex h-11 items-center rounded-xl border border-[#E6E6E2]">
+    <div className="flex h-11 items-center rounded-xl border border-border">
       <button type="button" aria-label={t('less')} onClick={() => onChange(Math.max(min, value - 1))} className="grid h-full w-11 place-items-center"><Minus className="size-4" /></button>
       <span className="w-8 text-center font-semibold tabular-nums">{value}</span>
       <button type="button" aria-label={t('more')} onClick={() => onChange(Math.min(50, value + 1))} className="grid h-full w-11 place-items-center"><Plus className="size-4" /></button>
@@ -219,7 +219,7 @@ function ProductSheet({ product, onClose }: { product: FloorMenuProduct; onClose
       footer={(
         <div className="flex items-center gap-3">
           <Stepper value={quantity} onChange={setQuantity} />
-          <button type="button" disabled={Boolean(missing)} onClick={add} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#FFC400] text-sm font-semibold text-[#111111] disabled:opacity-50">
+          <button type="button" disabled={Boolean(missing)} onClick={add} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50">
             {missing ? t('choose', { group: text(missing.name, locale) }) : t('addFor', { price: money(unit * quantity, locale) })}
           </button>
         </div>
@@ -231,8 +231,8 @@ function ProductSheet({ product, onClose }: { product: FloorMenuProduct; onClose
             <legend className="mb-2 text-sm font-semibold">{t('size')}</legend>
             <div className="grid gap-2">
               {variants.map((row) => (
-                <label key={row.id} className={cn('flex h-12 cursor-pointer items-center gap-3 rounded-xl border px-3', variantId === row.id ? 'border-[#111111] bg-[#FAFAF8]' : 'border-[#E6E6E2]')}>
-                  <input type="radio" name="variant" checked={variantId === row.id} onChange={() => setVariantId(row.id)} className="size-4 accent-[#111111]" />
+                <label key={row.id} className={cn('flex h-12 cursor-pointer items-center gap-3 rounded-xl border px-3', variantId === row.id ? 'border-foreground bg-muted' : 'border-border')}>
+                  <input type="radio" name="variant" checked={variantId === row.id} onChange={() => setVariantId(row.id)} className="size-4 accent-foreground" />
                   <span className="flex-1 text-sm font-medium">{text(row.name, locale)}</span>
                   <span className="text-sm tabular-nums">{money(row.price, locale)}</span>
                 </label>
@@ -244,12 +244,12 @@ function ProductSheet({ product, onClose }: { product: FloorMenuProduct; onClose
           <fieldset key={group.id}>
             <legend className="mb-2 flex items-baseline gap-2 text-sm font-semibold">
               {text(group.name, locale)}
-              <span className="text-xs font-normal text-[#696965]">{group.minSelect > 0 ? t('required', { count: group.minSelect }) : t('optional', { count: group.maxSelect })}</span>
+              <span className="text-xs font-normal text-muted-foreground">{group.minSelect > 0 ? t('required', { count: group.minSelect }) : t('optional', { count: group.maxSelect })}</span>
             </legend>
             <div className="grid gap-2">
               {group.addons.filter((addon) => addon.available).map((addon) => (
-                <label key={addon.id} className={cn('flex h-12 cursor-pointer items-center gap-3 rounded-xl border px-3', addons.includes(addon.id) ? 'border-[#111111] bg-[#FAFAF8]' : 'border-[#E6E6E2]')}>
-                  <input type={group.maxSelect === 1 ? 'radio' : 'checkbox'} name={group.id} checked={addons.includes(addon.id)} onChange={() => toggle(group.id, addon.id)} className="size-4 accent-[#111111]" />
+                <label key={addon.id} className={cn('flex h-12 cursor-pointer items-center gap-3 rounded-xl border px-3', addons.includes(addon.id) ? 'border-foreground bg-muted' : 'border-border')}>
+                  <input type={group.maxSelect === 1 ? 'radio' : 'checkbox'} name={group.id} checked={addons.includes(addon.id)} onChange={() => toggle(group.id, addon.id)} className="size-4 accent-foreground" />
                   <span className="flex-1 text-sm font-medium">{text(addon.name, locale)}</span>
                   {Number(addon.price) > 0 ? <span className="text-sm tabular-nums">+{money(addon.price, locale)}</span> : null}
                 </label>
@@ -259,7 +259,7 @@ function ProductSheet({ product, onClose }: { product: FloorMenuProduct; onClose
         ))}
         <label className="block">
           <span className="mb-2 flex items-center gap-1.5 text-sm font-semibold"><StickyNote className="size-4" />{t('note')}</span>
-          <input value={notes} maxLength={200} onChange={(event) => setNotes(event.target.value)} placeholder={t('notePlaceholder')} className="h-11 w-full rounded-xl border border-[#E6E6E2] px-3 text-sm outline-none focus:border-[#111111]" />
+          <input value={notes} maxLength={200} onChange={(event) => setNotes(event.target.value)} placeholder={t('notePlaceholder')} className="h-11 w-full rounded-xl border border-border px-3 text-sm outline-none focus:border-foreground" />
         </label>
       </div>
     </Sheet>

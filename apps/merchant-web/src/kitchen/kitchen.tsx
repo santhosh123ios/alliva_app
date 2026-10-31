@@ -108,14 +108,14 @@ function KitchenDisplay({ workspace }: { workspace: boolean }) {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#161614] text-white lg:h-dvh">
+    <div className="flex min-h-dvh flex-col bg-secondary text-white lg:h-dvh">
       <header className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2.5 sm:gap-3 sm:px-4">
         {workspace ? (
           <Link href="/dashboard" className="grid size-10 place-items-center rounded-xl bg-white/10 hover:bg-white/15" aria-label={t('backToWorkspace')}>
             <ArrowLeft className="size-5 rtl:-scale-x-100" />
           </Link>
         ) : null}
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#FFC400] text-[#111111]"><ChefHat className="size-5" /></span>
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"><ChefHat className="size-5" /></span>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-base font-semibold leading-tight">{t('title')}</h1>
           <p className="truncate text-xs text-white/60">{storeName ? pickLocalized(storeName, locale) : ' '}</p>
@@ -154,7 +154,7 @@ function KitchenDisplay({ workspace }: { workspace: boolean }) {
             role="tab"
             aria-selected={column === entry.key}
             onClick={() => setColumn(entry.key)}
-            className={cn('flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold', column === entry.key ? 'bg-[#FFC400] text-[#111111]' : 'bg-white/5 text-white/80')}
+            className={cn('flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold', column === entry.key ? 'bg-primary text-primary-foreground' : 'bg-white/5 text-white/80')}
           >
             {t(`columns.${entry.key}`)}
             <span className={cn('min-w-6 rounded-full px-1.5 text-xs', column === entry.key ? 'bg-black/10' : 'bg-white/10')}>{grouped[entry.key].length}</span>
@@ -169,7 +169,7 @@ function KitchenDisplay({ workspace }: { workspace: boolean }) {
           <div>
             <p className="font-semibold">{t('loadError')}</p>
             <p className="mt-1 text-sm text-white/60">{(board.error as Error).message}</p>
-            <button type="button" onClick={() => board.refetch()} className="mt-4 h-11 rounded-xl bg-white px-5 text-sm font-semibold text-[#111111]">{t('retry')}</button>
+            <button type="button" onClick={() => board.refetch()} className="mt-4 h-11 rounded-xl bg-card px-5 text-sm font-semibold text-foreground">{t('retry')}</button>
           </div>
         </div>
       ) : (
@@ -212,7 +212,7 @@ function TicketCard({ ticket, now, locale, storeName, busy, onMove }: { ticket: 
   const count = ticket.items.reduce((total, item) => total + item.quantity, 0);
 
   return (
-    <article className={cn('overflow-hidden rounded-2xl bg-white text-[#161616] shadow-lg', scheduled && 'opacity-70')}>
+    <article className={cn('overflow-hidden rounded-2xl bg-card text-foreground shadow-lg', scheduled && 'opacity-70')}>
       <div className={cn('flex items-center gap-3 px-4 py-2.5', urgencyTone[urgency])}>
         <bdi dir="ltr" className="min-w-0 truncate text-xl font-bold tabular-nums">#{ticket.number}</bdi>
         <span className="ms-auto inline-flex shrink-0 items-center gap-1 font-mono text-lg font-semibold tabular-nums" dir="ltr" title={t(`since.${ticket.status === 'READY_FOR_PICKUP' ? 'ready' : ticket.status === 'PREPARING' ? 'cooking' : 'waiting'}`)}>
@@ -220,21 +220,21 @@ function TicketCard({ ticket, now, locale, storeName, busy, onMove }: { ticket: 
         </span>
       </div>
       <div className="px-4 pb-3 pt-2">
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#696965]">
-          <span className="inline-flex items-center gap-1 text-sm font-semibold text-[#161616]">
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1 text-sm font-semibold text-foreground">
             <Icon className="size-4 shrink-0" />
             {ticket.fulfillmentType === 'DINE_IN' && ticket.tableNumber ? t('table', { number: ticket.tableNumber }) : t(`type.${ticket.fulfillmentType}`)}
           </span>
           <span>{ticket.customerName}</span>
           <span>{t('itemsCount', { count })}</span>
-          {ticket.scheduledFor ? <span className="font-semibold text-[#2F6FED]">{t('scheduledFor', { time: clock(new Date(ticket.scheduledFor).getTime(), locale) })}</span> : null}
-          {urgency === 'late' && ticket.status !== 'READY_FOR_PICKUP' ? <span className="font-semibold text-[#D9342B]">{t('late')}</span> : null}
+          {ticket.scheduledFor ? <span className="font-semibold text-info">{t('scheduledFor', { time: clock(new Date(ticket.scheduledFor).getTime(), locale) })}</span> : null}
+          {urgency === 'late' && ticket.status !== 'READY_FOR_PICKUP' ? <span className="font-semibold text-destructive">{t('late')}</span> : null}
           {ticket.status !== 'READY_FOR_PICKUP' && ticket.estimatedReadyAt ? <span>{t('dueAt', { time: clock(new Date(ticket.estimatedReadyAt).getTime(), locale) })}</span> : null}
         </p>
         {ticket.notes ? (
-          <p className="mt-2 flex gap-2 rounded-xl bg-[#FFF4D6] px-3 py-2 text-sm font-medium text-[#7A4E00]"><StickyNote className="mt-0.5 size-4 shrink-0" /><span className="min-w-0 break-words">{ticket.notes}</span></p>
+          <p className="mt-2 flex gap-2 rounded-xl bg-primary-soft px-3 py-2 text-sm font-medium text-warning"><StickyNote className="mt-0.5 size-4 shrink-0" /><span className="min-w-0 break-words">{ticket.notes}</span></p>
         ) : null}
-        <ul className="mt-2 divide-y divide-[#F0F0EC]">
+        <ul className="mt-2 divide-y divide-border">
           {ticket.items.map((item) => {
             const struck = done.has(item.id);
             return (
@@ -243,13 +243,13 @@ function TicketCard({ ticket, now, locale, storeName, busy, onMove }: { ticket: 
                   type="button"
                   aria-pressed={struck}
                   onClick={() => setDone((current) => { const next = new Set(current); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })}
-                  className={cn('flex w-full gap-3 py-2 text-start', struck && 'text-[#A3A39E] line-through')}
+                  className={cn('flex w-full gap-3 py-2 text-start', struck && 'text-subtle line-through')}
                 >
-                  <span className="grid h-7 min-w-7 place-items-center rounded-lg bg-[#F1F1EE] px-1.5 text-sm font-bold tabular-nums">{item.quantity}</span>
+                  <span className="grid h-7 min-w-7 place-items-center rounded-lg bg-surface-2 px-1.5 text-sm font-bold tabular-nums">{item.quantity}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-base font-semibold leading-snug">{pickLocalized(item.name, locale)}</span>
-                    {item.addons.length ? <span className="block text-sm text-[#5C5C58]">+ {item.addons.map((addon) => pickLocalized(addon, locale)).join(', ')}</span> : null}
-                    {item.notes ? <span className="mt-0.5 block text-sm font-semibold text-[#B45309]"><bdi>“{item.notes}”</bdi></span> : null}
+                    {item.addons.length ? <span className="block text-sm text-muted-foreground">+ {item.addons.map((addon) => pickLocalized(addon, locale)).join(', ')}</span> : null}
+                    {item.notes ? <span className="mt-0.5 block text-sm font-semibold text-warning"><bdi>“{item.notes}”</bdi></span> : null}
                   </span>
                 </button>
               </li>
@@ -257,15 +257,15 @@ function TicketCard({ ticket, now, locale, storeName, busy, onMove }: { ticket: 
           })}
         </ul>
         <div className="mt-3 flex gap-2">
-          <button type="button" onClick={() => void printTicket(ticket, storeName, locale, t)} className="grid size-12 shrink-0 place-items-center rounded-xl border border-[#E2E2DC] hover:bg-[#F7F7F5]" aria-label={t('print')} title={t('print')}>
+          <button type="button" onClick={() => void printTicket(ticket, storeName, locale, t)} className="grid size-12 shrink-0 place-items-center rounded-xl border border-border-strong hover:bg-muted" aria-label={t('print')} title={t('print')}>
             <Printer className="size-5" />
           </button>
           {ticket.status === 'ACCEPTED' ? (
-            <ActionButton busy={busy} onClick={() => onMove('PREPARING')} className="bg-[#2F6FED] text-white">{t('start')}</ActionButton>
+            <ActionButton busy={busy} onClick={() => onMove('PREPARING')} className="bg-info text-white">{t('start')}</ActionButton>
           ) : ticket.status === 'PREPARING' ? (
-            <ActionButton busy={busy} onClick={() => onMove('READY_FOR_PICKUP')} className="bg-[#16924A] text-white">{t('markReady')}</ActionButton>
+            <ActionButton busy={busy} onClick={() => onMove('READY_FOR_PICKUP')} className="bg-success text-white">{t('markReady')}</ActionButton>
           ) : (
-            <p className="flex h-12 flex-1 items-center justify-center rounded-xl bg-[#F1F1EE] px-3 text-center text-sm font-semibold text-[#5C5C58]">
+            <p className="flex h-12 flex-1 items-center justify-center rounded-xl bg-surface-2 px-3 text-center text-sm font-semibold text-muted-foreground">
               {t(ticket.fulfillmentType === 'DELIVERY' ? 'waitingRider' : ticket.fulfillmentType === 'DINE_IN' ? 'waitingServe' : 'waitingCollection')}
             </p>
           )}
@@ -293,10 +293,10 @@ function HeaderButton({ onClick, label, active, children }: { onClick: () => voi
 
 type Urgency = 'calm' | 'soon' | 'late' | 'ready';
 const urgencyTone: Record<Urgency, string> = {
-  calm: 'bg-[#E7F0FF] text-[#1D4ED8]',
-  soon: 'bg-[#FFF4D6] text-[#9A6200]',
-  late: 'bg-[#D9342B] text-white',
-  ready: 'bg-[#E7F8EE] text-[#16924A]',
+  calm: 'bg-info-soft text-info',
+  soon: 'bg-primary-soft text-warning',
+  late: 'bg-destructive text-white',
+  ready: 'bg-success-soft text-success',
 };
 
 /** Red once the promised ready time has passed, amber in the last five minutes. */

@@ -30,15 +30,15 @@ type Range = 'today' | 'yesterday' | 'week' | 'all';
 type Kind = 'all' | FulfillmentType;
 
 const statusTone: Record<OrderStatus, string> = {
-  PENDING: 'bg-[#FFF4D6] text-[#C47D00]',
-  ACCEPTED: 'bg-[#FFF4D6] text-[#C47D00]',
-  PREPARING: 'bg-[#E7F0FF] text-[#2F6FED]',
-  READY_FOR_PICKUP: 'bg-[#E7F8EE] text-[#16924A]',
-  ASSIGNED_TO_DRIVER: 'bg-[#E7F0FF] text-[#2F6FED]',
-  OUT_FOR_DELIVERY: 'bg-[#F3E8FF] text-[#7C3AED]',
-  DELIVERED: 'bg-[#E7F8EE] text-[#16924A]',
-  CANCELLED: 'bg-[#FDECEA] text-[#D9342B]',
-  REFUNDED: 'bg-[#F1F1EE] text-[#696965]',
+  PENDING: 'bg-primary-soft text-warning',
+  ACCEPTED: 'bg-primary-soft text-warning',
+  PREPARING: 'bg-info-soft text-info',
+  READY_FOR_PICKUP: 'bg-success-soft text-success',
+  ASSIGNED_TO_DRIVER: 'bg-info-soft text-info',
+  OUT_FOR_DELIVERY: 'bg-violet-soft text-violet',
+  DELIVERED: 'bg-success-soft text-success',
+  CANCELLED: 'bg-destructive-soft text-destructive',
+  REFUNDED: 'bg-surface-2 text-muted-foreground',
 };
 
 const rank: Record<OrderStatus, number> = {
@@ -124,14 +124,14 @@ export function OrdersPage({ orders }: { orders: MerchantOrder[] }) {
   return (
     <div className="flex flex-col gap-4 md:h-[calc(100dvh-4rem-3rem)] md:overflow-hidden">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <section className="inline-grid w-fit grid-cols-2 overflow-hidden rounded-xl border border-[#EEEEEC] bg-white shadow-[0_4px_16px_rgba(17,17,17,0.04)] sm:grid-cols-4">
+        <section className="inline-grid w-fit grid-cols-2 overflow-hidden rounded-xl border border-border bg-card shadow-xs sm:grid-cols-4">
           <Stat label={t('new')} value={counts.new} icon={ClipboardList} />
           <Stat label={t('preparing')} value={counts.preparing} icon={UtensilsCrossed} />
           <Stat label={t('ready')} value={counts.ready} icon={ShoppingBag} />
           <Stat label={t('outForDelivery')} value={counts.delivery} icon={Truck} />
         </section>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#E6E6E2] bg-white px-4 text-sm font-semibold text-[#161616]" onClick={exportCsv}>
+          <button type="button" className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground" onClick={exportCsv}>
             <Download className="size-4" /> {t('export')}
           </button>
           <Button type="button" variant="yellow" className="h-11 rounded-xl px-4" onClick={createOrder}>
@@ -141,9 +141,9 @@ export function OrdersPage({ orders }: { orders: MerchantOrder[] }) {
       </div>
 
       <div className={`flex min-h-0 flex-1 flex-col gap-4 overflow-hidden ${selected ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_360px] xl:grid-rows-[minmax(0,1fr)]' : ''}`}>
-        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#EEEEEC] bg-white shadow-[0_8px_24px_rgba(17,17,17,0.04)]">
-          <div className="border-b border-[#EEEEEC] px-3 py-3">
-            <div role="tablist" aria-label={t('all')} className="flex gap-1 overflow-x-auto rounded-xl bg-[#F4F4F1] p-1">
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
+          <div className="border-b border-border px-3 py-3">
+            <div role="tablist" aria-label={t('all')} className="flex gap-1 overflow-x-auto rounded-xl bg-muted p-1">
               {(['all', 'new', 'preparing', 'ready', 'delivery', 'completed'] as const).map((key) => {
                 const active = tab === key;
                 return (
@@ -153,7 +153,7 @@ export function OrdersPage({ orders }: { orders: MerchantOrder[] }) {
                     role="tab"
                     aria-selected={active}
                     onClick={() => setTab(key)}
-                    className={`h-9 min-w-fit flex-1 shrink-0 rounded-lg px-3 text-sm font-semibold ${active ? 'bg-[#F5C400] text-[#111111]' : 'text-[#5C5C58] hover:bg-white/80 hover:text-[#161616]'}`}
+                    className={`h-9 min-w-fit flex-1 shrink-0 rounded-lg px-3 text-sm font-semibold ${active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-white/80 hover:text-primary-foreground'}`}
                   >
                     {t(key)}
                   </button>
@@ -161,10 +161,10 @@ export function OrdersPage({ orders }: { orders: MerchantOrder[] }) {
               })}
             </div>
           </div>
-          <div className="flex flex-col gap-2 border-b border-[#F4F4F1] px-4 py-3 lg:flex-row lg:items-center">
+          <div className="flex flex-col gap-2 border-b border-border px-4 py-3 lg:flex-row lg:items-center">
             <label className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[#8A8A86]" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('search')} className="h-11 w-full rounded-xl border border-[#E6E6E2] bg-white ps-9 pe-3 text-sm outline-none focus:ring-2 focus:ring-[#FFC400]" />
+              <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('search')} className="h-11 w-full rounded-xl border border-border bg-card ps-9 pe-3 text-sm outline-none focus:ring-2 focus:ring-primary" />
             </label>
             <FilterSelect label={t('allTypes')} value={kind} onChange={(value) => setKind(value as Kind)}>
               <option value="all">{t('allTypes')}</option>
@@ -172,7 +172,7 @@ export function OrdersPage({ orders }: { orders: MerchantOrder[] }) {
               <option value="TAKEAWAY">{t('pickupType')}</option>
               <option value="DINE_IN">{t('dineIn')}</option>
             </FilterSelect>
-            <FilterSelect label={t('today')} value={range} onChange={(value) => setRange(value as Range)} icon={<Calendar className="pointer-events-none absolute start-3 size-4 text-[#8A8A86]" />}>
+            <FilterSelect label={t('today')} value={range} onChange={(value) => setRange(value as Range)} icon={<Calendar className="pointer-events-none absolute start-3 size-4 text-subtle" />}>
               <option value="today">{t('today')}</option>
               <option value="yesterday">{t('yesterday')}</option>
               <option value="week">{t('last7')}</option>
@@ -180,10 +180,10 @@ export function OrdersPage({ orders }: { orders: MerchantOrder[] }) {
             </FilterSelect>
           </div>
           {orders.length === 0 ? <div className="p-6"><EmptyState title={t('none')} body={t('noneBody')} /></div> : null}
-          {orders.length > 0 && visible.length === 0 ? <p className="px-5 py-8 text-sm font-medium text-[#8A8A86]">{t('noMatch')}</p> : null}
+          {orders.length > 0 && visible.length === 0 ? <p className="px-5 py-8 text-sm font-medium text-subtle">{t('noMatch')}</p> : null}
           {visible.length > 0 ? (
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="sticky top-0 z-10 flex items-center gap-4 border-b border-[#EEEEEC] bg-[#FAFAF8] px-4 py-2.5 text-[11px] font-semibold tracking-wide text-[#8A8A86]">
+              <div className="sticky top-0 z-10 flex items-center gap-4 border-b border-border bg-muted px-4 py-2.5 text-[11px] font-semibold tracking-wide text-subtle">
                 <span className="w-[7.75rem] shrink-0">{t('number')}</span>
                 <span className="min-w-0 flex-1">{t('customer')}</span>
                 <span className="w-[7.25rem] shrink-0 text-end">{t('amount')}</span>
@@ -200,25 +200,25 @@ export function OrdersPage({ orders }: { orders: MerchantOrder[] }) {
                       key={order.id}
                       type="button"
                       onClick={() => setSelectedId(order.id)}
-                      className={`flex w-full items-center gap-4 border-b border-[#F3F3F0] px-4 py-3 text-start last:border-0 ${active ? 'bg-[#FFF8D8]' : 'hover:bg-[#F7F7F5]'}`}
+                      className={`flex w-full items-center gap-4 border-b border-border px-4 py-3 text-start last:border-0 ${active ? 'bg-primary-soft' : 'hover:bg-muted'}`}
                     >
                       <span className="w-[7.75rem] shrink-0">
-                        <span className="block truncate text-sm font-semibold tabular-nums text-[#161616]">#{order.number}</span>
-                        <span className="mt-0.5 block text-xs tabular-nums text-[#8A8A86]">{clock(order.createdAt, locale)}</span>
+                        <span className="block truncate text-sm font-semibold tabular-nums text-foreground">#{order.number}</span>
+                        <span className="mt-0.5 block text-xs tabular-nums text-subtle">{clock(order.createdAt, locale)}</span>
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium text-[#161616]">{party(order) || '—'}</span>
+                          <span className="truncate text-sm font-medium text-foreground">{party(order) || '—'}</span>
                           <span className="sm:hidden"><StatusPill status={order.status} label={t(statusKey(order.status))} /></span>
                         </span>
-                        <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-[#8A8A86]">
+                        <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-subtle">
                           <Icon className="size-3.5 shrink-0" />
                           <span className="truncate">{t(typeKey(order.fulfillmentType))} · {t('itemsCount', { count })}</span>
                         </span>
                       </span>
-                      <span className="w-[7.25rem] shrink-0 text-end text-sm font-semibold tabular-nums text-[#161616]">{formatMoney(order.pricing.total, locale)}</span>
+                      <span className="w-[7.25rem] shrink-0 text-end text-sm font-semibold tabular-nums text-foreground">{formatMoney(order.pricing.total, locale)}</span>
                       <span className="hidden w-[9.25rem] shrink-0 sm:block"><StatusPill status={order.status} label={t(statusKey(order.status))} /></span>
-                      <ChevronRight className="size-4 shrink-0 text-[#8A8A86] rtl:-scale-x-100" />
+                      <ChevronRight className="size-4 shrink-0 text-subtle rtl:-scale-x-100" />
                     </button>
                   );
                 })}
@@ -276,12 +276,12 @@ function OrderPanel({ order, locale, onClose, onChanged }: { order: MerchantOrde
   return (
     <div className="min-h-0 xl:h-full xl:overflow-hidden">
       <button type="button" className="fixed inset-0 z-30 bg-black/30 xl:hidden" aria-label={t('close')} onClick={onClose} />
-      <aside className="fixed inset-y-0 end-0 z-40 flex w-[min(100%,24rem)] flex-col overflow-hidden border-s border-[#EEEEEC] bg-white shadow-xl xl:static xl:z-0 xl:h-full xl:w-auto xl:rounded-2xl xl:border xl:shadow-[0_8px_24px_rgba(17,17,17,0.04)]">
+      <aside className="fixed inset-y-0 end-0 z-40 flex w-[min(100%,24rem)] flex-col overflow-hidden border-s border-border bg-card shadow-xl xl:static xl:z-0 xl:h-full xl:w-auto xl:rounded-2xl xl:border xl:shadow-xs">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
-          <h2 className="text-xl font-semibold tracking-tight text-[#161616]">{t('order', { number: order.number })}</h2>
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">{t('order', { number: order.number })}</h2>
           <div className="flex items-center gap-2">
             <StatusPill status={order.status} label={t(statusKey(order.status))} />
-            <button type="button" className="grid size-8 place-items-center rounded-full hover:bg-[#F7F7F5] xl:hidden" aria-label={t('close')} onClick={onClose}>
+            <button type="button" className="grid size-8 place-items-center rounded-full hover:bg-muted xl:hidden" aria-label={t('close')} onClick={onClose}>
               <X className="size-4" />
             </button>
           </div>
@@ -295,29 +295,29 @@ function OrderPanel({ order, locale, onClose, onChanged }: { order: MerchantOrde
           {order.fulfillmentType === 'DELIVERY' && ['PREPARING', 'READY_FOR_PICKUP', 'ASSIGNED_TO_DRIVER'].includes(order.status) ? (
             <div className="mt-4"><PickupTicketButton orderId={order.id} number={order.number} /></div>
           ) : null}
-          <div className="mt-5 border-t border-[#EEEEEC] pt-4">
-            <h3 className="font-semibold text-[#161616]">{t('itemsTitle')}</h3>
+          <div className="mt-5 border-t border-border pt-4">
+            <h3 className="font-semibold text-foreground">{t('itemsTitle')}</h3>
             <ul className="mt-3 space-y-2 text-sm">
               {order.items.map((item, index) => (
                 <li key={`${item.name.en ?? ''}-${index}`} className="flex items-start justify-between gap-3">
-                  <span className="text-[#5C5C58]">{t('itemLine', { count: item.quantity, name: pickLocalized(item.name, locale) })}</span>
-                  <span className="shrink-0 font-medium text-[#161616]">{formatMoney(item.lineTotal, locale)}</span>
+                  <span className="text-muted-foreground">{t('itemLine', { count: item.quantity, name: pickLocalized(item.name, locale) })}</span>
+                  <span className="shrink-0 font-medium text-foreground">{formatMoney(item.lineTotal, locale)}</span>
                 </li>
               ))}
             </ul>
-            <dl className="mt-4 space-y-2 border-t border-[#EEEEEC] pt-3 text-sm">
-              <div className="flex justify-between text-[#5C5C58]"><dt>{t('subtotal')}</dt><dd>{formatMoney(order.pricing.subtotal, locale)}</dd></div>
-              {order.fulfillmentType === 'DELIVERY' ? <div className="flex justify-between text-[#5C5C58]"><dt>{t('deliveryFee')}</dt><dd>{formatMoney(order.pricing.deliveryFee, locale)}</dd></div> : null}
-              <div className="flex justify-between rounded-xl bg-[#FFF8D8] px-3 py-2 font-semibold text-[#161616]"><dt>{t('total')}</dt><dd>{formatMoney(order.pricing.total, locale)}</dd></div>
+            <dl className="mt-4 space-y-2 border-t border-border pt-3 text-sm">
+              <div className="flex justify-between text-muted-foreground"><dt>{t('subtotal')}</dt><dd>{formatMoney(order.pricing.subtotal, locale)}</dd></div>
+              {order.fulfillmentType === 'DELIVERY' ? <div className="flex justify-between text-muted-foreground"><dt>{t('deliveryFee')}</dt><dd>{formatMoney(order.pricing.deliveryFee, locale)}</dd></div> : null}
+              <div className="flex justify-between rounded-xl bg-primary-soft px-3 py-2 font-semibold text-foreground"><dt>{t('total')}</dt><dd>{formatMoney(order.pricing.total, locale)}</dd></div>
             </dl>
           </div>
-          <div className="mt-4 flex items-center gap-2 border-t border-[#EEEEEC] pt-4 text-sm">
-            <Banknote className="size-4 text-[#8A8A86]" />
-            <span className="text-[#8A8A86]">{t('payment')}</span>
-            <span className="ms-auto font-medium text-[#161616]">{t(paymentKey(order.paymentMethod))}</span>
+          <div className="mt-4 flex items-center gap-2 border-t border-border pt-4 text-sm">
+            <Banknote className="size-4 text-subtle" />
+            <span className="text-subtle">{t('payment')}</span>
+            <span className="ms-auto font-medium text-foreground">{t(paymentKey(order.paymentMethod))}</span>
           </div>
-          <div className="mt-4 border-t border-[#EEEEEC] pt-4">
-            <h3 className="font-semibold text-[#161616]">{t('timeline')}</h3>
+          <div className="mt-4 border-t border-border pt-4">
+            <h3 className="font-semibold text-foreground">{t('timeline')}</h3>
             <ol className="mt-4">
               {steps.map((step, index) => {
                 const reached = step.done;
@@ -325,12 +325,12 @@ function OrderPanel({ order, locale, onClose, onChanged }: { order: MerchantOrde
                 return (
                   <li key={step.key} className="flex gap-3">
                     <span className="flex flex-col items-center">
-                      <span className={`size-3 rounded-full ${current ? 'bg-[#F5C400] ring-4 ring-[#FFF4D6]' : reached ? 'bg-[#161616]' : 'border border-[#D0D0CC] bg-white'}`} />
-                      {index < steps.length - 1 ? <span className="my-1 w-px flex-1 bg-[#E6E6E2]" /> : null}
+                      <span className={`size-3 rounded-full ${current ? 'bg-primary ring-4 ring-primary/40' : reached ? 'bg-secondary' : 'border border-border-strong bg-card'}`} />
+                      {index < steps.length - 1 ? <span className="my-1 w-px flex-1 bg-surface-2" /> : null}
                     </span>
-                    <span className={`flex min-h-8 flex-1 items-start justify-between gap-3 pb-4 text-sm ${reached ? 'text-[#161616]' : 'text-[#8A8A86]'}`}>
+                    <span className={`flex min-h-8 flex-1 items-start justify-between gap-3 pb-4 text-sm ${reached ? 'text-foreground' : 'text-subtle'}`}>
                       <span className="font-medium">{t(step.key)}</span>
-                      {step.at ? <span className="text-[#8A8A86]">{clock(step.at, locale)}</span> : null}
+                      {step.at ? <span className="text-subtle">{clock(step.at, locale)}</span> : null}
                     </span>
                   </li>
                 );
@@ -339,11 +339,11 @@ function OrderPanel({ order, locale, onClose, onChanged }: { order: MerchantOrde
           </div>
         </div>
         {next || canReject ? (
-          <div className="border-t border-[#EEEEEC] px-5 py-4">
-            {error ? <p className="mb-3 text-sm font-medium text-[#B42318]">{error}</p> : null}
+          <div className="border-t border-border px-5 py-4">
+            {error ? <p className="mb-3 text-sm font-medium text-destructive">{error}</p> : null}
             <div className={`grid gap-2 ${next && canReject ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {canReject ? (
-                <Button type="button" variant="outline" className="h-11 rounded-xl border-[#F3C1BC] text-[#D9342B] hover:bg-[#fdecea]" loading={save.isPending} onClick={() => save.mutate({ status: 'CANCELLED', cancellationReason: t('rejected') })}>
+                <Button type="button" variant="outline" className="h-11 rounded-xl border-destructive text-destructive hover:bg-destructive-soft" loading={save.isPending} onClick={() => save.mutate({ status: 'CANCELLED', cancellationReason: t('rejected') })}>
                   {t('reject')}
                 </Button>
               ) : null}
@@ -353,7 +353,7 @@ function OrderPanel({ order, locale, onClose, onChanged }: { order: MerchantOrde
                 </Button>
               ) : null}
             </div>
-            {next?.label === 'accept' ? <p className="mt-2 text-center text-xs text-[#8A8A86]">{t('acceptHint')}</p> : null}
+            {next?.label === 'accept' ? <p className="mt-2 text-center text-xs text-subtle">{t('acceptHint')}</p> : null}
           </div>
         ) : null}
       </aside>
@@ -363,13 +363,13 @@ function OrderPanel({ order, locale, onClose, onChanged }: { order: MerchantOrde
 
 function Stat({ label, value, icon: Icon }: { label: string; value: number; icon: LucideIcon }) {
   return (
-    <div className="flex items-center gap-2 border-[#EEEEEC] px-2.5 py-1.5 odd:border-e even:border-b sm:border-b-0 sm:border-e sm:last:border-e-0">
-      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-[#FFF6D4] text-[#161616]">
+    <div className="flex items-center gap-2 border-border px-2.5 py-1.5 odd:border-e even:border-b sm:border-b-0 sm:border-e sm:last:border-e-0">
+      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary-soft text-foreground">
         <Icon className="size-3.5" />
       </span>
       <div className="leading-tight">
-        <p className="text-[10px] text-[#8A8A86]">{label}</p>
-        <p className="text-sm font-semibold text-[#161616]">{value}</p>
+        <p className="text-[10px] text-subtle">{label}</p>
+        <p className="text-sm font-semibold text-foreground">{value}</p>
       </div>
     </div>
   );
@@ -380,10 +380,10 @@ function FilterSelect({ label, value, onChange, icon, children }: { label: strin
     <label className="relative inline-flex h-11 w-full items-center lg:w-44">
       <span className="sr-only">{label}</span>
       {icon}
-      <select value={value} onChange={(event) => onChange(event.target.value)} className={`h-11 w-full appearance-none rounded-xl border border-[#E6E6E2] bg-white pe-8 text-sm font-medium text-[#161616] outline-none ${icon ? 'ps-9' : 'ps-3'}`}>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className={`h-11 w-full appearance-none rounded-xl border border-border bg-card pe-8 text-sm font-medium text-foreground outline-none ${icon ? 'ps-9' : 'ps-3'}`}>
         {children}
       </select>
-      <ChevronDown className="pointer-events-none absolute end-3 size-4 text-[#8A8A86]" />
+      <ChevronDown className="pointer-events-none absolute end-3 size-4 text-subtle" />
     </label>
   );
 }
@@ -395,9 +395,9 @@ function StatusPill({ status, label }: { status: OrderStatus; label: string }) {
 function Meta({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
     <li className="flex items-start gap-3">
-      <Icon className="mt-0.5 size-4 shrink-0 text-[#8A8A86]" />
-      <span className="text-[#8A8A86]">{label}</span>
-      <span className="ms-auto text-end font-medium text-[#161616]">{value}</span>
+      <Icon className="mt-0.5 size-4 shrink-0 text-subtle" />
+      <span className="text-subtle">{label}</span>
+      <span className="ms-auto text-end font-medium text-foreground">{value}</span>
     </li>
   );
 }

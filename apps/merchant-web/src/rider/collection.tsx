@@ -32,7 +32,7 @@ export default function RiderCollection() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-3xl bg-[#111111] p-5 text-white">
+      <section className="rounded-3xl bg-secondary p-5 text-secondary-foreground">
         <p className="text-sm text-white/70">{t('inHand')}</p>
         <p className="mt-1 text-3xl font-bold tabular-nums">{money(view.cashInHand, locale)}</p>
         <p className="mt-1 text-xs text-white/60">{t('inHandHint', { count: view.inHand.length })}</p>
@@ -50,15 +50,15 @@ export default function RiderCollection() {
           type="button"
           disabled={!hasCash}
           onClick={() => setDepositing(true)}
-          className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#FFC400] text-sm font-semibold text-[#111111] disabled:opacity-40"
+          className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-40"
         >
           <ArrowDownToLine className="size-4" />{t('depositCta')}
         </button>
       </section>
 
-      <div className="grid grid-cols-2 gap-1 rounded-xl bg-[#ECECE8] p-1" role="tablist">
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1" role="tablist">
         {(['transactions', 'deposits'] as const).map((value) => (
-          <button key={value} type="button" role="tab" aria-selected={tab === value} onClick={() => setTab(value)} className={cn('h-10 rounded-lg text-sm font-semibold', tab === value ? 'bg-white shadow-sm' : 'text-[#696965]')}>
+          <button key={value} type="button" role="tab" aria-selected={tab === value} onClick={() => setTab(value)} className={cn('h-10 rounded-lg text-sm font-semibold', tab === value ? 'bg-card shadow-sm' : 'text-muted-foreground')}>
             {t(`tabs.${value}`)}
           </button>
         ))}
@@ -75,20 +75,20 @@ function Transactions({ view }: { view: RiderCollections }) {
   const t = useTranslations('rider.collection');
   const tr = useTranslations('rider');
   const locale = useRiderLocale();
-  if (!view.transactions.length) return <div className="rounded-3xl bg-white"><EmptyState title={t('noTransactions')} body={t('noTransactionsBody')} /></div>;
+  if (!view.transactions.length) return <div className="rounded-3xl bg-card"><EmptyState title={t('noTransactions')} body={t('noTransactionsBody')} /></div>;
   return (
-    <ul className="divide-y divide-[#F0F0EC] overflow-hidden rounded-3xl bg-white">
+    <ul className="divide-y divide-border overflow-hidden rounded-3xl bg-card">
       {view.transactions.map((row) => {
         const cash = row.method === 'CASH';
         return (
           <li key={row.orderId}>
             <Link href={`/rider/orders/${row.orderId}`} className="flex items-center gap-3 px-4 py-3">
-              <span className={cn('grid size-10 shrink-0 place-items-center rounded-2xl', cash ? 'bg-[#FFF4D6] text-[#8A5A00]' : 'bg-[#E7F0FF] text-[#2F6FED]')}>
+              <span className={cn('grid size-10 shrink-0 place-items-center rounded-2xl', cash ? 'bg-primary-soft text-warning' : 'bg-info-soft text-info')}>
                 {cash ? <Banknote className="size-5" /> : <CreditCard className="size-5" />}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold"><bdi dir="ltr">#{row.orderNumber}</bdi></span>
-                <span className="block text-xs text-[#696965]">{tr(`payment.${row.method ?? 'UNKNOWN'}`)} · {dateTimeLabel(row.deliveredAt, locale)}</span>
+                <span className="block text-xs text-muted-foreground">{tr(`payment.${row.method ?? 'UNKNOWN'}`)} · {dateTimeLabel(row.deliveredAt, locale)}</span>
               </span>
               <span className="text-end">
                 <span className="block text-sm font-semibold tabular-nums">{money(cash ? row.collected ?? row.total : row.total, locale)}</span>
@@ -103,32 +103,32 @@ function Transactions({ view }: { view: RiderCollections }) {
 }
 
 function statusTone(status: string) {
-  if (status === 'CONFIRMED') return 'text-[#168A52]';
-  if (status === 'DEPOSIT_PENDING') return 'text-[#2F6FED]';
-  if (status === 'DISPUTED') return 'text-[#B42318]';
-  return 'text-[#8A5A00]';
+  if (status === 'CONFIRMED') return 'text-success';
+  if (status === 'DEPOSIT_PENDING') return 'text-info';
+  if (status === 'DISPUTED') return 'text-destructive';
+  return 'text-warning';
 }
 
 function Deposits({ deposits }: { deposits: CashDepositView[] }) {
   const t = useTranslations('rider.collection');
   const locale = useRiderLocale();
-  if (!deposits.length) return <div className="rounded-3xl bg-white"><EmptyState title={t('noDeposits')} body={t('noDepositsBody')} /></div>;
+  if (!deposits.length) return <div className="rounded-3xl bg-card"><EmptyState title={t('noDeposits')} body={t('noDepositsBody')} /></div>;
   return (
     <ul className="space-y-2">
       {deposits.map((deposit) => (
-        <li key={deposit.id} className="rounded-2xl bg-white px-4 py-3">
+        <li key={deposit.id} className="rounded-2xl bg-card px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className={cn('grid size-10 shrink-0 place-items-center rounded-2xl', deposit.status === 'CONFIRMED' ? 'bg-[#E3F5EA] text-[#168A52]' : deposit.status === 'REJECTED' ? 'bg-[#FDECEA] text-[#B42318]' : 'bg-[#E7F0FF] text-[#2F6FED]')}>
+            <span className={cn('grid size-10 shrink-0 place-items-center rounded-2xl', deposit.status === 'CONFIRMED' ? 'bg-success-soft text-success' : deposit.status === 'REJECTED' ? 'bg-destructive-soft text-destructive' : 'bg-info-soft text-info')}>
               {deposit.status === 'CONFIRMED' ? <Check className="size-5" /> : deposit.status === 'REJECTED' ? <X className="size-5" /> : <Hourglass className="size-5" />}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold">{t(`depositStatus.${deposit.status}`)}</span>
-              <span className="block text-xs text-[#696965]">{t('depositMeta', { count: deposit.orders, time: dateTimeLabel(deposit.createdAt, locale) })}</span>
+              <span className="block text-xs text-muted-foreground">{t('depositMeta', { count: deposit.orders, time: dateTimeLabel(deposit.createdAt, locale) })}</span>
             </span>
             <span className="text-sm font-semibold tabular-nums">{money(deposit.amount, locale)}</span>
           </div>
-          {deposit.note ? <p className="mt-2 text-xs text-[#5C5C58]">{deposit.note}</p> : null}
-          {deposit.reviewNote ? <p className="mt-2 rounded-lg bg-[#F7F7F5] px-2.5 py-1.5 text-xs text-[#5C5C58]">{t('storeSaid', { note: deposit.reviewNote })}</p> : null}
+          {deposit.note ? <p className="mt-2 text-xs text-muted-foreground">{deposit.note}</p> : null}
+          {deposit.reviewNote ? <p className="mt-2 rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground">{t('storeSaid', { note: deposit.reviewNote })}</p> : null}
         </li>
       ))}
     </ul>
@@ -164,13 +164,13 @@ function DepositDialog({ view, open, onOpenChange }: { view: RiderCollections; o
       <DialogContent className="flex max-h-[90dvh] flex-col max-sm:bottom-0 max-sm:top-auto max-sm:w-full max-sm:translate-y-0 max-sm:rounded-b-none">
         <DialogTitle>{t('depositTitle')}</DialogTitle>
         <DialogDescription>{t('depositBody')}</DialogDescription>
-        <ul className="mt-4 min-h-0 flex-1 divide-y divide-[#F0F0EC] overflow-y-auto rounded-2xl border border-[#ECECE8]">
+        <ul className="mt-4 min-h-0 flex-1 divide-y divide-border overflow-y-auto rounded-2xl border border-border">
           {view.inHand.map((row) => (
             <li key={row.id}>
               <label className="flex cursor-pointer items-center gap-3 px-3 py-2.5">
                 <input
                   type="checkbox"
-                  className="size-5 accent-[#111111]"
+                  className="size-5 accent-foreground"
                   checked={picked.has(row.id)}
                   onChange={(event) => setPicked((current) => {
                     const next = new Set(current);
@@ -181,16 +181,16 @@ function DepositDialog({ view, open, onOpenChange }: { view: RiderCollections; o
                 />
                 <span className="min-w-0 flex-1 text-sm">
                   <span className="block font-medium"><bdi dir="ltr">#{row.orderNumber}</bdi></span>
-                  <span className="block text-xs text-[#696965]">{dateTimeLabel(row.collectedAt, locale)}</span>
+                  <span className="block text-xs text-muted-foreground">{dateTimeLabel(row.collectedAt, locale)}</span>
                 </span>
                 <span className="text-sm font-semibold tabular-nums">{money(row.amount, locale)}</span>
               </label>
             </li>
           ))}
         </ul>
-        <input value={note} onChange={(event) => setNote(event.target.value)} maxLength={300} placeholder={t('depositNote')} className="mt-3 h-11 w-full rounded-xl border border-[#E2E2DC] px-3 text-sm outline-none focus:border-[#111111]" />
-        {error ? <p className="mt-2 rounded-xl bg-[#FDECEA] px-3 py-2 text-sm text-[#B42318]" role="alert">{error}</p> : null}
-        <button type="button" disabled={!picked.size || save.isPending} onClick={() => save.mutate()} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#111111] text-sm font-semibold text-white disabled:opacity-40">
+        <input value={note} onChange={(event) => setNote(event.target.value)} maxLength={300} placeholder={t('depositNote')} className="mt-3 h-11 w-full rounded-xl border border-border-strong px-3 text-sm outline-none focus:border-foreground" />
+        {error ? <p className="mt-2 rounded-xl bg-destructive-soft px-3 py-2 text-sm text-destructive" role="alert">{error}</p> : null}
+        <button type="button" disabled={!picked.size || save.isPending} onClick={() => save.mutate()} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-secondary text-sm font-semibold text-secondary-foreground disabled:opacity-40">
           {save.isPending ? <Loader2 className="size-4 animate-spin" /> : <ArrowDownToLine className="size-4" />}
           {t('depositSubmit', { amount: money(total, locale) })}
         </button>

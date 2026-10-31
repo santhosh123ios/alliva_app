@@ -24,17 +24,17 @@ type DiningTable = {
 };
 
 const statusTone: Record<TableStatus, string> = {
-  AVAILABLE: 'bg-[#E7F8EE] text-[#16924A]',
-  OCCUPIED: 'bg-[#FFF4D6] text-[#C47D00]',
-  RESERVED: 'bg-[#E7F0FF] text-[#2F6FED]',
-  INACTIVE: 'bg-[#F1F1EE] text-[#696965]',
+  AVAILABLE: 'bg-success-soft text-success',
+  OCCUPIED: 'bg-primary-soft text-warning',
+  RESERVED: 'bg-info-soft text-info',
+  INACTIVE: 'bg-surface-2 text-muted-foreground',
 };
 
 const dotTone: Record<TableStatus, string> = {
-  AVAILABLE: 'bg-[#22A85A]',
-  OCCUPIED: 'bg-[#F5B400]',
-  RESERVED: 'bg-[#3B82F6]',
-  INACTIVE: 'bg-[#8A8A86]',
+  AVAILABLE: 'bg-success',
+  OCCUPIED: 'bg-primary',
+  RESERVED: 'bg-info',
+  INACTIVE: 'bg-subtle',
 };
 
 type TablePosition = { x: number; y: number };
@@ -278,12 +278,12 @@ export function TablesPage({ tables: rows, canManage = true }: { tables: DiningT
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 xl:h-full xl:overflow-hidden">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div><h1 className="text-2xl font-bold tracking-[-0.03em]">{t('seatingTitle')}</h1><p className="mt-0.5 text-sm text-[#74746D]">{t('seatingSubtitle')}</p></div>
+        <div><h1 className="text-2xl font-bold tracking-[-0.03em]">{t('seatingTitle')}</h1><p className="mt-0.5 text-sm text-muted-foreground">{t('seatingSubtitle')}</p></div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => window.print()} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#DDDCD7] bg-white px-3 text-xs font-semibold"><Printer className="size-4" />{t('printAll')}</button>
+          <button type="button" onClick={() => window.print()} className="inline-flex h-10 items-center gap-2 rounded-lg border border-border-strong bg-card px-3 text-xs font-semibold"><Printer className="size-4" />{t('printAll')}</button>
           {canManage ? (
             <>
-              <button type="button" onClick={() => setEditing('new')} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#DDDCD7] bg-white px-3 text-xs font-semibold"><Plus className="size-4" />{t('addZone')}</button>
+              <button type="button" onClick={() => setEditing('new')} className="inline-flex h-10 items-center gap-2 rounded-lg border border-border-strong bg-card px-3 text-xs font-semibold"><Plus className="size-4" />{t('addZone')}</button>
               <Button type="button" variant="yellow" className="h-10 rounded-lg px-4" onClick={() => setEditing('new')}><Plus className="size-4" /> {t('add')}</Button>
             </>
           ) : null}
@@ -291,29 +291,29 @@ export function TablesPage({ tables: rows, canManage = true }: { tables: DiningT
       </div>
 
       {tables.length === 0 ? <EmptyState title={t('none')} body={t('noneBody')} /> : null}
-      {tables.length > 0 && visible.length === 0 ? <p className="text-sm font-medium text-[#8A8A86]">{t('noMatch')}</p> : null}
+      {tables.length > 0 && visible.length === 0 ? <p className="text-sm font-medium text-subtle">{t('noMatch')}</p> : null}
 
       <div className="grid min-h-0 flex-1 items-stretch gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-3 xl:min-h-0 xl:overflow-y-auto">
-          <section className="flex w-full flex-col gap-2 rounded-xl border border-[#E3E2DD] bg-white p-2 lg:flex-row lg:items-center">
+          <section className="flex w-full flex-col gap-2 rounded-xl border border-border-strong bg-card p-2 lg:flex-row lg:items-center">
             <div className="flex min-w-0 gap-1 overflow-x-auto">
               <ZoneChip active={zoneId === 'all'} onClick={() => setZoneId('all')}>{t('allZones')} <small>{tables.length}</small></ZoneChip>
               {floors.map((floor) => <ZoneChip key={floor.id} active={zoneId === floor.id} onClick={() => setZoneId(floor.id)}>{pickLocalized(floor.name, locale)} <small>{tables.filter((table) => table.floor.id === floor.id).length}</small></ZoneChip>)}
             </div>
             <label className="relative ms-auto flex h-9 w-full items-center lg:w-52">
-              <Search className="pointer-events-none absolute start-3 size-4 text-[#8A8A86]" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('findOrder')} className="h-9 w-full rounded-lg border border-[#E3E2DD] ps-9 pe-3 text-xs outline-none" />
+              <Search className="pointer-events-none absolute start-3 size-4 text-subtle" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('findOrder')} className="h-9 w-full rounded-lg border border-border-strong ps-9 pe-3 text-xs outline-none" />
             </label>
-            <div className="flex h-9 overflow-hidden rounded-lg border border-[#E4E3DE] bg-white">
-              <button type="button" onClick={() => setView('floor')} className={`inline-flex items-center gap-1.5 px-3 text-xs font-semibold ${view === 'floor' ? 'bg-[#FFC400]' : ''}`}><Grid3X3 className="size-3.5" />{t('arrange')}</button>
-              <button type="button" onClick={() => setView('list')} className={`inline-flex items-center gap-1.5 border-s border-[#E4E3DE] px-3 text-xs font-semibold ${view === 'list' ? 'bg-[#FFC400]' : ''}`}><List className="size-3.5" />{t('list')}</button>
+            <div className="flex h-9 overflow-hidden rounded-lg border border-border-strong bg-card">
+              <button type="button" onClick={() => setView('floor')} className={`inline-flex items-center gap-1.5 px-3 text-xs font-semibold ${view === 'floor' ? 'bg-primary' : ''}`}><Grid3X3 className="size-3.5" />{t('arrange')}</button>
+              <button type="button" onClick={() => setView('list')} className={`inline-flex items-center gap-1.5 border-s border-border-strong px-3 text-xs font-semibold ${view === 'list' ? 'bg-primary' : ''}`}><List className="size-3.5" />{t('list')}</button>
             </div>
           </section>
-          <section className="overflow-hidden rounded-xl border border-[#E3E2DD] bg-white">
-            <div className="flex flex-wrap items-center gap-2 border-b border-[#E6E5DD] px-3 py-2">
+          <section className="overflow-hidden rounded-xl border border-border-strong bg-card">
+            <div className="flex flex-wrap items-center gap-2 border-b border-primary/40 px-3 py-2">
               <h2 className="shrink-0 text-sm font-bold">{zoneId === 'all' ? t('allTables') : pickLocalized(floors.find((floor) => floor.id === zoneId)?.name ?? {}, locale)}</h2>
               <div className="ms-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
-                <div className="flex overflow-hidden rounded-lg border border-[#E6E5DD] bg-[#FAFAF8]">
+                <div className="flex overflow-hidden rounded-lg border border-primary/40 bg-muted">
                   <TableMetric icon={<ChairIcon />} label={t('total')} value={counts.total} />
                   <TableMetric dot="#14A05A" label={t('available')} value={counts.available} />
                   <TableMetric dot="#EF3C3C" label={t('occupied')} value={counts.occupied} />
@@ -321,14 +321,14 @@ export function TablesPage({ tables: rows, canManage = true }: { tables: DiningT
                   <TableMetric dot="#8C8C86" label={t('cleaning')} value={counts.cleaning} />
                 </div>
                 <div className="flex gap-1.5">
-                  <button type="button" onClick={autoArrange} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#E2C64B] bg-[#FFF7CF] px-2.5 text-[11px] font-semibold"><Sparkles className="size-3.5" />{t('autoArrange')}</button>
-                  <button type="button" onClick={() => { positionsRef.current = {}; setPositions({}); localStorage.removeItem('alliva-table-layout-v2'); }} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#DDDCD7] px-2.5 text-[11px] font-semibold"><RotateCcw className="size-3.5" />{t('reset')}</button>
-                  <button type="button" onClick={() => saveLayout()} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#171712] px-2.5 text-[11px] font-semibold text-white"><Save className="size-3.5" />{t('saveLayout')}</button>
+                  <button type="button" onClick={autoArrange} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-primary bg-primary-soft px-2.5 text-[11px] font-semibold"><Sparkles className="size-3.5" />{t('autoArrange')}</button>
+                  <button type="button" onClick={() => { positionsRef.current = {}; setPositions({}); localStorage.removeItem('alliva-table-layout-v2'); }} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-strong px-2.5 text-[11px] font-semibold"><RotateCcw className="size-3.5" />{t('reset')}</button>
+                  <button type="button" onClick={() => saveLayout()} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-secondary px-2.5 text-[11px] font-semibold text-white"><Save className="size-3.5" />{t('saveLayout')}</button>
                 </div>
               </div>
             </div>
             {view === 'floor' ? (
-              <div className="relative h-[430px] overflow-hidden bg-[#FBFAF6] [background-image:linear-gradient(#E9E7DF_1px,transparent_1px),linear-gradient(90deg,#E9E7DF_1px,transparent_1px),linear-gradient(#F2F0E9_1px,transparent_1px),linear-gradient(90deg,#F2F0E9_1px,transparent_1px)] [background-size:80px_80px,80px_80px,20px_20px,20px_20px]">
+              <div className="relative h-[430px] overflow-hidden bg-muted [background-image:linear-gradient(var(--border)_1px,transparent_1px),linear-gradient(90deg,var(--border)_1px,transparent_1px),linear-gradient(color-mix(in_srgb,var(--border)_50%,transparent)_1px,transparent_1px),linear-gradient(90deg,color-mix(in_srgb,var(--border)_50%,transparent)_1px,transparent_1px)] [background-size:80px_80px,80px_80px,20px_20px,20px_20px]">
                 <ZoneLayout
                   floors={orderedFloors}
                   tables={tables}
@@ -341,17 +341,17 @@ export function TablesPage({ tables: rows, canManage = true }: { tables: DiningT
                   const status = tableStatus(table);
                   return <FloorTable key={table.id} table={table} status={status} selected={selected?.id === table.id} position={position} locale={locale} onSelect={() => setSelectedId(table.id)} onPointerDown={(event) => { dragging.current = table.id; event.currentTarget.setPointerCapture(event.pointerId); setSelectedId(table.id); }} onPointerMove={(event) => moveTable(event, table)} onPointerUp={() => { dragging.current = null; }} />;
                 })}
-                <span className="absolute bottom-3 start-3 text-[10px] text-[#99978E]">{t('gridHint')}</span>
+                <span className="absolute bottom-3 start-3 text-[10px] text-subtle">{t('gridHint')}</span>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <div className="min-w-[650px]">
-                  <div className="grid grid-cols-[1fr_1fr_80px_110px_1fr_70px] border-b bg-[#FAFAF8] px-3 py-2 text-[10px] font-semibold uppercase text-[#777772]"><span>{t('table')}</span><span>{t('zone')}</span><span>{t('capacity')}</span><span>{t('status')}</span><span>{t('currentOrder')}</span><span /></div>
-                  {visible.map((table) => <button key={table.id} type="button" onClick={() => setSelectedId(table.id)} className="grid w-full grid-cols-[1fr_1fr_80px_110px_1fr_70px] items-center border-b px-3 py-2.5 text-start text-xs last:border-b-0"><strong>{table.number}</strong><span>{pickLocalized(table.floor.name, locale)}</span><span>{table.capacity}</span><span className={`w-fit rounded-full px-2 py-1 font-semibold ${statusTone[tableStatus(table)]}`}>{t(statusKey(tableStatus(table)))}</span><span>{table.order ? `#${table.order.number}` : '—'}</span><span className="font-semibold text-[#185BC9]">{t('view')}</span></button>)}
+                  <div className="grid grid-cols-[1fr_1fr_80px_110px_1fr_70px] border-b bg-muted px-3 py-2 text-[10px] font-semibold uppercase text-muted-foreground"><span>{t('table')}</span><span>{t('zone')}</span><span>{t('capacity')}</span><span>{t('status')}</span><span>{t('currentOrder')}</span><span /></div>
+                  {visible.map((table) => <button key={table.id} type="button" onClick={() => setSelectedId(table.id)} className="grid w-full grid-cols-[1fr_1fr_80px_110px_1fr_70px] items-center border-b px-3 py-2.5 text-start text-xs last:border-b-0"><strong>{table.number}</strong><span>{pickLocalized(table.floor.name, locale)}</span><span>{table.capacity}</span><span className={`w-fit rounded-full px-2 py-1 font-semibold ${statusTone[tableStatus(table)]}`}>{t(statusKey(tableStatus(table)))}</span><span>{table.order ? `#${table.order.number}` : '—'}</span><span className="font-semibold text-info">{t('view')}</span></button>)}
                 </div>
               </div>
             )}
-            <div className="flex h-10 items-center border-t px-3 text-[10px]"><span className="font-semibold text-[#149050]">{t('changesSaved')}</span><span className="ms-auto text-[#777772]">{selected ? t('positionSelected', { number: selected.number }) : t('selectPosition')}</span></div>
+            <div className="flex h-10 items-center border-t px-3 text-[10px]"><span className="font-semibold text-success">{t('changesSaved')}</span><span className="ms-auto text-muted-foreground">{selected ? t('positionSelected', { number: selected.number }) : t('selectPosition')}</span></div>
           </section>
           <div className="grid gap-3 lg:grid-cols-[1.1fr_.9fr]">
             <MiniPanel title={t('upcoming')} action={t('viewAll')}><div className="grid gap-2 sm:grid-cols-3"><MiniItem title="7:30 PM · Sara Ahmed" detail="T03 · 2 guests" /><MiniItem title="8:00 PM · Mohammed Ali" detail="T07 · 6 guests" /><MiniItem title="8:30 PM · Fatima Khan" detail="T13 · 4 guests" /></div></MiniPanel>
@@ -389,9 +389,9 @@ export function TablesPage({ tables: rows, canManage = true }: { tables: DiningT
 
 function TableMetric({ label, value, icon, dot }: { label: string; value: number; icon?: React.ReactNode; dot?: string }) {
   return (
-    <div className="flex items-center gap-1.5 border-e border-[#E6E5DD] px-2.5 py-1.5 last:border-e-0">
-      <span className="grid size-5 shrink-0 place-items-center rounded bg-[#FAF3CB]">{dot ? <span className="size-1.5 rounded-full" style={{ backgroundColor: dot }} /> : icon}</span>
-      <span className="whitespace-nowrap text-[10px] text-[#74746D]">{label}</span>
+    <div className="flex items-center gap-1.5 border-e border-primary/40 px-2.5 py-1.5 last:border-e-0">
+      <span className="grid size-5 shrink-0 place-items-center rounded bg-primary-soft">{dot ? <span className="size-1.5 rounded-full" style={{ backgroundColor: dot }} /> : icon}</span>
+      <span className="whitespace-nowrap text-[10px] text-muted-foreground">{label}</span>
       <strong className="text-sm leading-none">{value}</strong>
     </div>
   );
@@ -399,7 +399,7 @@ function TableMetric({ label, value, icon, dot }: { label: string; value: number
 
 function ZoneChip({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={`h-9 shrink-0 rounded-lg px-3 text-xs font-semibold ${active ? 'bg-[#F5C400] text-[#111111]' : 'bg-[#F3F3EF] text-[#5C5C58] hover:bg-[#EDEDE9]'} [&>small]:ms-1 [&>small]:rounded-full [&>small]:bg-black/5 [&>small]:px-1.5 [&>small]:py-0.5`}>
+    <button type="button" onClick={onClick} className={`h-9 shrink-0 rounded-lg px-3 text-xs font-semibold ${active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-surface-2'} [&>small]:ms-1 [&>small]:rounded-full [&>small]:bg-black/5 [&>small]:px-1.5 [&>small]:py-0.5`}>
       {children}
     </button>
   );
@@ -415,7 +415,7 @@ function ZoneLayout({ floors, tables, locale, rects, onRectChange }: {
   const t = useTranslations('merchantTables');
   const container = useRef<HTMLDivElement>(null);
   const interaction = useRef<{ id: string; mode: 'move' | 'width' | 'height' | 'both'; startX: number; startY: number; rect: ZoneRect } | null>(null);
-  const colors = ['bg-[#FFF9DE]/55', 'bg-[#EEF6FF]/55', 'bg-[#EFF9F2]/55', 'bg-[#F7F0FF]/55'];
+  const colors = ['bg-primary-soft/55', 'bg-info-soft/55', 'bg-success-soft/55', 'bg-violet-soft/55'];
   function fallbackRect(index: number): ZoneRect {
     const width = 100 / Math.max(1, floors.length);
     return { x: index * width, y: 0, width, height: 100 };
@@ -450,14 +450,14 @@ function ZoneLayout({ floors, tables, locale, rects, onRectChange }: {
       {floors.map((floor, index) => {
         const rect = rects[floor.id] ?? fallbackRect(index);
         return (
-          <section key={floor.id} style={{ left: `${rect.x}%`, top: `${rect.y}%`, width: `${rect.width}%`, height: `${rect.height}%` }} className={`pointer-events-none absolute border-2 border-dashed border-[#BDBAAF] ${colors[index % colors.length]}`}>
-            <button type="button" onPointerDown={(event) => start(event, floor.id, 'move', rect)} onPointerMove={change} onPointerUp={end} className="pointer-events-auto absolute start-2 top-2 flex max-w-[calc(100%-1rem)] cursor-move items-center gap-1.5 rounded-md border border-[#DEDCD2] bg-white/95 px-2 py-1 text-start shadow-sm backdrop-blur-sm">
-              <Move className="size-3 shrink-0 text-[#777772]" />
-              <span className="min-w-0"><strong className="block truncate text-[10px] text-[#34342F]">{pickLocalized(floor.name, locale)}</strong><span className="block text-[9px] text-[#85857E]">{t('tablesCount', { count: tables.filter((table) => table.floor.id === floor.id).length })}</span></span>
+          <section key={floor.id} style={{ left: `${rect.x}%`, top: `${rect.y}%`, width: `${rect.width}%`, height: `${rect.height}%` }} className={`pointer-events-none absolute border-2 border-dashed border-subtle ${colors[index % colors.length]}`}>
+            <button type="button" onPointerDown={(event) => start(event, floor.id, 'move', rect)} onPointerMove={change} onPointerUp={end} className="pointer-events-auto absolute start-2 top-2 flex max-w-[calc(100%-1rem)] cursor-move items-center gap-1.5 rounded-md border border-primary bg-white/95 px-2 py-1 text-start shadow-sm backdrop-blur-sm">
+              <Move className="size-3 shrink-0 text-muted-foreground" />
+              <span className="min-w-0"><strong className="block truncate text-[10px] text-foreground">{pickLocalized(floor.name, locale)}</strong><span className="block text-[9px] text-subtle">{t('tablesCount', { count: tables.filter((table) => table.floor.id === floor.id).length })}</span></span>
             </button>
-            <span onPointerDown={(event) => start(event, floor.id, 'width', rect)} onPointerMove={change} onPointerUp={end} className="pointer-events-auto absolute inset-y-0 -end-1.5 w-3 cursor-ew-resize hover:bg-[#F6C915]/30" aria-label={t('resizeWidth')} />
-            <span onPointerDown={(event) => start(event, floor.id, 'height', rect)} onPointerMove={change} onPointerUp={end} className="pointer-events-auto absolute inset-x-0 -bottom-1.5 h-3 cursor-ns-resize hover:bg-[#F6C915]/30" aria-label={t('resizeHeight')} />
-            <span onPointerDown={(event) => start(event, floor.id, 'both', rect)} onPointerMove={change} onPointerUp={end} className="pointer-events-auto absolute -bottom-2 -end-2 z-10 size-4 cursor-nwse-resize rounded-sm border border-[#9E9B90] bg-[#F6C915]" aria-label={t('resizeBoth')} />
+            <span onPointerDown={(event) => start(event, floor.id, 'width', rect)} onPointerMove={change} onPointerUp={end} className="pointer-events-auto absolute inset-y-0 -end-1.5 w-3 cursor-ew-resize hover:bg-primary/30" aria-label={t('resizeWidth')} />
+            <span onPointerDown={(event) => start(event, floor.id, 'height', rect)} onPointerMove={change} onPointerUp={end} className="pointer-events-auto absolute inset-x-0 -bottom-1.5 h-3 cursor-ns-resize hover:bg-primary/30" aria-label={t('resizeHeight')} />
+            <span onPointerDown={(event) => start(event, floor.id, 'both', rect)} onPointerMove={change} onPointerUp={end} className="pointer-events-auto absolute -bottom-2 -end-2 z-10 size-4 cursor-nwse-resize rounded-sm border border-subtle bg-primary" aria-label={t('resizeBoth')} />
           </section>
         );
       })}
@@ -473,9 +473,9 @@ function FloorTable({ table, status, selected, position, locale, onSelect, onPoi
   const wide = table.capacity >= 6;
   const round = table.capacity <= 2;
   return (
-    <button type="button" onClick={onSelect} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} style={{ left: `${position.x}%`, top: `${position.y}%`, touchAction: 'none' }} className={`absolute grid -translate-x-1/2 -translate-y-1/2 cursor-grab place-items-center border-2 bg-white shadow-[0_5px_16px_rgba(23,23,18,.09)] active:cursor-grabbing ${wide ? 'h-[72px] w-[140px]' : 'h-[72px] w-[108px]'} ${round ? 'rounded-full' : 'rounded-xl'} ${selected ? 'z-10 border-[#F6C915] ring-4 ring-[#F6C915]/25' : 'border-[#E6E5DD]'}`}>
+    <button type="button" onClick={onSelect} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} style={{ left: `${position.x}%`, top: `${position.y}%`, touchAction: 'none' }} className={`absolute grid -translate-x-1/2 -translate-y-1/2 cursor-grab place-items-center border-2 bg-card shadow-xs active:cursor-grabbing ${wide ? 'h-[72px] w-[140px]' : 'h-[72px] w-[108px]'} ${round ? 'rounded-full' : 'rounded-xl'} ${selected ? 'z-10 border-primary ring-4 ring-primary/25' : 'border-primary/40'}`}>
       <span className={`absolute -end-1.5 -top-1.5 size-3.5 rounded-full border-[3px] border-white ${dotTone[status]}`} />
-      <span><strong className="block text-sm">{tableNo(table.number)}</strong><span className="block whitespace-nowrap text-[9px] text-[#74746D]">{t('seats', { count: table.capacity })} · {pickLocalized(table.floor.name, locale)}</span>{table.order ? <span className="mt-0.5 block text-[9px] font-bold text-[#EF3C3C]">#{table.order.number}</span> : null}</span>
+      <span><strong className="block text-sm">{tableNo(table.number)}</strong><span className="block whitespace-nowrap text-[9px] text-muted-foreground">{t('seats', { count: table.capacity })} · {pickLocalized(table.floor.name, locale)}</span>{table.order ? <span className="mt-0.5 block text-[9px] font-bold text-destructive">#{table.order.number}</span> : null}</span>
       <SeatMarkers count={table.capacity} />
     </button>
   );
@@ -501,7 +501,7 @@ function SeatMarkers({ count }: { count: number }) {
         return (
           <i
             key={`${side}-${index}`}
-            className="absolute rounded-md border border-[#AAA79D] bg-[#C7C4B8]"
+            className="absolute rounded-md border border-subtle bg-border-strong"
             style={horizontal
               ? { width: 20, height: 8, left: offset, transform: 'translateX(-50%)', [side]: -10 }
               : { width: 8, height: 20, top: offset, transform: 'translateY(-50%)', [side]: -10 }}
@@ -513,11 +513,11 @@ function SeatMarkers({ count }: { count: number }) {
 }
 
 function MiniPanel({ title, action, children }: { title: string; action: string; children: React.ReactNode }) {
-  return <section className="rounded-xl border border-[#E3E2DD] bg-white p-3"><div className="mb-2 flex items-center justify-between"><h3 className="text-xs font-bold">{title}</h3><button type="button" className="text-[10px] font-semibold text-[#185BC9]">{action}</button></div>{children}</section>;
+  return <section className="rounded-xl border border-border-strong bg-card p-3"><div className="mb-2 flex items-center justify-between"><h3 className="text-xs font-bold">{title}</h3><button type="button" className="text-[10px] font-semibold text-info">{action}</button></div>{children}</section>;
 }
 
 function MiniItem({ title, detail, danger = false }: { title: string; detail: string; danger?: boolean }) {
-  return <div className="rounded-lg border border-[#E6E5DD] p-2 text-[10px]"><strong className={`block text-[11px] ${danger ? 'text-[#C93131]' : ''}`}>{title}</strong><span className="text-[#74746D]">{detail}</span></div>;
+  return <div className="rounded-lg border border-primary/40 p-2 text-[10px]"><strong className={`block text-[11px] ${danger ? 'text-destructive' : ''}`}>{title}</strong><span className="text-muted-foreground">{detail}</span></div>;
 }
 
 function TablePanel({
@@ -545,27 +545,27 @@ function TablePanel({
   }
   return (
     <div className="min-h-0 self-stretch xl:h-full">
-      <aside className="flex h-full min-h-[36rem] w-full flex-col overflow-y-auto overscroll-contain rounded-xl border border-[#EEEEEC] bg-white p-4 shadow-sm">
+      <aside className="flex h-full min-h-[36rem] w-full flex-col overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="flex items-start justify-between gap-3">
-          <div><h2 className="text-base font-bold tracking-tight text-[#161616]">{labels.table}</h2><p className="text-[11px] text-[#74746D]">{pickLocalized(table.floor.name, locale)} · {labels.seats}</p></div>
-          <button type="button" className="grid size-8 place-items-center rounded-full hover:bg-[#F7F7F5]" aria-label={labels.close} onClick={onClose}>
+          <div><h2 className="text-base font-bold tracking-tight text-foreground">{labels.table}</h2><p className="text-[11px] text-muted-foreground">{pickLocalized(table.floor.name, locale)} · {labels.seats}</p></div>
+          <button type="button" className="grid size-8 place-items-center rounded-full hover:bg-muted" aria-label={labels.close} onClick={onClose}>
             <X className="size-4" />
           </button>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="rounded-lg bg-[#F7F7F3] p-2"><span className="block text-[9px] text-[#74746D]">Status</span><strong className="mt-0.5 flex items-center gap-1.5 text-[11px]"><i className={`size-1.5 rounded-full ${dotTone[status]}`} />{labels.status}</strong></div>
-          <div className="rounded-lg bg-[#F7F7F3] p-2"><span className="block text-[9px] text-[#74746D]">Position</span><strong className="text-[11px]">{Math.round(position.x)}%, {Math.round(position.y)}%</strong></div>
+          <div className="rounded-lg bg-muted p-2"><span className="block text-[9px] text-muted-foreground">Status</span><strong className="mt-0.5 flex items-center gap-1.5 text-[11px]"><i className={`size-1.5 rounded-full ${dotTone[status]}`} />{labels.status}</strong></div>
+          <div className="rounded-lg bg-muted p-2"><span className="block text-[9px] text-muted-foreground">Position</span><strong className="text-[11px]">{Math.round(position.x)}%, {Math.round(position.y)}%</strong></div>
         </div>
-        <div className="mt-3 flex border-b border-[#E6E5DD] text-[10px] font-semibold"><button className="border-b-2 border-[#F6C915] px-2 py-2">Order</button><button className="px-2 py-2 text-[#74746D]">QR code</button><button className="px-2 py-2 text-[#74746D]">History</button></div>
+        <div className="mt-3 flex border-b border-primary/40 text-[10px] font-semibold"><button className="border-b-2 border-primary px-2 py-2">Order</button><button className="px-2 py-2 text-muted-foreground">QR code</button><button className="px-2 py-2 text-muted-foreground">History</button></div>
         <div className="mt-3">
-          <h3 className="font-semibold text-[#161616]">{labels.currentOrder}</h3>
+          <h3 className="font-semibold text-foreground">{labels.currentOrder}</h3>
           {table.order ? (
-            <div className="mt-2 rounded-xl border border-[#EEEEEC] p-3">
-              <div className="flex items-start justify-between gap-2"><strong className="text-xs">#{table.order.number}</strong><span className="rounded-full bg-[#FFF4D6] px-2 py-1 text-[9px] font-semibold text-[#C47D00]">{labels.inProgress}</span></div>
-              <div className="mt-2 flex justify-between text-[10px] text-[#74746D]"><span>{labels.items}</span><strong className="text-[#161616]">{formatMoney(table.order.total, locale)}</strong></div>
-              <Link href="/orders" className="mt-2 flex h-8 items-center justify-center rounded-lg bg-[#111111] text-[10px] font-semibold text-white">{labels.viewOrder}</Link>
+            <div className="mt-2 rounded-xl border border-border p-3">
+              <div className="flex items-start justify-between gap-2"><strong className="text-xs">#{table.order.number}</strong><span className="rounded-full bg-primary-soft px-2 py-1 text-[9px] font-semibold text-warning">{labels.inProgress}</span></div>
+              <div className="mt-2 flex justify-between text-[10px] text-muted-foreground"><span>{labels.items}</span><strong className="text-foreground">{formatMoney(table.order.total, locale)}</strong></div>
+              <Link href="/orders" className="mt-2 flex h-8 items-center justify-center rounded-lg bg-secondary text-[10px] font-semibold text-secondary-foreground">{labels.viewOrder}</Link>
             </div>
-          ) : <p className="mt-2 text-xs text-[#8A8A86]">{labels.noOrder}</p>}
+          ) : <p className="mt-2 text-xs text-subtle">{labels.noOrder}</p>}
         </div>
         <div className="mt-4">
           <h3 className="mb-2 text-xs font-bold">Table status</h3>
@@ -575,18 +575,18 @@ function TablePanel({
             <StatusAction active={status === 'INACTIVE'} color="#AA7A00" icon={<Sparkles />} label="Cleaning" onClick={() => onStatus('INACTIVE')} />
           </div>
         </div>
-        <div className="mt-4 border-t border-[#EEEEEC] pt-4">
-          <h3 className="font-semibold text-[#161616]">{labels.qrTitle}</h3>
-          <p className="mt-1 text-[10px] leading-relaxed text-[#8A8A86]">{labels.qrHint}</p>
-          <div className="mt-3 grid place-items-center rounded-xl border border-[#EEEEEC] bg-white p-3">
-            {menuUrl ? <QrMark value={menuUrl} /> : <QrCode className="size-14 text-[#C8C8C4]" />}
+        <div className="mt-4 border-t border-border pt-4">
+          <h3 className="font-semibold text-foreground">{labels.qrTitle}</h3>
+          <p className="mt-1 text-[10px] leading-relaxed text-subtle">{labels.qrHint}</p>
+          <div className="mt-3 grid place-items-center rounded-xl border border-border bg-card p-3">
+            {menuUrl ? <QrMark value={menuUrl} /> : <QrCode className="size-14 text-faint" />}
           </div>
           <div className={`mt-3 grid gap-2 ${onEdit ? 'grid-cols-2' : 'grid-cols-1'}`}>
-            <button type="button" className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#E4E4E0] bg-white text-xs font-semibold text-[#161616]" onClick={printQr}>
+            <button type="button" className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-card text-xs font-semibold text-foreground" onClick={printQr}>
               <Printer className="size-4" /> {labels.print}
             </button>
             {onEdit ? (
-              <button type="button" className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#E4E4E0] bg-white text-xs font-semibold text-[#161616]" onClick={onEdit}>
+              <button type="button" className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-card text-xs font-semibold text-foreground" onClick={onEdit}>
                 <Pencil className="size-4" /> {labels.edit}
               </button>
             ) : null}
@@ -598,7 +598,7 @@ function TablePanel({
 }
 
 function StatusAction({ active, color, icon, label, onClick }: { active: boolean; color: string; icon: React.ReactNode; label: string; onClick: () => void }) {
-  return <button type="button" onClick={onClick} className={`rounded-lg border p-2 text-[9px] font-semibold ${active ? 'border-[#F6C915] bg-[#FFF9DD]' : 'border-[#E3E2DD]'}`}><span className="mx-auto mb-1 grid size-4 place-items-center [&>svg]:size-4" style={{ color }}>{icon}</span>{label}</button>;
+  return <button type="button" onClick={onClick} className={`rounded-lg border p-2 text-[9px] font-semibold ${active ? 'border-primary bg-primary-soft' : 'border-border-strong'}`}><span className="mx-auto mb-1 grid size-4 place-items-center [&>svg]:size-4" style={{ color }}>{icon}</span>{label}</button>;
 }
 
 function TableDialog({
@@ -654,29 +654,29 @@ function TableDialog({
         <DialogTitle>{table ? t('edit') : t('add')}</DialogTitle>
         <DialogDescription>{t('subtitle')}</DialogDescription>
         <div className="mt-4 grid gap-3">
-          <label className="block text-sm font-semibold text-[#161616]">
+          <label className="block text-sm font-semibold text-foreground">
             {t('number')}
-            <input className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none" value={number} onChange={(event) => setNumber(event.target.value)} />
+            <input className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" value={number} onChange={(event) => setNumber(event.target.value)} />
           </label>
-          <label className="block text-sm font-semibold text-[#161616]">
+          <label className="block text-sm font-semibold text-foreground">
             {t('capacity')}
-            <input type="number" min={1} className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none" value={capacity} onChange={(event) => setCapacity(event.target.value)} />
+            <input type="number" min={1} className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" value={capacity} onChange={(event) => setCapacity(event.target.value)} />
           </label>
-          <label className="block text-sm font-semibold text-[#161616]">
+          <label className="block text-sm font-semibold text-foreground">
             {t('zone')}
-            <select className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none" value={floorId} onChange={(event) => setFloorId(event.target.value)}>
+            <select className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" value={floorId} onChange={(event) => setFloorId(event.target.value)}>
               {floors.map((floor) => <option key={floor.id} value={floor.id}>{pickLocalized(floor.name, locale)}</option>)}
               <option value="new">{t('newZone')}</option>
             </select>
           </label>
           {floorId === 'new' ? (
-            <label className="block text-sm font-semibold text-[#161616]">
+            <label className="block text-sm font-semibold text-foreground">
               {t('zoneName')}
-              <input className="mt-1.5 h-11 w-full rounded-xl border border-[#E8E8E4] bg-[#F7F7F5] px-3 text-sm font-medium outline-none" value={zoneName} onChange={(event) => setZoneName(event.target.value)} />
+              <input className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" value={zoneName} onChange={(event) => setZoneName(event.target.value)} />
             </label>
           ) : null}
         </div>
-        {error ? <p className="mt-3 text-sm font-medium text-[#B42318]">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-destructive">{error}</p> : null}
         <div className="mt-4 flex justify-end">
           <Button type="button" variant="yellow" className="h-11 rounded-xl px-4" loading={save.isPending} onClick={() => { setError(''); save.mutate(); }}>{t('save')}</Button>
         </div>
@@ -692,7 +692,7 @@ function statusKey(status: TableStatus) {
   return 'available';
 }
 
-function ChairIcon({ className = 'text-[#8A8A86]' }: { className?: string }) {
+function ChairIcon({ className = 'text-subtle' }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={`size-4 ${className}`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
       <path d="M7 10V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4" />

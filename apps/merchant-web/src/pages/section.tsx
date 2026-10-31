@@ -147,7 +147,7 @@ function TablesSkeleton() {
 function BusinessSkeleton() {
   return (
     <div className="space-y-5" aria-busy>
-      <section className="flex flex-col gap-4 rounded-[20px] border border-[#EEEEEC] bg-white p-3 md:flex-row md:items-center">
+      <section className="flex flex-col gap-4 rounded-[20px] border border-border bg-card p-3 md:flex-row md:items-center">
         <div className="flex flex-1 items-center gap-4 px-2 py-1">
           <Skeleton className="size-[72px] shrink-0 rounded-2xl" />
           <div className="flex-1 space-y-2">
@@ -162,25 +162,25 @@ function BusinessSkeleton() {
       </div>
       <div className="grid items-start gap-4 xl:grid-cols-2">
         <div className="space-y-4">
-          <div className="rounded-[20px] border border-[#ECECEA] bg-white p-5">
+          <div className="rounded-[20px] border border-border bg-card p-5">
             <div className="flex items-center gap-3"><Skeleton className="size-11 rounded-full" /><div className="space-y-2"><Skeleton className="h-5 w-36" /><Skeleton className="h-3 w-48" /></div></div>
             <Skeleton className="mt-4 h-14 w-full" />
             <div className="mt-4 grid gap-4 sm:grid-cols-2"><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></div>
           </div>
-          <div className="rounded-[20px] border border-[#ECECEA] bg-white p-5">
+          <div className="rounded-[20px] border border-border bg-card p-5">
             <div className="flex items-center gap-3"><Skeleton className="size-11 rounded-full" /><div className="space-y-2"><Skeleton className="h-5 w-36" /><Skeleton className="h-3 w-48" /></div></div>
             <Skeleton className="mt-4 h-12 w-full" />
             <div className="mt-2 space-y-3">{Array.from({ length: 7 }, (_, index) => <div key={index} className="flex justify-between"><Skeleton className="h-4 w-24" /><Skeleton className="h-4 w-32" /></div>)}</div>
           </div>
         </div>
         <div className="space-y-4">
-          <div className="rounded-2xl border border-[#ECECEA] bg-white p-3.5">
+          <div className="rounded-2xl border border-border bg-card p-3.5">
             <div className="flex items-center gap-2.5"><Skeleton className="size-8 rounded-full" /><div className="space-y-2"><Skeleton className="h-4 w-28" /><Skeleton className="h-3 w-40" /></div></div>
             <div className="mt-3 grid gap-2.5 grid-cols-[minmax(0,1fr)_132px]"><Skeleton className="h-44" /><Skeleton className="h-44" /></div>
             <Skeleton className="mt-2.5 h-10 w-full" />
             <Skeleton className="mt-2.5 h-10 w-full" />
           </div>
-          <div className="rounded-[20px] border border-[#ECECEA] bg-white p-5">
+          <div className="rounded-[20px] border border-border bg-card p-5">
             <div className="flex items-center gap-3"><Skeleton className="size-11 rounded-full" /><div className="space-y-2"><Skeleton className="h-5 w-40" /><Skeleton className="h-3 w-52" /></div></div>
             <div className="mt-4 grid gap-3 sm:grid-cols-3"><Skeleton className="h-12" /><Skeleton className="h-12" /><Skeleton className="h-12" /></div>
           </div>

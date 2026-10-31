@@ -28,13 +28,13 @@ export function BillingHome() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-[#161616]">{date === today() ? t('titleToday') : t('titleDay', { day: dayLabel(date, locale) })}</h1>
-          <p className="mt-1 text-sm text-[#696965]">{t('subtitle')}</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">{date === today() ? t('titleToday') : t('titleDay', { day: dayLabel(date, locale) })}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="sr-only" htmlFor="takings-date">{t('date')}</label>
-          <input id="takings-date" type="date" value={date} max={today()} onChange={(event) => event.target.value && setDate(event.target.value)} className="h-11 rounded-xl border border-[#E6E6E2] bg-white px-3 text-sm font-semibold" />
-          <Link href="/payments" className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#E6E6E2] bg-white px-4 text-sm font-semibold text-[#161616]">
+          <input id="takings-date" type="date" value={date} max={today()} onChange={(event) => event.target.value && setDate(event.target.value)} className="h-11 rounded-xl border border-border bg-card px-3 text-sm font-semibold" />
+          <Link href="/payments" className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground">
             {t('allPayments')}<ArrowRight className="size-4 rtl:-scale-x-100" />
           </Link>
         </div>
@@ -59,7 +59,7 @@ export function BillingHome() {
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[420px] text-sm">
                     <thead>
-                      <tr className="text-xs text-[#8A8A86]">
+                      <tr className="text-xs text-subtle">
                         <th className="pb-2 text-start font-semibold">{t('method')}</th>
                         <th className="pb-2 text-end font-semibold">{t('orders')}</th>
                         <th className="pb-2 text-end font-semibold">{t('amount')}</th>
@@ -69,18 +69,18 @@ export function BillingHome() {
                     </thead>
                     <tbody>
                       {data.byMethod.map((row) => (
-                        <tr key={row.method} className="border-t border-[#F1F1EE]">
-                          <td className="py-2.5 font-medium text-[#161616]">{reports(`methods.${row.method}`)}</td>
+                        <tr key={row.method} className="border-t border-border">
+                          <td className="py-2.5 font-medium text-foreground">{reports(`methods.${row.method}`)}</td>
                           <td className="py-2.5 text-end tabular-nums">{row.orders}</td>
                           <td className="py-2.5 text-end tabular-nums font-semibold">{formatMoney(row.amount, locale)}</td>
-                          <td className="py-2.5 text-end tabular-nums text-[#16924A]">{formatMoney(row.paid, locale)}</td>
-                          <td className="py-2.5 text-end tabular-nums text-[#9A6200]">{Number(row.due) > 0 ? formatMoney(row.due, locale) : '—'}</td>
+                          <td className="py-2.5 text-end tabular-nums text-success">{formatMoney(row.paid, locale)}</td>
+                          <td className="py-2.5 text-end tabular-nums text-warning">{Number(row.due) > 0 ? formatMoney(row.due, locale) : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              ) : <p className="py-6 text-center text-sm text-[#8A8A86]">{t('noSales')}</p>}
+              ) : <p className="py-6 text-center text-sm text-subtle">{t('noSales')}</p>}
             </Panel>
             <Panel title={t('cashTitle')}>
               <ul className="space-y-3 text-sm">
@@ -111,9 +111,9 @@ export function BillingHome() {
 function CashRow({ icon: Icon, label, value, strong }: { icon: typeof Bike; label: string; value: string; strong?: boolean }) {
   return (
     <li className="flex items-center gap-3">
-      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#FFF6D4] text-[#161616]"><Icon className="size-4" /></span>
-      <span className={strong ? 'font-semibold text-[#161616]' : 'text-[#5C5C58]'}>{label}</span>
-      <span className="ms-auto text-end font-semibold tabular-nums text-[#161616]">{value}</span>
+      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-foreground"><Icon className="size-4" /></span>
+      <span className={strong ? 'font-semibold text-foreground' : 'text-muted-foreground'}>{label}</span>
+      <span className="ms-auto text-end font-semibold tabular-nums text-foreground">{value}</span>
     </li>
   );
 }

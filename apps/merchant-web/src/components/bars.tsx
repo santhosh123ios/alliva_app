@@ -13,11 +13,11 @@ export type BarPoint = { key: string; label: string; value: number; tip: string 
 export function ColumnChart({ points, labelEvery = 1, height = 160, empty }: { points: BarPoint[]; labelEvery?: number; height?: number; empty: string }) {
   const [active, setActive] = useState<number | null>(null);
   const max = Math.max(0, ...points.map((point) => point.value));
-  if (!points.length || max === 0) return <p className="grid place-items-center text-sm text-[#8A8A86]" style={{ height }}>{empty}</p>;
+  if (!points.length || max === 0) return <p className="grid place-items-center text-sm text-subtle" style={{ height }}>{empty}</p>;
   const shown = active === null ? null : points[active];
   return (
     <div className="relative" onMouseLeave={() => setActive(null)}>
-      <div className="flex items-end gap-[2px] border-b border-[#E6E6E2]" style={{ height }} role="img" aria-label={points.map((point) => point.tip).join(', ')}>
+      <div className="flex items-end gap-[2px] border-b border-border" style={{ height }} role="img" aria-label={points.map((point) => point.tip).join(', ')}>
         {points.map((point, index) => (
           <button
             key={point.key}
@@ -35,14 +35,14 @@ export function ColumnChart({ points, labelEvery = 1, height = 160, empty }: { p
           </button>
         ))}
       </div>
-      <div className="mt-1.5 flex gap-[2px] text-[10px] text-[#8A8A86]">
+      <div className="mt-1.5 flex gap-[2px] text-[10px] text-subtle">
         {points.map((point, index) => (
           <span key={point.key} className="min-w-0 flex-1 overflow-visible whitespace-nowrap text-center">{index % labelEvery === 0 ? point.label : ''}</span>
         ))}
       </div>
       {shown ? (
         <div
-          className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-lg bg-[#161616] px-2.5 py-1.5 text-xs font-semibold text-white shadow-lg rtl:translate-x-1/2"
+          className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-lg bg-secondary px-2.5 py-1.5 text-xs font-semibold text-secondary-foreground shadow-lg rtl:translate-x-1/2"
           style={{ insetInlineStart: `${((active! + 0.5) / points.length) * 100}%` }}
         >
           {shown.tip}
@@ -61,10 +61,10 @@ export function ShareBars({ rows }: { rows: { key: string; label: string; value:
       {rows.map((row) => (
         <li key={row.key} title={row.detail}>
           <div className="flex items-baseline justify-between gap-3 text-sm">
-            <span className="truncate font-medium text-[#161616]">{row.label}</span>
-            <span className="shrink-0 tabular-nums text-[#5C5C58]">{row.detail} · {total ? Math.round((row.value / total) * 100) : 0}%</span>
+            <span className="truncate font-medium text-foreground">{row.label}</span>
+            <span className="shrink-0 tabular-nums text-muted-foreground">{row.detail} · {total ? Math.round((row.value / total) * 100) : 0}%</span>
           </div>
-          <div className="mt-1.5 h-2 rounded-full bg-[#F1F1EE]">
+          <div className="mt-1.5 h-2 rounded-full bg-surface-2">
             <div className="h-2 rounded-full" style={{ width: `${max ? (row.value / max) * 100 : 0}%`, background: BAR }} />
           </div>
         </li>

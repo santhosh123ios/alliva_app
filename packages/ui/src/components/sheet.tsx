@@ -8,7 +8,7 @@ export const SheetTrigger = DialogPrimitive.Trigger;
 export function SheetContent({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[var(--overlay,rgba(0,0,0,0.4))] backdrop-blur-[var(--overlay-blur,0px)]" />
       <DialogPrimitive.Content
         className={cn(
           'fixed inset-y-0 start-0 z-50 w-[min(100%,20rem)] overflow-y-auto bg-card p-4 shadow-xl',
