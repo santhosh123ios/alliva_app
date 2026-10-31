@@ -176,7 +176,8 @@ function ProductSheet({ product, onClose }: { product: FloorMenuProduct; onClose
   const draft = useDraft();
   const variants = product.variants.filter((variant) => variant.available);
   const [variantId, setVariantId] = useState<string | null>(variants[0]?.id ?? null);
-  const [addons, setAddons] = useState<string[]>([]);
+  // Fixed combo items start ticked and cannot be changed.
+  const [addons, setAddons] = useState<string[]>(() => product.addonGroups.filter((group) => group.fixed).flatMap((group) => group.addons.map((addon) => addon.id)));
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
   const groups = product.addonGroups.filter((group) => group.addons.some((addon) => addon.available));
@@ -249,7 +250,7 @@ function ProductSheet({ product, onClose }: { product: FloorMenuProduct; onClose
             <div className="grid gap-2">
               {group.addons.filter((addon) => addon.available).map((addon) => (
                 <label key={addon.id} className={cn('flex h-12 cursor-pointer items-center gap-3 rounded-xl border px-3', addons.includes(addon.id) ? 'border-foreground bg-muted' : 'border-border')}>
-                  <input type={group.maxSelect === 1 ? 'radio' : 'checkbox'} name={group.id} checked={addons.includes(addon.id)} onChange={() => toggle(group.id, addon.id)} className="size-4 accent-foreground" />
+                  <input type={group.maxSelect === 1 ? 'radio' : 'checkbox'} name={group.id} checked={addons.includes(addon.id)} disabled={group.fixed} onChange={() => toggle(group.id, addon.id)} className="size-4 accent-foreground" />
                   <span className="flex-1 text-sm font-medium">{text(addon.name, locale)}</span>
                   {Number(addon.price) > 0 ? <span className="text-sm tabular-nums">+{money(addon.price, locale)}</span> : null}
                 </label>

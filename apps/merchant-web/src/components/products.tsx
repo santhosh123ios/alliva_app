@@ -2,10 +2,12 @@ import { api } from '@/components/providers';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, EmptyState, ErrorState, Skeleton } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Box, CheckCircle2, ChevronDown, Coffee, Croissant, CupSoda, Download, Folder, ImageIcon, LayoutGrid, List, Package, Pencil, Plus, Search, Star, Tag, Trash2, Upload, UtensilsCrossed } from 'lucide-react';
+import { AlertCircle, Box, CheckCircle2, ChevronDown, Coffee, Croissant, CupSoda, Download, Folder, ImageIcon, Layers, LayoutGrid, List, Package, Pencil, Plus, Search, Star, Tag, Trash2, Upload, UtensilsCrossed } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SquareCropper } from '@/components/image-cropper';
+import { draftsToBody, OptionGroupsEditor, SizesEditor, sizesFrom, sizesToBody, toDraftGroups, toDraftSizes, type DraftGroup, type DraftSize } from '@/components/product-options';
+import type { ProductKind } from '@alliva/types';
 import { Link } from '@/i18n/navigation';
 import { useSearchParams } from 'react-router';
 
@@ -26,6 +28,9 @@ type CatalogProduct = {
   category: { en?: string; ar?: string };
   catalogProductId?: string | null;
   reviewStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  kind?: ProductKind;
+  optionGroups?: number;
+  sizes?: number;
 };
 type CatalogCategory = {
   id: string;
@@ -208,7 +213,7 @@ export function ProductsPage() {
                   <span>{t('product')}</span><span>{t('category')}</span><span>{t('price')}</span><span>{t('quantity')}</span><span>{t('availabilityStock')}</span><span>{t('status')}</span><span>{t('actions')}</span>
                 </div>
                 {visible.map((product) => (
-                  <ProductRow key={product.id} product={product} locale={locale} checked={selected.includes(product.id)} inventoryMode={method} active={quickProduct?.id === product.id} onCheck={() => setSelected((current) => current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id])} onSelect={() => setQuickId(product.id)} onEdit={() => setEditing(product)} onToggle={() => quick(product, statusOf(product) === 'active' ? 'out' : 'in')} labels={{ edit: t('edit'), daily: t('dailyAvailability'), stock: t('stockQuantity'), available: t('availableToday'), unavailable: t('unavailableToday'), active: t('active'), draft: t('draft') }} />
+                  <ProductRow key={product.id} product={product} locale={locale} checked={selected.includes(product.id)} inventoryMode={method} active={quickProduct?.id === product.id} onCheck={() => setSelected((current) => current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id])} onSelect={() => setQuickId(product.id)} onEdit={() => setEditing(product)} onToggle={() => quick(product, statusOf(product) === 'active' ? 'out' : 'in')} labels={{ edit: t('edit'), daily: t('dailyAvailability'), stock: t('stockQuantity'), available: t('availableToday'), unavailable: t('unavailableToday'), active: t('active'), draft: t('draft'), combo: t('comboBadge'), options: (count) => t('optionsBadge', { count }), sizes: (count) => t('sizesBadge', { count }) }} />
                 ))}
               </div>
             </div>
@@ -255,6 +260,7 @@ export function ProductsPage() {
         open={editing !== null}
         product={editing === 'new' ? null : editing}
         categories={categories}
+        products={products}
         onClose={() => setEditing(null)}
         onNeedCategory={() => { setEditing(null); setTab('categories'); }}
       />
@@ -275,7 +281,7 @@ function ProductRow({ product, locale, checked, inventoryMode, active, onCheck, 
   onSelect: () => void;
   onEdit: () => void;
   onToggle: () => void;
-  labels: { edit: string; daily: string; stock: string; available: string; unavailable: string; active: string; draft: string };
+  labels: { edit: string; daily: string; stock: string; available: string; unavailable: string; active: string; draft: string; combo: string; options: (count: number) => string; sizes: (count: number) => string };
 }) {
   const state = statusOf(product);
   return (
@@ -283,7 +289,7 @@ function ProductRow({ product, locale, checked, inventoryMode, active, onCheck, 
       <input type="checkbox" checked={checked} onClick={(event) => event.stopPropagation()} onChange={onCheck} />
       <div className="flex min-w-0 items-center gap-2.5">
         <ProductPhoto src={product.imageUrl} alt={pickLocalized(product.name, locale)} className="size-10 shrink-0" />
-        <span className="min-w-0"><strong className="block truncate text-xs text-foreground">{pickLocalized(product.name, locale)}</strong><span className="block truncate text-[10px] text-subtle">SKU: {product.id.slice(0, 8).toUpperCase()}</span></span>
+        <span className="min-w-0"><strong className="block truncate text-xs text-foreground">{pickLocalized(product.name, locale)}</strong><span className="flex min-w-0 items-center gap-1.5 text-[10px] text-subtle"><span className="truncate">SKU: {product.id.slice(0, 8).toUpperCase()}</span>{product.kind === 'COMBO' ? <span className="shrink-0 rounded-full bg-violet-soft px-1.5 font-semibold text-violet">{labels.combo}</span> : null}{product.sizes ? <span className="shrink-0 rounded-full bg-info-soft px-1.5 font-semibold text-info">{labels.sizes(product.sizes)}</span> : null}{product.kind !== 'COMBO' && product.optionGroups ? <span className="shrink-0 rounded-full bg-primary-soft px-1.5 font-semibold text-primary-soft-foreground">{labels.options(product.optionGroups)}</span> : null}</span></span>
       </div>
       <span className="truncate text-muted-foreground">{pickLocalized(product.category, locale)}</span>
       <strong>{formatMoney(product.price, locale)}</strong>
@@ -343,11 +349,12 @@ function QuickToggle({ active, onClick, label }: { active: boolean; onClick: () 
 }
 
 function ProductDialog({
-  open, product, categories, onClose, onNeedCategory,
+  open, product, categories, products, onClose, onNeedCategory,
 }: {
   open: boolean;
   product: CatalogProduct | null;
   categories: CatalogCategory[];
+  products: CatalogProduct[];
   onClose: () => void;
   onNeedCategory: () => void;
 }) {
@@ -364,6 +371,31 @@ function ProductDialog({
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [cropSource, setCropSource] = useState<string | null>(null);
+  const [section, setSection] = useState<'details' | 'options'>('details');
+  const [kind, setKind] = useState<ProductKind>('STANDARD');
+  // Options and combo items are drafted apart, so switching type and back loses nothing.
+  const [drafts, setDrafts] = useState<Record<ProductKind, DraftGroup[]>>({ STANDARD: [], COMBO: [] });
+  const [draftsFor, setDraftsFor] = useState<string | null>(null);
+  const [sizes, setSizes] = useState<DraftSize[]>([]);
+  const groups = drafts[kind];
+  const sizePrice = kind === 'STANDARD' ? sizesFrom(sizes) : null;
+  const optionGroups = useQuery({
+    queryKey: ['merchant', 'product-option-groups', product?.id],
+    queryFn: () => api.productOptionGroups(product!.id),
+    enabled: open && Boolean(product),
+  });
+  const library = useQuery({ queryKey: ['merchant', 'option-library'], queryFn: () => api.optionGroupLibrary(), enabled: open });
+  const comboItems = products
+    .filter((item) => item.id !== product?.id && item.kind !== 'COMBO')
+    .map((item) => ({ id: item.id, name: item.name, price: item.price, imageUrl: item.imageUrl }));
+  useEffect(() => {
+    const loaded = optionGroups.data;
+    if (!open || !product || !loaded || draftsFor === product.id) return;
+    setKind(loaded.kind);
+    setDrafts({ STANDARD: [], COMBO: [], [loaded.kind]: toDraftGroups(loaded.groups) });
+    setSizes(toDraftSizes(loaded.variants));
+    setDraftsFor(product.id);
+  }, [open, product, optionGroups.data, draftsFor]);
   const fallbackCategory = categories[0]?.id ?? '';
   const optionsQuery = useQuery({
     queryKey: ['merchant', 'product-options', name.trim()],
@@ -382,12 +414,28 @@ function ProductDialog({
     setImageUrl(product?.imageUrl ?? '');
     setStatus(product ? statusOf(product) : 'active');
     setError('');
+    setSection('details');
+    setKind(product?.kind ?? 'STANDARD');
+    setDrafts({ STANDARD: [], COMBO: [] });
+    setSizes([]);
+    setDraftsFor(product ? null : 'new');
   }, [open, product, locale, fallbackCategory]);
   const save = useMutation({
     mutationFn: async () => {
       const label = name.trim();
-      const priced = money(price);
+      const priced = sizePrice ?? money(price);
       if (!label || !priced || !categoryId) throw new Error(t('required'));
+      const options = draftsToBody(kind, groups, comboItems);
+      if (!options.body) {
+        setSection('options');
+        throw new Error(t(options.error));
+      }
+      const sized = sizesToBody(kind === 'STANDARD' ? sizes : []);
+      if (!sized.body) {
+        setSection('options');
+        throw new Error(t(sized.error));
+      }
+      if (product && draftsFor !== product.id) throw new Error(t('optionsLoading'));
       const nextStock = status === 'out' ? 0 : Math.max(0, Number(stock) || 0);
       if (status === 'active' && nextStock < 1) throw new Error(t('stockRequired'));
       const copy = description.trim() || label;
@@ -403,21 +451,62 @@ function ProductDialog({
         approvalStatus: status === 'draft' ? 'DRAFT' : 'APPROVED',
         stockQuantity: nextStock,
       };
+      let id = product?.id;
       if (product) await api.updateProduct(product.id, body);
-      else await api.createProduct(body);
+      else id = ((await api.createProduct(body)) as { id: string }).id;
+      const hadOptions = Boolean(product && (product.optionGroups || product.sizes || product.kind === 'COMBO'));
+      if (id && (options.body.groups.length || sized.body.length || hadOptions)) await api.saveProductOptionGroups(id, { ...options.body, variants: sized.body });
     },
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['merchant', 'products'] });
+      void client.invalidateQueries({ queryKey: ['merchant', 'product-option-groups'] });
+      void client.invalidateQueries({ queryKey: ['merchant', 'option-library'] });
       onClose();
     },
     onError: (reason: Error) => setError(reason.message),
   });
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DialogContent className="max-h-[min(100%-2rem,44rem)] w-[min(100%-2rem,32rem)] overflow-y-auto">
+      <DialogContent className="max-h-[min(100%-2rem,48rem)] w-[min(100%-2rem,40rem)] overflow-y-auto">
         <DialogTitle>{product ? t('editProduct') : t('add')}</DialogTitle>
         <DialogDescription>{t('subtitle')}</DialogDescription>
-        <div className="mt-4 grid gap-3">
+        <div className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-muted p-1" role="radiogroup" aria-label={t('productType')}>
+          {(['STANDARD', 'COMBO'] as const).map((value) => (
+            <button key={value} type="button" role="radio" aria-checked={kind === value} onClick={() => setKind(value)} className={`flex h-10 items-center justify-center gap-2 rounded-lg text-sm font-semibold ${kind === value ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground'}`}>
+              {value === 'COMBO' ? <Layers className="size-4" /> : <Package className="size-4" />}
+              {value === 'COMBO' ? t('typeCombo') : t('typeProduct')}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 flex gap-1 border-b border-border text-sm font-semibold">
+          {(['details', 'options'] as const).map((value) => (
+            <button key={value} type="button" aria-pressed={section === value} onClick={() => setSection(value)} className={`-mb-px inline-flex h-10 items-center gap-2 border-b-2 px-3 ${section === value ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}>
+              {value === 'details' ? t('detailsTab') : kind === 'COMBO' ? t('comboTab') : t('optionsTab')}
+              {value === 'options' && groups.length + (kind === 'STANDARD' && sizes.length ? 1 : 0) ? <span className="rounded-full bg-primary-soft px-1.5 text-[11px] text-primary-soft-foreground">{groups.length + (kind === 'STANDARD' && sizes.length ? 1 : 0)}</span> : null}
+            </button>
+          ))}
+        </div>
+        {section === 'options' ? (
+          <div className="mt-4">
+            {product && draftsFor !== product.id ? (
+              <div className="grid gap-2"><Skeleton className="h-28 rounded-xl" /><Skeleton className="h-28 rounded-xl" /></div>
+            ) : (
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
+              {kind === 'STANDARD' ? <SizesEditor sizes={sizes} onChange={setSizes} locale={locale} /> : null}
+              <OptionGroupsEditor
+                kind={kind}
+                groups={groups}
+                onChange={(next) => setDrafts((current) => ({ ...current, [kind]: next }))}
+                locale={locale}
+                library={library.data ?? []}
+                products={comboItems}
+                basePrice={money(price) ?? '0'}
+              />
+              </div>
+            )}
+          </div>
+        ) : null}
+        <div className={`mt-4 grid gap-3 ${section === 'details' ? '' : 'hidden'}`}>
           <div>
             <p className="text-sm font-semibold text-foreground">{t('photo')}</p>
             <label className="relative mx-auto mt-1.5 block size-56 cursor-pointer overflow-hidden rounded-xl border border-dashed border-border-strong bg-muted">
@@ -475,9 +564,19 @@ function ProductDialog({
           </label>
           {!categories.length ? <button type="button" className="text-start text-sm font-semibold text-foreground underline" onClick={onNeedCategory}>{t('addCategory')}</button> : null}
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={t('price')} value={price} onChange={setPrice} />
+            {sizePrice ? (
+              <div className="text-sm font-semibold text-foreground">
+                {t('price')}
+                <button type="button" onClick={() => setSection('options')} className="mt-1.5 flex h-11 w-full items-center rounded-xl border border-border bg-surface-2 px-3 text-start text-sm font-medium text-muted-foreground">
+                  {t('priceFromSizes', { price: formatMoney(sizePrice, locale) })}
+                </button>
+              </div>
+            ) : (
+              <Field label={kind === 'COMBO' ? t('comboPrice') : t('price')} value={price} onChange={setPrice} />
+            )}
             <Field label={t('stock')} value={stock} onChange={setStock} type="number" />
           </div>
+          {kind === 'COMBO' ? <p className="-mt-1 text-xs text-muted-foreground">{t('comboPriceHint')}</p> : null}
           <label className="block text-sm font-semibold text-foreground">
             {t('status')}
             <select className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" value={status} onChange={(event) => setStatus(event.target.value as Status)}>

@@ -69,6 +69,8 @@ model Product {
   slug           String
   name           Json
   description    Json
+  /// COMBO products are bundles: their option groups are slots whose options link to other products.
+  kind           ProductKind           @default(STANDARD)
   price          Decimal               @db.Decimal(19, 3)
   compareAtPrice Decimal?              @db.Decimal(19, 3)
   imageUrl       String?
@@ -91,6 +93,7 @@ model Product {
   addonGroups    ProductAddonGroup[]
   inventory      InventoryItem[]
   views          RecentlyViewed[]
+  comboAddons    Addon[]               @relation("AddonProduct")
 
   @@unique([merchantId, slug])
   @@index([merchantId, approvalStatus])
@@ -125,6 +128,7 @@ model AddonGroup {
   name       Json
   minSelect  Int      @default(0)
   maxSelect  Int      @default(1)
+  sortOrder  Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
@@ -141,9 +145,14 @@ model Addon {
   name      Json
   price     Decimal    @db.Decimal(19, 3)
   available Boolean    @default(true)
+  sortOrder Int        @default(0)
+  /// Set on combo slot options: the product the diner gets when they pick this option.
+  productId String?    @db.Uuid
   group     AddonGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  product   Product?   @relation("AddonProduct", fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([merchantId])
+  @@index([productId])
 }
 
 model ProductAddonGroup {
@@ -151,6 +160,7 @@ model ProductAddonGroup {
   addonGroupId String @db.Uuid
   product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
   addonGroup   AddonGroup @relation(fields: [addonGroupId], references: [id], onDelete: Cascade)
+  sortOrder    Int        @default(0)
 
   @@id([productId, addonGroupId])
 }

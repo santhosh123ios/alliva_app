@@ -1,4 +1,5 @@
 import { ApiError, type ApiClient } from '@alliva/api-client';
+import { formatMoney } from '@alliva/design-tokens';
 
 type CheckoutProblemCode = Awaited<ReturnType<ApiClient['validateCheckout']>>['problems'][number]['code'];
 type DeliveryUnavailableReason = NonNullable<Awaited<ReturnType<ApiClient['deliveryQuote']>>['reason']>;
@@ -20,6 +21,7 @@ export type CheckoutMessageKey =
   | 'fulfillmentUnavailable'
   | 'paymentUnavailable'
   | 'promoInvalid'
+  | 'belowMinimum'
   | 'totalChanged'
   | 'network'
   | 'generic';
@@ -40,6 +42,7 @@ const byCode: Record<CheckoutProblemCode, CheckoutMessageKey> = {
   FULFILLMENT_UNAVAILABLE: 'fulfillmentUnavailable',
   PAYMENT_METHOD_UNAVAILABLE: 'paymentUnavailable',
   PROMO_INVALID: 'promoInvalid',
+  BELOW_MINIMUM_ORDER: 'belowMinimum',
   TOTAL_CHANGED: 'totalChanged',
 };
 
@@ -53,6 +56,19 @@ export function deliveryProblem(reason: DeliveryUnavailableReason | null | undef
   if (reason === 'CONFIG_MISSING') return 'configMissing';
   if (reason === 'INVALID_COORDINATES') return 'addressInvalid';
   return 'noDelivery';
+}
+
+/** How much more the items must come to for delivery, or null when the store's minimum is met. */
+export function deliveryShortfall(minimum: string | null | undefined, subtotal: string) {
+  const gap = Math.round(Number(minimum ?? 0) * 1000) - Math.round(Number(subtotal) * 1000);
+  return gap > 0 ? (gap / 1000).toFixed(3) : null;
+}
+
+/** Amounts some messages mention, such as the delivery minimum. Safe to pass with any message. */
+export function messageValues(source: unknown, locale: 'en' | 'ar') {
+  const body = (source instanceof ApiError ? source.body : source) as { minimum?: unknown; shortBy?: unknown } | undefined;
+  const amount = (value: unknown) => formatMoney(typeof value === 'string' ? value : '0', locale);
+  return { minimum: amount(body?.minimum), shortBy: amount(body?.shortBy) };
 }
 
 /** The code the API attached to a failed request, if any. */

@@ -44,6 +44,7 @@ export type CheckoutErrorCode =
   | 'FULFILLMENT_UNAVAILABLE'
   | 'PAYMENT_METHOD_UNAVAILABLE'
   | 'PROMO_INVALID'
+  | 'BELOW_MINIMUM_ORDER'
   | 'TOTAL_CHANGED';
 
 export function checkoutError(code: CheckoutErrorCode, message: string, extra: Record<string, unknown> = {}) {

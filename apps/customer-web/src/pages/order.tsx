@@ -84,6 +84,7 @@ export default function OrderDetailPage() {
             <li key={index} className="flex items-center justify-between gap-3 py-3 text-sm">
               <span className="min-w-0">
                 <span className="block font-semibold">{pickLocalized(item.name, locale)}</span>
+                {item.addons?.length ? <span className="block text-[#6f6f6a]">{item.addons.map((addon) => pickLocalized(addon, locale)).join(' · ')}</span> : null}
                 <span className="text-[#6f6f6a]">× {item.quantity}</span>
               </span>
               <span className="shrink-0 font-semibold">{formatMoney(item.lineTotal, locale)}</span>

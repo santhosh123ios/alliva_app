@@ -5,7 +5,7 @@ import { categoryIcon } from '@/components/storefront';
 import { Link } from '@/i18n/navigation';
 import { areas, usePlace, type FulfillmentMode } from '@/lib/place';
 import { chooseAddress, chooseLocation, useLocationStore } from '@/lib/location';
-import { deliveryProblem } from '@/lib/checkout-errors';
+import { deliveryProblem, deliveryShortfall } from '@/lib/checkout-errors';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { cn, EmptyState, ErrorState, Skeleton } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -293,9 +293,13 @@ export default function CartPage() {
   ) : null;
 
   const etaRow = delivering ? <EtaRow label={t('customer.estimatedDelivery')} value={eta} /> : null;
-  const deliveryWarning = delivering && deliveryIssue ? (
+  // The store's delivery minimum is checked again at checkout; here it tells the diner early and keeps them in the cart.
+  const shortBy = delivering ? deliveryShortfall(merchant?.minimumOrder, data.pricing.subtotal) : null;
+  const deliveryWarning = delivering && (deliveryIssue || shortBy) ? (
     <p role="alert" className="mt-3 rounded-2xl bg-[#fff6d0] px-4 py-3 text-sm font-semibold text-[#8a6d00]">
-      {t(`customer.checkoutErrors.${deliveryIssue}`)}
+      {deliveryIssue
+        ? t(`customer.checkoutErrors.${deliveryIssue}`)
+        : t('customer.checkoutErrors.belowMinimum', { minimum: formatMoney(merchant?.minimumOrder ?? '0', locale), shortBy: formatMoney(shortBy ?? '0', locale) })}
     </p>
   ) : null;
 
@@ -483,7 +487,12 @@ export default function CartPage() {
           {unavailable ? (
             <p className="mt-4 rounded-2xl bg-[#fff6d0] px-4 py-3 text-sm font-semibold text-[#8a6d00]">{t('customer.storeUnavailableBody')}</p>
           ) : (
-            <Link href={checkoutHref} className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-sm font-bold text-[#111]">
+            <Link
+              href={shortBy ? '#' : checkoutHref}
+              aria-disabled={Boolean(shortBy)}
+              onClick={(event) => { if (shortBy) event.preventDefault(); }}
+              className={cn('mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-sm font-bold text-[#111]', shortBy && 'pointer-events-none opacity-45')}
+            >
               {t('customer.proceedCheckout')}
               <ArrowRight className="size-4 rtl:rotate-180" />
             </Link>
@@ -513,14 +522,16 @@ export default function CartPage() {
         </p>
       ) : (
       <Link
-        href={checkoutHref}
-        className="fixed inset-x-4 bottom-[calc(4.65rem+max(0.7rem,env(safe-area-inset-bottom))+1.9rem)] z-40 mx-auto flex max-w-[640px] items-center justify-between gap-3 rounded-full bg-[#111] py-2 ps-5 pe-2 text-white shadow-[0_10px_28px_rgba(0,0,0,0.28)] lg:hidden"
+        href={shortBy ? '#' : checkoutHref}
+        aria-disabled={Boolean(shortBy)}
+        onClick={(event) => { if (shortBy) event.preventDefault(); }}
+        className={cn(shortBy && 'pointer-events-none', 'fixed inset-x-4 bottom-[calc(4.65rem+max(0.7rem,env(safe-area-inset-bottom))+1.9rem)] z-40 mx-auto flex max-w-[640px] items-center justify-between gap-3 rounded-full bg-[#111] py-2 ps-5 pe-2 text-white shadow-[0_10px_28px_rgba(0,0,0,0.28)] lg:hidden')}
       >
         <span className="min-w-0">
-          <span className="block text-[11px] font-medium text-white/60">{t('customer.total')}</span>
+          <span className="block text-[11px] font-medium text-white/60">{shortBy ? t('customer.addMoreForDelivery', { shortBy: formatMoney(shortBy, locale) }) : t('customer.total')}</span>
           <span className="block truncate text-base font-bold leading-tight">{formatMoney(data.pricing.total, locale)}</span>
         </span>
-        <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-bold text-[#111]">
+        <span className={cn('inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-bold text-[#111]', shortBy && 'opacity-40')}>
           {t('customer.proceedCheckout')}
           <ArrowRight className="size-4 rtl:rotate-180" />
         </span>

@@ -33,6 +33,8 @@ import type {
   DeliveryIssueType,
   Page,
   ProductDetail,
+  ProductOptionEditor,
+  EditableOptionGroup,
   ReportOverview,
   StorefrontHome,
   SubscriptionBoard,
@@ -361,6 +363,9 @@ export function createApiClient(baseUrl = '', portal?: AuthPortal) {
     productOptions: (query: string) => request<Json[]>(`/api/catalog/product-options?q=${encodeURIComponent(query)}`),
     createProduct: (body: Json) => send('/api/catalog/products', 'POST', body),
     updateProduct: (id: string, body: Json) => send(`/api/catalog/products/${id}`, 'PATCH', body),
+    productOptionGroups: (id: string) => request<ProductOptionEditor>(`/api/catalog/products/${id}/option-groups`),
+    saveProductOptionGroups: (id: string, body: Json) => send<ProductOptionEditor>(`/api/catalog/products/${id}/option-groups`, 'PUT', body),
+    optionGroupLibrary: () => request<EditableOptionGroup[]>('/api/catalog/option-groups'),
     importProducts: (rows: object[]) =>
       send<{ created: number; updated: number; errors: { row: number; message: string }[] }>('/api/catalog/products/import', 'POST', { rows } as Json),
     exportProducts: async () => {

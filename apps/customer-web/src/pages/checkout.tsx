@@ -2,7 +2,7 @@ import { AddressForm } from '@/components/address-form';
 import { api } from '@/components/providers';
 import { useRouter } from '@/i18n/navigation';
 import { cartQueryKey, cartQueryOptions } from '@/lib/cart-cache';
-import { errorCode, errorMessage, problemMessage } from '@/lib/checkout-errors';
+import { errorCode, errorMessage, messageValues, problemMessage } from '@/lib/checkout-errors';
 import { chooseAddress, useLocationStore } from '@/lib/location';
 import { usePlace, type FulfillmentMode } from '@/lib/place';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
@@ -169,7 +169,7 @@ export default function CheckoutPage() {
         router.replace(`/login?next=${encodeURIComponent('/checkout')}`);
         return;
       }
-      toast.error(e(errorMessage(error)));
+      toast.error(e(errorMessage(error), messageValues(error, locale)));
       if (code === 'CART_CHANGED' || code === 'TOTAL_CHANGED' || code === 'PRODUCT_UNAVAILABLE') void client.invalidateQueries({ queryKey: cartQueryKey });
       void summary.refetch();
     },
@@ -378,7 +378,7 @@ export default function CheckoutPage() {
               {problems.map((problem) => (
                 <li key={problem.code} className="flex gap-2 rounded-2xl bg-[#fff6d0] px-3 py-2.5 text-sm font-medium text-[#5c4700]">
                   <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                  {e(problemMessage(problem.code))}
+                  {e(problemMessage(problem.code), messageValues(problem, locale))}
                 </li>
               ))}
             </ul>

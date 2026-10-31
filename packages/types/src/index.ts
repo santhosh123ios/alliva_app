@@ -338,6 +338,7 @@ export type CheckoutProblemCode =
   | 'FULFILLMENT_UNAVAILABLE'
   | 'PAYMENT_METHOD_UNAVAILABLE'
   | 'PROMO_INVALID'
+  | 'BELOW_MINIMUM_ORDER'
   | 'TOTAL_CHANGED';
 
 export type CheckoutSummary = {
@@ -350,7 +351,8 @@ export type CheckoutSummary = {
   items: Pick<CartLine, 'id' | 'productId' | 'name' | 'variantName' | 'quantity' | 'unitPrice' | 'lineTotal' | 'addons' | 'notes' | 'imageUrl'>[];
   pricing: PriceBreakdown | null;
   paymentMethods: StorePaymentMethod[];
-  problems: { code: CheckoutProblemCode; message: string }[];
+  /** `minimum` and `shortBy` come with BELOW_MINIMUM_ORDER: the store's delivery minimum and how much is missing. */
+  problems: { code: CheckoutProblemCode; message: string; minimum?: MoneyString; shortBy?: MoneyString }[];
   canPlace: boolean;
 };
 
@@ -382,6 +384,8 @@ export type ProductCard = {
   reviewCount: number;
   available: boolean;
   customizable: boolean;
+  /** True when the diner must pick a size or a required option, so a quick add opens the product instead. */
+  needsChoice: boolean;
   temporarilyUnavailable?: boolean;
 };
 
@@ -393,13 +397,23 @@ export type ProductDetail = ProductCard & {
     price: MoneyString;
     available: boolean;
   }[];
-  addonGroups: {
-    id: string;
-    name: LocalizedText;
-    minSelect: number;
-    maxSelect: number;
-    addons: { id: string; name: LocalizedText; price: MoneyString }[];
-  }[];
+  kind: ProductKind;
+  addonGroups: ProductOptionGroup[];
+};
+
+export type ProductKind = 'STANDARD' | 'COMBO';
+
+/**
+ * An option group on a product, or a slot in a combo. `fixed` groups (every option required, like the
+ * burger in a burger meal) are filled in by the server; options with a `productId` are combo items.
+ */
+export type ProductOptionGroup = {
+  id: string;
+  name: LocalizedText;
+  minSelect: number;
+  maxSelect: number;
+  fixed: boolean;
+  addons: { id: string; name: LocalizedText; price: MoneyString; available: boolean; productId: string | null; imageUrl: string | null }[];
 };
 
 export type MerchantStorefront = Omit<MerchantCard, 'categories' | 'latitude' | 'longitude'> & {
@@ -412,6 +426,23 @@ export type MerchantStorefront = Omit<MerchantCard, 'categories' | 'latitude' | 
   categories: { id: string; name: LocalizedText; products: ProductCard[] }[];
   reviews: { id: string; rating: number; comment: string | null; author: string; createdAt: string }[];
   offers: { id: string; title: LocalizedText }[];
+};
+
+/** A product's option groups as the merchant edits them. `sharedWith` counts other products using the group. */
+export type ProductOptionEditor = {
+  kind: ProductKind;
+  groups: EditableOptionGroup[];
+  /** Sizes or portions, each with its own full price. */
+  variants: { id: string; name: LocalizedText; price: MoneyString; available: boolean }[];
+};
+
+export type EditableOptionGroup = {
+  id: string;
+  name: LocalizedText;
+  minSelect: number;
+  maxSelect: number;
+  sharedWith: number;
+  options: { id: string; name: LocalizedText; price: MoneyString; available: boolean; productId: string | null }[];
 };
 
 export type CartLine = {
@@ -476,7 +507,8 @@ export type OrderView = {
   driverName: string | null;
   driverPhone: string | null;
   driverVehicle: string | null;
-  items: { name: LocalizedText; quantity: number; lineTotal: MoneyString; imageUrl: string | null }[];
+  /** `addons` are the chosen options and combo items, in the order the menu lists them. */
+  items: { name: LocalizedText; quantity: number; lineTotal: MoneyString; imageUrl: string | null; addons: LocalizedText[] }[];
   pricing: PriceBreakdown;
   notes: string | null;
   cancellationReason: string | null;
@@ -829,8 +861,9 @@ export type FloorMenuProduct = {
   price: MoneyString;
   imageUrl: string | null;
   available: boolean;
+  kind: ProductKind;
   variants: { id: string; name: LocalizedText; price: MoneyString; available: boolean }[];
-  addonGroups: { id: string; name: LocalizedText; minSelect: number; maxSelect: number; addons: { id: string; name: LocalizedText; price: MoneyString; available: boolean }[] }[];
+  addonGroups: ProductOptionGroup[];
 };
 
 export type FloorMenu = { categories: { id: string; name: LocalizedText; products: FloorMenuProduct[] }[] };

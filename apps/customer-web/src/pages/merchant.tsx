@@ -280,12 +280,12 @@ export default function MerchantPage() {
               <>
                 <ul className="lg:hidden">
                   {visible.map((product) => (
-                    <DishRow key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={cartAdd.pendingId === product.id} onAdd={() => cartAdd.requestAdd(data.id, data.name, { productId: product.id, quantity: 1, preview: { name: product.name, description: product.description, imageUrl: product.imageUrl, unitPrice: product.price } })} />
+                    <DishRow key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={cartAdd.pendingId === product.id} onAdd={() => cartAdd.addCard(product)} />
                   ))}
                 </ul>
                 <ul className="mt-3 hidden gap-3 lg:grid lg:grid-cols-2">
                   {visible.map((product) => (
-                    <DishCard key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={cartAdd.pendingId === product.id} onAdd={() => cartAdd.requestAdd(data.id, data.name, { productId: product.id, quantity: 1, preview: { name: product.name, description: product.description, imageUrl: product.imageUrl, unitPrice: product.price } })} />
+                    <DishCard key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={cartAdd.pendingId === product.id} onAdd={() => cartAdd.addCard(product)} />
                   ))}
                 </ul>
               </>

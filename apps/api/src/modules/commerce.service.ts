@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import type { FulfillmentType, OrderStatus } from '@alliva/types';
 import { isOfflinePaymentMethod, type PaymentMethodCode } from '@alliva/validation';
 import { money, moneyString } from '../domain/money';
-import { orderPromoForMerchant, priceOrder, type PromoFacts } from '../domain/pricing';
+import { deliveryShortfall, orderPromoForMerchant, priceOrder, type PromoFacts } from '../domain/pricing';
 import { assertTransition, riderOnly } from '../domain/order-machine';
 import { handoffCode, handoffToken } from '../domain/dispatch';
 import { assertFeatureAllowed, assertWithinLimit, commissionPercent, readEntitlement, suggestionMode } from '../domain/entitlements';
@@ -19,6 +19,7 @@ import { storePaymentChoices } from './payment-methods';
 import { deliveryFeeForDistance } from '../domain/delivery-pricing';
 import { merchantOrderCharges } from '../domain/charges';
 import { planCartMerge, mergeLineKey } from '../domain/cart-merge';
+import { checkedSelections, optionGroupsInclude, optionsFulfillable, presentOptionGroups, type OptionGroupLink } from './product-options';
 import { haversineKm, parsePoint, type Point } from '../domain/geo';
 import { branchPoint, deliveryInclude, deliverySnapshot, presentBranchQuote, type BranchQuote, type DeliveryContext, type DeliveryService } from './delivery.service';
 
@@ -171,7 +172,7 @@ export class CommerceService {
           productCategories: {
             where: { deletedAt: null },
             orderBy: { sortOrder: 'asc' },
-            include: { products: { where: { deletedAt: null, approvalStatus: 'APPROVED' }, include: { inventory: true, addonGroups: { select: { productId: true } } } } },
+            include: { products: { where: { deletedAt: null, approvalStatus: 'APPROVED' }, include: { inventory: true, variants: true, addonGroups: optionGroupsInclude } } },
           },
         },
       }),
@@ -220,10 +221,10 @@ export class CommerceService {
       where: { id, deletedAt: null },
       include: {
         merchant: true,
-        variants: true,
+        variants: { orderBy: [{ price: 'asc' }, { createdAt: 'asc' }] },
         inventory: true,
         images: { orderBy: { sortOrder: 'asc' } },
-        addonGroups: { include: { addonGroup: { include: { addons: true } } } },
+        addonGroups: optionGroupsInclude,
       },
     });
     if (!product || product.approvalStatus !== 'APPROVED') throw notFound('Product not found');
@@ -237,6 +238,8 @@ export class CommerceService {
     const gallery = [product.imageUrl, ...product.images.map((image) => image.url)].filter((url): url is string => Boolean(url));
     return {
       ...card,
+      kind: product.kind,
+      available: card.available && optionsFulfillable(product.addonGroups),
       temporarilyUnavailable: !live,
       images: [...new Set(gallery)],
       variants: product.variants.map((variant) => ({
@@ -245,13 +248,7 @@ export class CommerceService {
         price: dec(variant.price),
         available: variant.available,
       })),
-      addonGroups: product.addonGroups.map((link) => ({
-        id: link.addonGroup.id,
-        name: loc(link.addonGroup.name),
-        minSelect: link.addonGroup.minSelect,
-        maxSelect: link.addonGroup.maxSelect,
-        addons: link.addonGroup.addons.map((addon) => ({ id: addon.id, name: loc(addon.name), price: dec(addon.price) })),
-      })),
+      addonGroups: presentOptionGroups(product.addonGroups),
     };
   }
 
@@ -278,8 +275,11 @@ export class CommerceService {
   }
 
   async addItem(owner: { customerId?: string | null; guestId?: string | null }, input: { productId: string; variantId?: string | null; addonIds?: string[]; quantity: number; notes?: string; replace?: boolean }) {
-    const product = await this.prisma.product.findFirst({ where: { id: input.productId, deletedAt: null, available: true } });
+    const product = await this.prisma.product.findFirst({ where: { id: input.productId, deletedAt: null, available: true }, include: { addonGroups: optionGroupsInclude, variants: true } });
     if (!product) throw notFound('Product not found');
+    const sizes = product.variants.filter((variant) => variant.available);
+    if (sizes.length && !sizes.some((variant) => variant.id === input.variantId)) throw badRequest('Choose a size first');
+    const addonIds = [...checkedSelections(product.addonGroups, input.addonIds ?? [], badRequest)].sort();
     if (!(await this.storeIsOpen(product.merchantId))) throw badRequest('This store is temporarily unavailable');
     let cart = await this.loadCartRecord(owner);
     if (cart?.merchantId && cart.merchantId !== product.merchantId) {
@@ -301,7 +301,6 @@ export class CommerceService {
     }
     const switched = Boolean(cart.merchantId && cart.merchantId !== product.merchantId);
     const lines = switched ? [] : cart.items;
-    const addonIds = [...new Set(input.addonIds ?? [])].sort();
     const notes = input.notes?.trim() || null;
     const variantId = input.variantId || null;
     const matches = lines.filter((item) => sameCartLine(item, { productId: product.id, variantId, notes, addonIds }));
@@ -387,9 +386,9 @@ export class CommerceService {
   async validateCheckout(customerId: string, input: CheckoutRequest) {
     const cart = await this.loadCartRecord({ customerId });
     if (!cart || !cart.merchantId || !cart.items.length) throw checkoutError('CART_EMPTY', 'Your cart is empty');
-    const problems: { code: CheckoutErrorCode; message: string }[] = [];
-    const fail = (code: CheckoutErrorCode, message: string) => {
-      if (!problems.some((problem) => problem.code === code)) problems.push({ code, message });
+    const problems: { code: CheckoutErrorCode; message: string; minimum?: string; shortBy?: string }[] = [];
+    const fail = (code: CheckoutErrorCode, message: string, extra: { minimum?: string; shortBy?: string } = {}) => {
+      if (!problems.some((problem) => problem.code === code)) problems.push({ code, message, ...extra });
     };
     const version = cartVersion(cart);
     if (input.cartVersion && input.cartVersion !== version) fail('CART_CHANGED', 'Your cart changed. Review it before placing the order.');
@@ -438,6 +437,12 @@ export class CommerceService {
       else if (reason) fail('DELIVERY_QUOTE_FAILED', 'We could not calculate the delivery charge. Try again.');
     }
 
+    // The store's minimum applies to delivery only, measured on the items before any discount.
+    if (fulfillment === 'DELIVERY' && priced) {
+      const shortBy = deliveryShortfall(merchant.minimumOrder.toString(), priced.pricing.subtotal);
+      if (shortBy) fail('BELOW_MINIMUM_ORDER', `This store delivers orders from BHD ${dec(merchant.minimumOrder)}`, { minimum: dec(merchant.minimumOrder), shortBy });
+    }
+
     const paymentMethods = await storePaymentChoices(this.prisma, merchant.id);
     if (input.paymentMethod && !paymentMethods.some((method) => method.code === input.paymentMethod)) {
       fail('PAYMENT_METHOD_UNAVAILABLE', 'This store does not accept that payment method');
@@ -481,7 +486,7 @@ export class CommerceService {
     await this.setContext({ customerId: owner.customerId }, input);
     const checked = await this.validateCheckout(owner.customerId, input);
     const first = checked.problems[0];
-    if (first) throw checkoutError(first.code, first.message, first.code === 'TOTAL_CHANGED' ? { total: checked.pricing?.total } : {});
+    if (first) throw checkoutError(first.code, first.message, first.code === 'TOTAL_CHANGED' ? { total: checked.pricing?.total } : { minimum: first.minimum, shortBy: first.shortBy });
     const { cart, merchant, branch, address, point, delivery } = checked.internal;
     const priced = checked.internal.priced!;
     if (!branch) throw checkoutError('STORE_UNAVAILABLE', 'This store is not accepting orders right now');
@@ -539,16 +544,16 @@ export class CommerceService {
               unitPrice: line.unitPrice,
               lineTotal: line.lineTotal,
               notes: line.notes,
-              addons: { create: line.addons.map((addon) => ({ addonId: addon.id, name: addon.name, price: addon.price })) },
+              addons: { create: orderAddons(line) },
             })),
           },
           events: { create: { status: 'PENDING', actorId: owner.userId, note: 'Order placed' } },
         },
       });
-      for (const line of priced.lines) {
+      for (const [productId, quantity] of stockUse(priced.lines)) {
         await tx.inventoryItem.updateMany({
-          where: { productId: line.productId, branchId: branch.id, quantity: { gte: line.quantity } },
-          data: { quantity: { decrement: line.quantity } },
+          where: { productId, branchId: branch.id, quantity: { gte: quantity } },
+          data: { quantity: { decrement: quantity } },
         });
       }
       if (promoCodeId && money(priced.pricing.discount).gt(0)) {
@@ -666,7 +671,7 @@ export class CommerceService {
               unitPrice: line.unitPrice,
               lineTotal: line.lineTotal,
               notes: line.notes,
-              addons: { create: line.addons.map((addon) => ({ addonId: addon.id, name: addon.name, price: addon.price })) },
+              addons: { create: orderAddons(line) },
             })),
           },
           events: {
@@ -677,10 +682,10 @@ export class CommerceService {
           },
         },
       });
-      for (const line of priced.lines) {
+      for (const [productId, quantity] of stockUse(priced.lines)) {
         await tx.inventoryItem.updateMany({
-          where: { productId: line.productId, branchId: branch.id, quantity: { gte: line.quantity } },
-          data: { quantity: { decrement: line.quantity } },
+          where: { productId, branchId: branch.id, quantity: { gte: quantity } },
+          data: { quantity: { decrement: quantity } },
         });
       }
       if (table) {
@@ -998,6 +1003,7 @@ export class CommerceService {
         quantity: item.quantity,
         lineTotal: dec(item.lineTotal),
         imageUrl: item.productId ? images.get(item.productId) ?? null : null,
+        addons: item.addons.map((addon) => loc(addon.name)),
       })),
       pricing: {
         subtotal: dec(order.subtotal),
@@ -1094,18 +1100,20 @@ export class CommerceService {
     for (const item of cart.items) {
       const product = await this.prisma.product.findFirst({
         where: { id: item.productId, deletedAt: null },
-        include: { variants: true, addonGroups: { include: { addonGroup: { include: { addons: true } } } } },
+        include: { variants: true, addonGroups: optionGroupsInclude },
       });
       if (!product || !product.available) throw badRequest('A product in your cart is unavailable');
+      const groups = presentOptionGroups(product.addonGroups);
       const variant = item.variantId ? product.variants.find((entry) => entry.id === item.variantId) : null;
       if (item.variantId && (!variant || !variant.available)) throw badRequest('A variant in your cart is unavailable');
+      if (!variant && product.variants.some((entry) => entry.available)) throw badRequest('Choose a size first');
       let unit = money(variant ? dec(variant.price) : dec(product.price));
       const addons = [];
-      for (const link of item.addons) {
-        const addon = product.addonGroups.flatMap((group) => group.addonGroup.addons).find((entry) => entry.id === link.addonId);
-        if (!addon || !addon.available) throw badRequest('An add-on in your cart is unavailable');
-        unit = unit.plus(dec(addon.price));
-        addons.push({ id: addon.id, name: loc(addon.name), price: dec(addon.price) });
+      const picked = checkedSelections(product.addonGroups, item.addons.map((link) => link.addonId), badRequest);
+      for (const addonId of picked) {
+        const addon = groups.flatMap((group) => group.addons).find((entry) => entry.id === addonId)!;
+        unit = unit.plus(addon.price);
+        addons.push({ id: addon.id, name: addon.name, price: addon.price, productId: addon.productId });
       }
       const variants = product.variants.filter((entry) => entry.available).map((entry) => ({ id: entry.id, name: loc(entry.name) }));
       lines.push({
@@ -1117,7 +1125,7 @@ export class CommerceService {
         imageUrl: product.imageUrl,
         variantName: variant ? loc(variant.name) : null,
         variants,
-        customizable: variants.length > 0 || product.addonGroups.some((group) => group.addonGroup.addons.some((addon) => addon.available)),
+        customizable: variants.length > 0 || groups.some((group) => !group.fixed && group.addons.some((addon) => addon.available)),
         quantity: item.quantity,
         unitPrice: moneyString(unit),
         lineTotal: moneyString(unit.mul(item.quantity)),
@@ -1308,7 +1316,7 @@ export class CommerceService {
     });
   }
 
-  private toProductCard(product: { id: string; name: unknown; description: unknown; imageUrl: string | null; price: { toFixed: (n: number) => string }; compareAtPrice: { toFixed: (n: number) => string } | null; ratingAverage: { toFixed: (n: number) => string }; ratingCount: number; available: boolean; inventory?: { quantity: number }[]; addonGroups?: unknown[]; variants?: unknown[] }, merchant: { id: string; slug: string; name: unknown }) {
+  private toProductCard(product: { id: string; name: unknown; description: unknown; imageUrl: string | null; price: { toFixed: (n: number) => string }; compareAtPrice: { toFixed: (n: number) => string } | null; ratingAverage: { toFixed: (n: number) => string }; ratingCount: number; available: boolean; inventory?: { quantity: number }[]; addonGroups?: OptionGroupLink[]; variants?: { available: boolean }[] }, merchant: { id: string; slug: string; name: unknown }) {
     const stock = product.inventory?.reduce((sum, row) => sum + row.quantity, 0);
     return {
       id: product.id,
@@ -1324,11 +1332,15 @@ export class CommerceService {
       reviewCount: product.ratingCount,
       available: product.available && (stock === undefined || stock > 0),
       customizable: (product.addonGroups?.length ?? 0) > 0 || (product.variants?.length ?? 0) > 0,
+      // A quick "+" cannot add these: the diner has to pick a size or a required option first.
+      needsChoice:
+        Boolean(product.variants?.some((variant) => variant.available)) ||
+        presentOptionGroups(product.addonGroups ?? []).some((group) => !group.fixed && group.minSelect > 0),
     };
   }
 
   private async productCards(where: Record<string, unknown>) {
-    const products = await this.prisma.product.findMany({ where, include: { merchant: true, inventory: true }, take: 24 });
+    const products = await this.prisma.product.findMany({ where, include: { merchant: true, inventory: true, variants: true, addonGroups: optionGroupsInclude }, take: 24 });
     return products.map((product) => this.toProductCard(product, product.merchant));
   }
 
@@ -1373,6 +1385,25 @@ const cartInclude = {
 } as const;
 
 /** Changes whenever a line, quantity, option or promo in the cart changes. Checkout compares it to spot edits made elsewhere. */
+/** The picks saved on an order line. The size goes first, at no extra charge: its price is already the line's base. */
+function orderAddons(line: { variantName: { en: string; ar: string } | null; addons: { id: string; name: { en: string; ar: string }; price: string }[] }) {
+  return [
+    ...(line.variantName ? [{ addonId: null, name: line.variantName, price: '0.000' }] : []),
+    ...line.addons.map((addon) => ({ addonId: addon.id, name: addon.name, price: addon.price })),
+  ];
+}
+
+/** Units each product loses to an order: the line itself plus every product picked inside a combo. */
+function stockUse(lines: { productId: string; quantity: number; addons: { productId: string | null }[] }[]) {
+  const use = new Map<string, number>();
+  for (const line of lines) {
+    for (const productId of [line.productId, ...line.addons.map((addon) => addon.productId)]) {
+      if (productId) use.set(productId, (use.get(productId) ?? 0) + line.quantity);
+    }
+  }
+  return use;
+}
+
 function cartVersion(cart: { promoCodeId: string | null; items: { id: string; productId: string; variantId: string | null; notes: string | null; quantity: number; addons: { addonId: string }[] }[] }) {
   const lines = cart.items
     .map((item) => `${item.id}:${item.quantity}:${mergeLineKey({ productId: item.productId, variantId: item.variantId, notes: item.notes, addonIds: item.addons.map((addon) => addon.addonId) })}`)

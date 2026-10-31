@@ -19,7 +19,7 @@ export type MerchantOrder = {
   tableNumber: string | null;
   address: string | null;
   paymentMethod: OrderPaymentMethod | null;
-  items: { name: { en?: string; ar?: string }; quantity: number; lineTotal: string }[];
+  items: { name: { en?: string; ar?: string }; quantity: number; lineTotal: string; addons?: { en?: string; ar?: string }[] }[];
   pricing: { subtotal: string; deliveryFee: string; total: string };
   createdAt: string;
   events: { status: OrderStatus; createdAt: string }[];
@@ -300,7 +300,7 @@ function OrderPanel({ order, locale, onClose, onChanged }: { order: MerchantOrde
             <ul className="mt-3 space-y-2 text-sm">
               {order.items.map((item, index) => (
                 <li key={`${item.name.en ?? ''}-${index}`} className="flex items-start justify-between gap-3">
-                  <span className="text-muted-foreground">{t('itemLine', { count: item.quantity, name: pickLocalized(item.name, locale) })}</span>
+                  <span className="min-w-0 text-muted-foreground">{t('itemLine', { count: item.quantity, name: pickLocalized(item.name, locale) })}{item.addons?.length ? <span className="block text-xs text-subtle">{item.addons.map((addon) => pickLocalized(addon, locale)).join(' · ')}</span> : null}</span>
                   <span className="shrink-0 font-medium text-foreground">{formatMoney(item.lineTotal, locale)}</span>
                 </li>
               ))}

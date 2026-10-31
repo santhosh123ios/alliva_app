@@ -1,4 +1,5 @@
 import { chime, unlock, useOrderUpdates } from '@/components/order-alerts';
+import { primeSpeech, speak, speechSupported, stopSpeaking } from '@/kitchen/speech';
 import { api } from '@/components/providers';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { localizeHref } from '@/i18n/routing';
@@ -7,7 +8,7 @@ import { pickLocalized } from '@alliva/design-tokens';
 import type { KitchenBoard, KitchenTicket, OrderStatus } from '@alliva/types';
 import { cn, PageLoader, toast } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Bike, ChefHat, Clock, Expand, LogOut, Printer, Shrink, ShoppingBag, StickyNote, UtensilsCrossed, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, Bike, ChefHat, Clock, Expand, LogOut, MessageSquareOff, Printer, Shrink, ShoppingBag, Speech, StickyNote, UtensilsCrossed, Volume2, VolumeX } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -21,6 +22,7 @@ const COLUMNS: { key: Column; status: OrderStatus }[] = [
   { key: 'ready', status: 'READY_FOR_PICKUP' },
 ];
 const SOUND_KEY = 'alliva.kitchen.sound';
+const VOICE_KEY = 'alliva.kitchen.voice';
 const BRANCH_KEY = 'alliva.kitchen.branch';
 
 export default function KitchenPage() {
@@ -45,6 +47,7 @@ function KitchenDisplay({ workspace }: { workspace: boolean }) {
   const [branchId, setBranchId] = useState(() => read(BRANCH_KEY) ?? '');
   const [column, setColumn] = useState<Column>('toStart');
   const [sound, setSound] = useState(() => read(SOUND_KEY) !== 'off');
+  const [voice, setVoice] = useState(() => speechSupported() && read(VOICE_KEY) !== 'off');
   const [fullscreen, setFullscreen] = useState(false);
   const profile = useQuery({ queryKey: ['merchant', 'business'], queryFn: () => api.profile(), retry: false });
   const branches = ((profile.data as { branches?: { id: string; name: { en?: string; ar?: string }; active?: boolean }[] } | undefined)?.branches ?? []).filter((branch) => branch.active !== false);
@@ -52,7 +55,7 @@ function KitchenDisplay({ workspace }: { workspace: boolean }) {
   const key = ['merchant', 'kitchen', branchId] as const;
   const board = useQuery({ queryKey: key, queryFn: () => api.kitchen(branchId || undefined), refetchInterval: 15_000 });
   const tickets = board.data?.tickets ?? [];
-  useNewTicketChime(board.data ? tickets : null, sound, t);
+  useNewTicketChime(board.data ? tickets : null, sound, voice, locale, t);
 
   const move = useMutation({
     mutationFn: (input: { ticket: KitchenTicket; status: OrderStatus }) => api.transition(input.ticket.id, { status: input.status }),
@@ -102,6 +105,14 @@ function KitchenDisplay({ workspace }: { workspace: boolean }) {
     if (next) void unlock().then((ok) => { if (ok) chime(0.6); });
   }
 
+  function toggleVoice() {
+    const next = !voice;
+    setVoice(next);
+    write(VOICE_KEY, next ? 'on' : 'off');
+    if (next) speak(t('speech.enabled'), locale);
+    else stopSpeaking();
+  }
+
   function toggleFullscreen() {
     if (document.fullscreenElement) void document.exitFullscreen();
     else void document.documentElement.requestFullscreen?.().catch(() => undefined);
@@ -135,6 +146,11 @@ function KitchenDisplay({ workspace }: { workspace: boolean }) {
         <HeaderButton onClick={toggleSound} label={sound ? t('soundOn') : t('soundOff')} active={sound}>
           {sound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
         </HeaderButton>
+        {speechSupported() ? (
+          <HeaderButton onClick={toggleVoice} label={voice ? t('voiceOn') : t('voiceOff')} active={voice}>
+            {voice ? <Speech className="size-5" /> : <MessageSquareOff className="size-5" />}
+          </HeaderButton>
+        ) : null}
         <HeaderButton onClick={toggleFullscreen} label={fullscreen ? t('exitFullscreen') : t('fullscreen')}>
           {fullscreen ? <Shrink className="size-5" /> : <Expand className="size-5" />}
         </HeaderButton>
@@ -312,8 +328,8 @@ function dueAt(ticket: KitchenTicket) {
   return ticket.scheduledFor ?? ticket.acceptedAt ?? ticket.createdAt;
 }
 
-/** Rings once for each ticket that reaches "to start" while the screen is open. */
-function useNewTicketChime(tickets: KitchenTicket[] | null, sound: boolean, t: ReturnType<typeof useTranslations<'kitchen'>>) {
+/** Rings once for each ticket that reaches "to start" while the screen is open, then reads each one aloud. */
+function useNewTicketChime(tickets: KitchenTicket[] | null, sound: boolean, voice: boolean, locale: Locale, t: ReturnType<typeof useTranslations<'kitchen'>>) {
   const seen = useRef<Set<string> | null>(null);
   useEffect(() => {
     // Wait for the first load, so tickets already on the board when the screen opens do not ring.
@@ -328,12 +344,40 @@ function useNewTicketChime(tickets: KitchenTicket[] | null, sound: boolean, t: R
     if (!fresh.length) return;
     toast(t('newTicket', { count: fresh.length }));
     if (sound) chime(0.8);
-  }, [tickets, sound, t]);
+    // Let the chime finish before the voice starts.
+    if (voice) window.setTimeout(() => fresh.forEach((ticket) => speak(announcement(ticket, locale, t), locale)), sound ? 900 : 0);
+  }, [tickets, sound, voice, locale, t]);
   useEffect(() => {
-    const onGesture = () => void unlock();
+    const onGesture = () => {
+      void unlock();
+      primeSpeech();
+    };
     window.addEventListener('pointerdown', onGesture, { once: true });
     return () => window.removeEventListener('pointerdown', onGesture);
   }, []);
+}
+
+/** What the kitchen hears: where the order goes, then each dish with its size, options and notes. */
+function announcement(ticket: KitchenTicket, locale: Locale, t: ReturnType<typeof useTranslations<'kitchen'>>) {
+  const place = ticket.fulfillmentType === 'DINE_IN' && ticket.tableNumber ? t('table', { number: ticket.tableNumber }) : t(`type.${ticket.fulfillmentType}`);
+  const items = ticket.items.map((item) =>
+    [
+      t('speech.item', { count: item.quantity, name: pickLocalized(item.name, locale) }),
+      ...item.addons.map((addon) => pickLocalized(addon, locale)),
+      item.notes ? t('speech.note', { note: item.notes }) : null,
+    ]
+      .filter(Boolean)
+      .join(locale === 'ar' ? '، ' : ', '),
+  );
+  return [
+    t('speech.newTicket'),
+    t('speech.order', { number: ticket.number.replace(/^\D+-?/, '') }),
+    place,
+    ...items,
+    ticket.notes ? t('speech.orderNote', { note: ticket.notes }) : null,
+  ]
+    .filter(Boolean)
+    .join('. ');
 }
 
 function useNow() {

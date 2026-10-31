@@ -144,3 +144,9 @@ function chargeAmount(base: Money, rule: ChargeInput): Money {
 function DecimalMin(a: Money, b: Money): Money {
   return a.lt(b) ? a : b;
 }
+
+/** How much more the items must come to before the store delivers, or null once the minimum is met. */
+export function deliveryShortfall(minimum: string, subtotal: string) {
+  const gap = money(minimum).minus(subtotal);
+  return gap.gt(0) ? moneyString(gap) : null;
+}

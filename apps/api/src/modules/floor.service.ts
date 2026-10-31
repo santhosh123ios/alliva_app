@@ -7,6 +7,7 @@ import { startOfDay } from '../domain/store-day';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { BillingService } from './billing.service';
 import type { OrdersGateway } from './orders.gateway';
+import { optionGroupsInclude, optionsFulfillable, presentOptionGroups } from './product-options';
 
 /** Orders the floor still has to look after: waiting to be accepted, in the kitchen, or ready to serve. */
 const LIVE: OrderStatus[] = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP'];
@@ -91,7 +92,7 @@ export class FloorService {
           where: { deletedAt: null, approvalStatus: 'APPROVED' },
           include: {
             variants: { orderBy: { price: 'asc' } },
-            addonGroups: { include: { addonGroup: { include: { addons: true } } } },
+            addonGroups: optionGroupsInclude,
           },
           orderBy: { createdAt: 'asc' },
         },
@@ -110,15 +111,10 @@ export class FloorService {
             description: loc(product.description),
             price: dec(product.price),
             imageUrl: product.imageUrl,
-            available: product.available,
+            available: product.available && optionsFulfillable(product.addonGroups),
+            kind: product.kind,
             variants: product.variants.map((variant) => ({ id: variant.id, name: loc(variant.name), price: dec(variant.price), available: variant.available })),
-            addonGroups: product.addonGroups.map(({ addonGroup }) => ({
-              id: addonGroup.id,
-              name: loc(addonGroup.name),
-              minSelect: addonGroup.minSelect,
-              maxSelect: addonGroup.maxSelect,
-              addons: addonGroup.addons.map((addon) => ({ id: addon.id, name: loc(addon.name), price: dec(addon.price), available: addon.available })),
-            })),
+            addonGroups: presentOptionGroups(product.addonGroups),
           })),
         })),
     };

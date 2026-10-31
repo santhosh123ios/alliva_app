@@ -252,7 +252,7 @@ export default function HomePage() {
                         : null
                     }
                     pending={cartAdd.pendingId === product.id}
-                    onAdd={() => cartAdd.requestAdd(product.merchantId, product.merchantName, { productId: product.id, quantity: 1, preview: { name: product.name, description: product.description, imageUrl: product.imageUrl, unitPrice: product.price } })}
+                    onAdd={() => cartAdd.addCard(product)}
                   />
                   );
                 })}

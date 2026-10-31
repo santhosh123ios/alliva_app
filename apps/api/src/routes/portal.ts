@@ -28,6 +28,7 @@ import {
   reorderPlansSchema,
   offerSchema,
   productSchema,
+  productOptionGroupsSchema,
   productUpdateSchema,
   merchantPromoActiveSchema,
   merchantPromoSchema,
@@ -60,6 +61,7 @@ import { importCatalogProducts } from '../modules/catalog-import';
 import { deliverySettingData, presentDeliverySetting, previewDeliverySetting } from '../modules/delivery-settings';
 import { categoryNameKey, mergeCatalogCategory, replaceMerchantCategory, resolveMerchantCategory } from '../modules/catalog-categories';
 import { mergeCatalogProduct, resolveCatalogProduct } from '../modules/catalog-products';
+import { optionGroupLibrary, readProductOptionGroups, saveProductOptionGroups, type ProductOptionGroupsBody } from '../modules/product-option-editor';
 import { customerRewardAvailable, customerWallet, merchantWallet, requestCustomerWithdrawal, requestMerchantWithdrawal } from '../modules/portal-wallet';
 import { adminSignInUrl, merchantSignInUrl, roleLabel, sendWelcomeEmail } from '../providers/welcome-email';
 import { extensionFor } from '../providers/mock.providers';
@@ -973,6 +975,25 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     return { ok: true };
   });
 
+  routes.get('/catalog/products/:id/option-groups', async (request) => {
+    const user = request.user!;
+    if (!user.merchantId) throw badRequest('Merchant account required');
+    return readProductOptionGroups(prisma, user.merchantId, param(request, 'id'));
+  });
+
+  routes.put('/catalog/products/:id/option-groups', { permissions: ['catalog.manage'] }, async (request) => {
+    const user = request.user!;
+    if (!user.merchantId) throw badRequest('Merchant account required');
+    const body = validate<ProductOptionGroupsBody>(productOptionGroupsSchema, request.body);
+    return saveProductOptionGroups(prisma, user.merchantId, param(request, 'id'), body);
+  });
+
+  routes.get('/catalog/option-groups', async (request) => {
+    const user = request.user!;
+    if (!user.merchantId) throw badRequest('Merchant account required');
+    return optionGroupLibrary(prisma, user.merchantId);
+  });
+
   routes.post('/catalog/offers', { permissions: ['catalog.manage'] }, async (request) => {
     const user = request.user!;
     const body = validate<{ title: { en: string; ar: string }; productId?: string }>(offerSchema, request.body);
@@ -1686,7 +1707,7 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
   async function products(user: RequestUser) {
     const rows = await prisma.product.findMany({
       where: { deletedAt: null, ...(user.merchantId ? { merchantId: user.merchantId } : {}) },
-      include: { category: true, catalogProduct: true, variants: true, inventory: true },
+      include: { category: true, catalogProduct: true, variants: true, inventory: true, _count: { select: { addonGroups: true } } },
       orderBy: { createdAt: 'desc' },
     });
     return rows.map((product) => ({
@@ -1703,6 +1724,9 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
       stock: product.inventory.reduce((sum, row) => sum + row.quantity, 0),
       categoryId: product.categoryId,
       category: loc(product.category.name),
+      kind: product.kind,
+      optionGroups: product._count.addonGroups,
+      sizes: product.variants.length,
     }));
   }
 

@@ -3,6 +3,7 @@ import { beginCartChange, bumpCart, cartChangesPending, cartQueryKey, cartQueryO
 import { pickLocalized } from '@alliva/design-tokens';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from '@/i18n/navigation';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { toast } from 'sonner';
@@ -11,6 +12,18 @@ type StoreName = { en?: string; ar?: string } | null | undefined;
 
 type AddBody = CartAddInput & {
   merchantName?: StoreName;
+};
+
+type CardProduct = {
+  id: string;
+  merchantId: string;
+  merchantSlug: string;
+  merchantName: StoreName;
+  name: { en?: string; ar?: string };
+  description: { en?: string; ar?: string };
+  imageUrl: string | null;
+  price: string;
+  needsChoice?: boolean;
 };
 
 type Prompt = {
@@ -25,6 +38,7 @@ export function useCartAdd() {
   const t = useTranslations();
   const cart = useQuery(cartQueryOptions());
   const [prompt, setPrompt] = useState<Prompt | null>(null);
+  const router = useRouter();
 
   const add = useMutation({
     mutationFn: async (input: AddBody) => {
@@ -81,6 +95,19 @@ export function useCartAdd() {
     return false;
   };
 
+  /** The "+" on a product card. Products that need a size or a required option open their page instead. */
+  const addCard = (product: CardProduct) => {
+    if (product.needsChoice) {
+      router.push(`/merchants/${product.merchantSlug}/products/${product.id}`);
+      return false;
+    }
+    return requestAdd(product.merchantId, product.merchantName, {
+      productId: product.id,
+      quantity: 1,
+      preview: { name: product.name, description: product.description, imageUrl: product.imageUrl, unitPrice: product.price },
+    });
+  };
+
   const confirming = add.isPending && Boolean(add.variables?.replace);
 
   const dialog = (
@@ -121,6 +148,7 @@ export function useCartAdd() {
 
   return {
     requestAdd,
+    addCard,
     pendingId: add.isPending ? (add.variables?.productId ?? null) : null,
     pending: add.isPending,
     dialog,

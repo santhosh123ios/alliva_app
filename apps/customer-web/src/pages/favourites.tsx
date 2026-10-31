@@ -318,7 +318,7 @@ export default function FavouritesPage() {
                       product={item.product}
                       locale={locale}
                       pending={cartAdd.pendingId === item.product.id}
-                      onAdd={() => cartAdd.requestAdd(item.product.merchantId, item.product.merchantName, { productId: item.product.id, quantity: 1, preview: { name: item.product.name, description: item.product.description, imageUrl: item.product.imageUrl, unitPrice: item.product.price } })}
+                      onAdd={() => cartAdd.addCard(item.product)}
                       onUnsave={() => hideProduct(item.product.id)}
                     />
                   ))}

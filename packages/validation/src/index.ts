@@ -358,6 +358,45 @@ export const addonGroupSchema = z.object({
   ),
 });
 
+/** A product's option groups (or a combo's slots), saved together from the product editor. */
+export const productOptionGroupsSchema = z
+  .object({
+    kind: z.enum(['STANDARD', 'COMBO']),
+    groups: z
+      .array(
+        z
+          .object({
+            id: z.uuid().optional(),
+            name: localizedSchema,
+            minSelect: z.number().int().min(0).max(20),
+            maxSelect: z.number().int().min(1).max(20),
+            options: z
+              .array(
+                z.object({
+                  id: z.uuid().optional(),
+                  name: localizedSchema,
+                  price: moneySchema,
+                  available: z.boolean().default(true),
+                  productId: z.uuid().nullable().optional(),
+                }),
+              )
+              .min(1)
+              .max(30),
+          })
+          .refine((group) => group.minSelect <= group.maxSelect, { message: 'Minimum cannot be more than maximum', path: ['minSelect'] })
+          .refine((group) => group.minSelect <= group.options.length, { message: 'Add enough options for the minimum', path: ['minSelect'] }),
+      )
+      .max(15),
+    variants: z
+      .array(z.object({ id: z.uuid().optional(), name: localizedSchema, price: moneySchema, available: z.boolean().default(true) }))
+      .max(20)
+      .optional(),
+  })
+  .refine((body) => body.kind !== 'COMBO' || body.groups.length > 0, { message: 'Add at least one item to the combo', path: ['groups'] })
+  .refine((body) => body.kind !== 'COMBO' || body.groups.every((group) => group.options.every((option) => option.productId)), { message: 'Every combo choice must be one of your products', path: ['groups'] });
+
+export type ProductOptionGroupsInput = z.input<typeof productOptionGroupsSchema>;
+
 export const categorySchema = z.object({
   name: localizedSchema,
   sortOrder: z.number().int().optional(),
