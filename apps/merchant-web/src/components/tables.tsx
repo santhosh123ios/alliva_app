@@ -1,4 +1,5 @@
 import { api } from '@/components/providers';
+import { qrSvg } from '@/lib/qr';
 import { tableNo } from '@/lib/table-number';
 import { Link } from '@/i18n/navigation';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
@@ -706,44 +707,4 @@ function QrMark({ value }: { value: string }) {
   return <span dangerouslySetInnerHTML={{ __html: qrSvg(value, 168) }} />;
 }
 
-function qrSvg(value: string, size: number) {
-  const cells = qrModules(value);
-  const rects = cells.map((on, index) => on ? `<rect x="${index % 25}" y="${Math.floor(index / 25)}" width="1" height="1" fill="#111"/>` : '').join('');
-  return `<svg width="${size}" height="${size}" viewBox="0 0 25 25" shape-rendering="crispEdges" aria-hidden="true"><rect width="25" height="25" fill="#fff"/>${rects}</svg>`;
-}
 
-function qrModules(value: string) {
-  const size = 25;
-  const grid = Array.from({ length: size * size }, () => false);
-  const paint = (x: number, y: number, on: boolean) => {
-    if (x >= 0 && y >= 0 && x < size && y < size) grid[y * size + x] = on;
-  };
-  const finder = (ox: number, oy: number) => {
-    for (let y = 0; y < 7; y += 1) {
-      for (let x = 0; x < 7; x += 1) {
-        const edge = x === 0 || y === 0 || x === 6 || y === 6;
-        const core = x >= 2 && x <= 4 && y >= 2 && y <= 4;
-        paint(ox + x, oy + y, edge || core);
-      }
-    }
-  };
-  finder(0, 0);
-  finder(size - 7, 0);
-  finder(0, size - 7);
-  for (let i = 8; i < size - 8; i += 1) {
-    paint(i, 6, i % 2 === 0);
-    paint(6, i, i % 2 === 0);
-  }
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i += 1) hash = Math.imul(hash ^ value.charCodeAt(i), 16777619);
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const inFinder = (x < 8 && y < 8) || (x > size - 9 && y < 8) || (x < 8 && y > size - 9);
-      const center = x > 8 && x < 16 && y > 8 && y < 16;
-      if (inFinder || center || grid[y * size + x]) continue;
-      hash = Math.imul(hash ^ (x * 31 + y), 16777619);
-      paint(x, y, (hash >>> 0) % 3 !== 0);
-    }
-  }
-  return grid;
-}
