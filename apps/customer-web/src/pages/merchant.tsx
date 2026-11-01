@@ -1,4 +1,5 @@
 import { CartButtonSpinner, flyFromButton } from '@/components/cart-motion';
+import { ProductSheet } from '@/components/product-sheet';
 import { api } from '@/components/providers';
 import { useCartAdd } from '@/components/store-switch';
 import { beginCartChange, cartQueryOptions, clearCartLines, failCartChange, optimisticLine, setLineQuantity, settleCartChange } from '@/lib/cart-cache';
@@ -11,8 +12,8 @@ import { cn, ErrorState } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, Bike, ChevronRight, Clock, Headphones, Heart, MapPin, Minus, Plus, Search, Share2, ShieldCheck, ShoppingBag, ShoppingCart, Star, Trash2, Utensils } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
-import { useState } from 'react';
-import { useParams } from 'react-router';
+import { useEffect, useState } from 'react';
+import { useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 
 type StorePayload = NonNullable<Awaited<ReturnType<typeof api.merchant>>>;
@@ -37,6 +38,13 @@ export default function MerchantPage() {
   const [tab, setTab] = useState('popular');
   const [search, setSearch] = useState('');
   const [infoOpen, setInfoOpen] = useState(false);
+  const [choosing, setChoosing] = useState<string | null>(null);
+  const [params] = useSearchParams();
+  const dineInLink = params.get('fulfillment') === 'DINE_IN';
+  // Table QR scans used to land here with ?fulfillment=DINE_IN; diners at a table order from the table page now.
+  useEffect(() => {
+    if (dineInLink) router.replace(`/table/${slug}`);
+  }, [dineInLink, router, slug]);
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.me(), retry: false });
   const customer = useQuery({
     queryKey: ['customer'],
@@ -92,7 +100,7 @@ export default function MerchantPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  if (merchant.isLoading) return <StoreSkeleton />;
+  if (dineInLink || merchant.isLoading) return <StoreSkeleton />;
   if (merchant.error || !merchant.data) return <ErrorState title="Merchant" body={(merchant.error as Error)?.message ?? 'Missing'} />;
 
   const data = merchant.data;
@@ -120,6 +128,15 @@ export default function MerchantPage() {
   const Icon = categoryIcon(data.categorySlugs[0] ?? '');
   const images = new Map(catalog.map((product) => [product.id, product.imageUrl]));
   const modeLabel = t(`customer.${fulfillmentOptions.find(([id]) => id === fulfillment)?.[2] ?? 'delivery'}`);
+
+  // Dishes with sizes, options or combo picks are customised in a sheet over the menu, not on their own page.
+  const addOrChoose = (product: MenuProduct) => {
+    if (product.customizable || product.needsChoice) {
+      setChoosing(product.id);
+      return false;
+    }
+    return cartAdd.addCard(product);
+  };
 
   const toggleSave = () => {
     if (me.data?.kind !== 'CUSTOMER') {
@@ -280,12 +297,12 @@ export default function MerchantPage() {
               <>
                 <ul className="lg:hidden">
                   {visible.map((product) => (
-                    <DishRow key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={cartAdd.pendingId === product.id} onAdd={() => cartAdd.addCard(product)} />
+                    <DishRow key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={cartAdd.pendingId === product.id} onAdd={() => addOrChoose(product)} />
                   ))}
                 </ul>
                 <ul className="mt-3 hidden gap-3 lg:grid lg:grid-cols-2">
                   {visible.map((product) => (
-                    <DishCard key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={cartAdd.pendingId === product.id} onAdd={() => cartAdd.addCard(product)} />
+                    <DishCard key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={cartAdd.pendingId === product.id} onAdd={() => addOrChoose(product)} />
                   ))}
                 </ul>
               </>
@@ -350,6 +367,7 @@ export default function MerchantPage() {
           </div>
         </div>
       ) : null}
+      <ProductSheet productId={choosing} onClose={() => setChoosing(null)} cartAdd={cartAdd} />
       {cartAdd.dialog}
     </div>
   );

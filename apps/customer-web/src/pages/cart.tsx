@@ -2,6 +2,7 @@ import { CartButtonSpinner, flyFromButton } from '@/components/cart-motion';
 import { api } from '@/components/providers';
 import { beginCartChange, bumpCart, cartQueryOptions, clearCartLines, failCartChange, optimisticLine, setLineQuantity, settleCartChange } from '@/lib/cart-cache';
 import { categoryIcon } from '@/components/storefront';
+import { storeHref } from '@/components/table-call';
 import { Link } from '@/i18n/navigation';
 import { areas, usePlace, type FulfillmentMode } from '@/lib/place';
 import { chooseAddress, chooseLocation, useLocationStore } from '@/lib/location';
@@ -219,7 +220,7 @@ export default function CartPage() {
   const delivering = mode === 'DELIVERY';
   const freeDelivery = delivering && (Number(data.pricing.deliveryFee) === 0 || Boolean(merchant?.freeDelivery));
   const unavailable = Boolean(merchant?.temporarilyUnavailable);
-  const backHref = merchant && !unavailable ? `/merchants/${merchant.slug}` : '/';
+  const backHref = merchant && !unavailable ? storeHref(merchant.slug) : '/';
   const busy = edit.isPending || clear.isPending || context.isPending;
 
   const selectMode = (id: FulfillmentMode) => {

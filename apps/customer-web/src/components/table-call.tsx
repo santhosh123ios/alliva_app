@@ -1,4 +1,5 @@
 import { api } from '@/components/providers';
+import { usePlace } from '@/lib/place';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { cn, Dialog, DialogContent, DialogDescription, DialogTitle, toast } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,22 +18,27 @@ const KINDS: { kind: ServiceRequestKind; icon: typeof BellRing }[] = [
 ];
 
 /** Some stores typed "Table 2" as the number; the label already says "Table". */
-function tableNo(number: string) {
+export function tableNo(number: string) {
   return number.replace(/^\s*(?:table|tbl|طاولة)(?:\s*[-#:.]\s*|\s+|(?=\d))/i, '') || number;
 }
 
-function scannedTable() {
+export function scannedTable() {
   if (typeof document === 'undefined') return null;
   return document.cookie.split('; ').find((part) => part.startsWith('alliva_table='))?.slice('alliva_table='.length) || null;
 }
 
-/** For diners who scanned a table QR: call a waiter, ask for the bill or for help, and see when staff are on the way. */
-export function TableCall() {
+/** Where "back to the store" leads: the table page while the diner is ordering at a scanned table. */
+export function storeHref(slug: string) {
+  return scannedTable() && usePlace.getState().fulfillment === 'DINE_IN' ? `/table/${slug}` : `/merchants/${slug}`;
+}
+
+/** The scanned table's staff calls and running bill, with the dialogs that show them. Shared by the floating button and the table page. */
+export function useTableService() {
   const t = useTranslations('customer.tableCall');
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
   const [billOpen, setBillOpen] = useState(false);
-  const locale = useLocale() === 'ar' ? 'ar' : 'en';
+  const locale: 'en' | 'ar' = useLocale() === 'ar' ? 'ar' : 'en';
   const tableId = scannedTable();
   const service = useQuery({
     queryKey: ['table-service', tableId],
@@ -62,40 +68,11 @@ export function TableCall() {
     onError: (error: Error) => toast.error(error.message),
   });
   const data = service.data;
-  if (!data) return null;
-  const pending = data.requests.length > 0;
-  const onTheWay = data.requests.some((request) => request.status === 'ACKNOWLEDGED');
-  const bill = data.bill;
-  const billAsked = data.requests.some((request) => request.kind === 'BILL');
+  const bill = data?.bill ?? null;
+  const billAsked = Boolean(data?.requests.some((request) => request.kind === 'BILL'));
 
-  return (
+  const dialogs = data ? (
     <>
-      <div className="pointer-events-none mx-auto mb-2 flex max-w-[520px] justify-end gap-2">
-        {bill ? (
-          <button
-            type="button"
-            onClick={() => { setBillOpen(true); void service.refetch(); }}
-            className={cn(
-              'pointer-events-auto flex h-11 min-w-0 items-center gap-2 rounded-full ps-3 pe-4 text-sm font-semibold shadow-[0_10px_28px_rgba(0,0,0,0.18)]',
-              bill.settled ? 'bg-[#168A52] text-white' : 'bg-white text-[#111111]',
-            )}
-          >
-            {bill.settled ? <CircleCheck className="size-4 shrink-0" /> : <Receipt className="size-4 shrink-0" />}
-            <span className="truncate">{bill.settled ? t('bill.paidShort') : t('bill.button', { amount: formatMoney(bill.due, locale) })}</span>
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className={cn(
-            'pointer-events-auto flex h-11 shrink-0 items-center gap-2 rounded-full ps-3 pe-4 text-sm font-semibold shadow-[0_10px_28px_rgba(0,0,0,0.18)]',
-            onTheWay ? 'bg-[#168A52] text-white' : pending ? 'bg-[#111111] text-white' : 'bg-white text-[#111111]',
-          )}
-        >
-          <BellRing className={cn('size-4', pending && !onTheWay && 'animate-pulse')} />
-          <span>{onTheWay ? t('onTheWayShort') : pending ? t('waitingShort') : bill ? t('buttonShort') : t('button', { table: tableNo(data.table.number) })}</span>
-        </button>
-      </div>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-sm">
           <DialogTitle>{t('title', { table: tableNo(data.table.number) })}</DialogTitle>
@@ -172,6 +149,62 @@ export function TableCall() {
           </DialogContent>
         </Dialog>
       ) : null}
+    </>
+  ) : null;
+
+  return {
+    tableId,
+    data,
+    bill,
+    billAsked,
+    locale,
+    call,
+    dialogs,
+    openCalls: () => setOpen(true),
+    openBill: () => {
+      setBillOpen(true);
+      void service.refetch();
+    },
+  };
+}
+
+/** For diners who scanned a table QR: call a waiter, ask for the bill or for help, and see when staff are on the way. */
+export function TableCall() {
+  const t = useTranslations('customer.tableCall');
+  const { data, bill, locale, dialogs, openCalls, openBill } = useTableService();
+  if (!data) return null;
+  const pending = data.requests.length > 0;
+  const onTheWay = data.requests.some((request) => request.status === 'ACKNOWLEDGED');
+
+  return (
+    <>
+      <div className="pointer-events-none mx-auto mb-2 flex max-w-[520px] justify-end gap-2">
+        {bill ? (
+          <button
+            type="button"
+            onClick={openBill}
+            className={cn(
+              'pointer-events-auto flex h-11 min-w-0 items-center gap-2 rounded-full ps-3 pe-4 text-sm font-semibold shadow-[0_10px_28px_rgba(0,0,0,0.18)]',
+              bill.settled ? 'bg-[#168A52] text-white' : 'bg-white text-[#111111]',
+            )}
+          >
+            {bill.settled ? <CircleCheck className="size-4 shrink-0" /> : <Receipt className="size-4 shrink-0" />}
+            <span className="truncate">{bill.settled ? t('bill.paidShort') : t('bill.button', { amount: formatMoney(bill.due, locale) })}</span>
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={openCalls}
+          className={cn(
+            'pointer-events-auto flex h-11 shrink-0 items-center gap-2 rounded-full ps-3 pe-4 text-sm font-semibold shadow-[0_10px_28px_rgba(0,0,0,0.18)]',
+            onTheWay ? 'bg-[#168A52] text-white' : pending ? 'bg-[#111111] text-white' : 'bg-white text-[#111111]',
+          )}
+        >
+          <BellRing className={cn('size-4', pending && !onTheWay && 'animate-pulse')} />
+          <span>{onTheWay ? t('onTheWayShort') : pending ? t('waitingShort') : bill ? t('buttonShort') : t('button', { table: tableNo(data.table.number) })}</span>
+        </button>
+      </div>
+      {dialogs}
     </>
   );
 }

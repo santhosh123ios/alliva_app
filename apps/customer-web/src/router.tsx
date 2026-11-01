@@ -17,6 +17,7 @@ const Order = lazy(() => import('@/pages/order'));
 const Profile = lazy(() => import('@/pages/profile'));
 const Qr = lazy(() => import('@/pages/qr'));
 const Reset = lazy(() => import('@/pages/reset'));
+const Table = lazy(() => import('@/pages/table'));
 
 function ShellLayout() {
   return (
@@ -51,6 +52,15 @@ export const router = createBrowserRouter([
           { path: 'q/:code', element: <Qr /> },
           { path: 'reset', element: <Reset /> },
         ],
+      },
+      {
+        // The table-QR store page is full-bleed, without the shell's header and dock.
+        path: 'table/:slug',
+        element: (
+          <Suspense fallback={<Loading />}>
+            <Table />
+          </Suspense>
+        ),
       },
       { path: '*', element: <NotFound /> },
     ],
