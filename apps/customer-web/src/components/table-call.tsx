@@ -53,6 +53,14 @@ export function TableCall() {
     },
     onError: (error: Error) => toast.error(error.message),
   });
+  const end = useMutation({
+    mutationFn: (id: string) => api.endStaffCall(id),
+    onSuccess: (next) => {
+      client.setQueryData(['table-service', tableId], next);
+      toast.success(t('ended'));
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
   const data = service.data;
   if (!data) return null;
   const pending = data.requests.length > 0;
@@ -97,13 +105,13 @@ export function TableCall() {
               const request = data.requests.find((row) => row.kind === kind);
               const busy = call.isPending && call.variables === kind;
               return (
+                <div key={kind} className="flex items-stretch gap-2">
                 <button
-                  key={kind}
                   type="button"
                   disabled={Boolean(request) || call.isPending}
                   onClick={() => call.mutate(kind)}
                   className={cn(
-                    'flex min-h-14 items-center gap-3 rounded-2xl border px-4 text-start disabled:cursor-default',
+                    'flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-2xl border px-4 text-start disabled:cursor-default',
                     request?.status === 'ACKNOWLEDGED' ? 'border-[#BFE5CF] bg-[#E3F5EA]' : request ? 'border-[#F0E2A8] bg-[#FFF8DC]' : 'border-[#E6E6E2] bg-white hover:bg-[#FAFAF8]',
                   )}
                 >
@@ -121,6 +129,17 @@ export function TableCall() {
                     ) : null}
                   </span>
                 </button>
+                {request ? (
+                  <button
+                    type="button"
+                    disabled={end.isPending}
+                    onClick={() => end.mutate(request.id)}
+                    className="shrink-0 rounded-2xl border border-[#E6E6E2] bg-white px-3 text-sm font-semibold text-[#B42318] disabled:opacity-50"
+                  >
+                    {end.isPending && end.variables === request.id ? <Loader2 className="mx-auto size-4 animate-spin" /> : t('endCall')}
+                  </button>
+                ) : null}
+                </div>
               );
             })}
           </div>

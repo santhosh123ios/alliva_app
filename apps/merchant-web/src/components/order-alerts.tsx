@@ -45,6 +45,11 @@ export async function unlock() {
   return ctx.state === 'running';
 }
 
+/** Whether the browser currently lets the page play sound (after `unlock` ran inside a tap). */
+export function audioReady() {
+  return audio?.state === 'running';
+}
+
 /** Cuts off any alert that is still sounding. */
 function silence() {
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();

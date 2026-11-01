@@ -423,6 +423,7 @@ export function createApiClient(baseUrl = '', portal?: AuthPortal) {
     enterQr: (code: string) => send<Json>(`/api/qr/${code}/enter`, 'POST'),
     tableService: () => request<TableServiceView>('/api/table-service'),
     callStaff: (kind: ServiceRequestKind) => send<TableServiceView>('/api/table-service/calls', 'POST', { kind }),
+    endStaffCall: (id: string) => send<TableServiceView>(`/api/table-service/calls/${encodeURIComponent(id)}/end`, 'POST'),
     customer: () => request<Json>('/api/customers/me'),
     customerWallet: () => request<PortalWallet>('/api/customers/me/wallet'),
     requestCustomerWithdrawal: (amount: string) => send<{ id: string; amount: string; status: string }>('/api/customers/me/wallet/withdrawals', 'POST', { amount }),
