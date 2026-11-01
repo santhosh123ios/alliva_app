@@ -642,6 +642,8 @@
       "coming": "Someone is on the way",
       "waiting": "Sent. Staff will be with you shortly.",
       "buttonShort": "Call staff",
+      "endCall": "End call",
+      "ended": "Call ended",
       "bill": {
         "button": "Bill · {amount}",
         "paidShort": "Paid · thank you",
@@ -3264,7 +3266,8 @@
         "HELP": "Table {table} needs help"
       },
       "readyTable": "Table {table}’s food is ready",
-      "ready": "Order {number} is ready"
+      "ready": "Order {number} is ready",
+      "enableVoice": "Tap to turn on announcements"
     },
     "home": {
       "loadFailed": "Could not load the floor",

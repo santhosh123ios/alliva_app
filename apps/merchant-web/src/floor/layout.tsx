@@ -7,7 +7,7 @@ import { Dock } from '@/rider/dock';
 import { pickLocalized } from '@alliva/design-tokens';
 import { cn, PageLoader } from '@alliva/ui';
 import { useQuery } from '@tanstack/react-query';
-import { BellRing, ClipboardList, House, LayoutGrid, ShoppingBag, UserRound, UtensilsCrossed } from 'lucide-react';
+import { BellRing, ClipboardList, House, LayoutGrid, ShoppingBag, UserRound, UtensilsCrossed, Volume2 } from 'lucide-react';
 import { Suspense } from 'react';
 import { Navigate, Outlet } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -40,7 +40,7 @@ function FloorChrome() {
   const pathname = usePathname();
   useOrderUpdates();
   const board = useFloorBoard();
-  useFloorAlerts(board.data);
+  const alerts = useFloorAlerts(board.data);
   const profile = useQuery({ queryKey: ['merchant', 'business'], queryFn: () => api.profile(), retry: false, staleTime: 300_000 });
   const storeName = (profile.data as { name?: { en?: string; ar?: string } } | undefined)?.name;
   const current = [...tabs].reverse().find((tab) => (tab.href === '/floor' ? pathname === '/floor' : pathname.startsWith(tab.href)))?.key ?? 'home';
@@ -70,6 +70,17 @@ function FloorChrome() {
               </Link>
             ))}
           </nav>
+          {alerts.needsTap ? (
+            // The tap itself unlocks audio (useFloorAlerts listens for any tap), so this only needs to be tappable.
+            <button
+              type="button"
+              aria-label={t('alerts.enableVoice')}
+              className="flex h-9 shrink-0 animate-pulse items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground"
+            >
+              <Volume2 className="size-4" />
+              <span className="max-sm:hidden">{t('alerts.enableVoice')}</span>
+            </button>
+          ) : null}
           <Link
             href="/floor"
             aria-label={t('calls.badge', { count: calls })}

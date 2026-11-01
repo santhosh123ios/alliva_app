@@ -168,6 +168,17 @@ export class FloorService {
     return this.tableService(table.id);
   }
 
+  /** The diner no longer needs staff: end their call. Ending one that staff already closed is not an error. */
+  async endCall(tableId: string | undefined, id: string) {
+    const table = await this.dinerTable(tableId);
+    const open = await this.prisma.serviceRequest.findFirst({ where: { id, tableId: table.id, status: { in: [...OPEN_CALLS] } } });
+    if (open) {
+      const ended = await this.prisma.serviceRequest.update({ where: { id }, data: { status: 'RESOLVED', resolvedAt: new Date() }, include: requestInclude });
+      this.gateway.emitServiceRequest(ended);
+    }
+    return this.tableService(table.id);
+  }
+
   private async dinerTable(tableId: string | undefined) {
     if (!tableId || !/^[0-9a-f-]{36}$/i.test(tableId)) throw notFound('Scan the QR code on your table first');
     const table = await this.prisma.diningTable.findFirst({ where: { id: tableId, deletedAt: null, active: true, merchant: { status: 'ACTIVE', deletedAt: null } } });

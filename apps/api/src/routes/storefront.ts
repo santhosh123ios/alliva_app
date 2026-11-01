@@ -74,6 +74,10 @@ export function storefrontRoutes({ prisma, jwt, crypto, commerce, floor }: Conta
     return floor.callStaff(request.cookies?.alliva_table as string | undefined, body.kind);
   });
 
+  routes.post('/table-service/calls/:id/end', { public: true, throttle: 10 }, (request) =>
+    floor.endCall(request.cookies?.alliva_table as string | undefined, request.params.id as string),
+  );
+
   routes.get('/cart', { public: true }, async (request) => commerce.cartFor(await viewerFor(request, request.user)));
 
   routes.post('/cart/items', { public: true }, async (request) => {

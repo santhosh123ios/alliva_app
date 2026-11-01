@@ -1,4 +1,4 @@
-import { chime, unlock } from '@/components/order-alerts';
+import { announce, audioReady, chime, unlock } from '@/components/order-alerts';
 import { tableNo } from '@/lib/table-number';
 import { api } from '@/components/providers';
 import { formatMoney } from '@alliva/design-tokens';
@@ -16,6 +16,8 @@ export type TableStatus = FloorTable['status'];
 const SOUND_KEY = 'alliva.floor.sound';
 const BRANCH_KEY = 'alliva.floor.branch';
 const DRAFT_KEY = 'alliva.floor.draft';
+/** How often an unanswered diner call is announced again. Long enough for a few tables to be read out. */
+const REPEAT_EVERY_MS = 10_000;
 
 export function useFloorLocale(): Locale {
   return useLocale() === 'ar' ? 'ar' : 'en';
@@ -186,7 +188,8 @@ export function useFloorBoard() {
     queryKey: floorKey(branchId),
     queryFn: () => api.floor(branchId || undefined),
     select: tableOrdersOnly,
-    refetchInterval: 20_000,
+    // Check often while a call is ringing, so it stops soon after the diner ends it.
+    refetchInterval: (query) => (query.state.data?.requests.some((row) => row.status === 'OPEN') ? 5_000 : 20_000),
     refetchOnWindowFocus: true,
     placeholderData: (previous) => previous,
   });
@@ -253,13 +256,43 @@ export function useOrderStep() {
 }
 
 /**
- * Rings and buzzes when a diner calls or an order comes up ready, and says which table in a toast.
- * The first load only sets the baseline, so opening the app is silent.
+ * Says out loud which table needs what ("Table 12 wants a waiter", "Table 12's food is ready") and buzzes,
+ * with the same words in a toast. The first load only sets the baseline, so opening the app is quiet,
+ * but a diner's call is announced again every few seconds until someone takes it or the diner ends it.
  */
 export function useFloorAlerts(board: FloorBoard | undefined) {
   const t = useTranslations('floor.alerts');
+  const locale = useFloorLocale();
   const { sound } = useFloorSettings();
   const seen = useRef<{ calls: Set<string>; ready: Set<string> } | null>(null);
+  const [unlocked, setUnlocked] = useState(audioReady);
+
+  // Browsers keep a page silent until someone taps it, and phones can lock audio again after the app was in
+  // the background. Every tap or key press unlocks it, so the first touch of a shift turns announcements on.
+  useEffect(() => {
+    const onGesture = () => void unlock().then(setUnlocked);
+    const onVisible = () => setUnlocked(audioReady());
+    window.addEventListener('pointerdown', onGesture);
+    window.addEventListener('keydown', onGesture);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('pointerdown', onGesture);
+      window.removeEventListener('keydown', onGesture);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
+
+  const callLine = useCallback((call: ServiceRequestView) => t(`call.${call.kind}`, { table: tableNo(call.table.number) }), [t]);
+  const say = useCallback(
+    (lines: string[]) => {
+      if (!sound || !lines.length) return;
+      // Replace anything still being read, so repeats never queue up behind each other.
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      announce(lines.join('. '), locale, 1);
+    },
+    [sound, locale],
+  );
+
   useEffect(() => {
     if (!board) return;
     const calls = new Set(board.requests.filter((row) => row.status === 'OPEN').map((row) => row.id));
@@ -267,15 +300,34 @@ export function useFloorAlerts(board: FloorBoard | undefined) {
     if (seen.current) {
       const freshCalls = board.requests.filter((row) => row.status === 'OPEN' && !seen.current!.calls.has(row.id));
       const freshReady = board.orders.filter((row) => row.status === 'READY_FOR_PICKUP' && !seen.current!.ready.has(row.id));
-      for (const call of freshCalls) toast(t(`call.${call.kind}`, { table: tableNo(call.table.number) }));
-      for (const order of freshReady) toast.success(order.tableNumber ? t('readyTable', { table: tableNo(order.tableNumber) }) : t('ready', { number: order.number.replace(/^#/, '') }));
-      if (freshCalls.length || freshReady.length) {
-        if (sound) chime(0.7);
+      const callLines = freshCalls.map(callLine);
+      const readyLines = freshReady.map((order) => (order.tableNumber ? t('readyTable', { table: tableNo(order.tableNumber) }) : t('ready', { number: order.number.replace(/^#/, '') })));
+      for (const line of callLines) toast(line);
+      for (const line of readyLines) toast.success(line);
+      if (callLines.length || readyLines.length) {
+        say([...callLines, ...readyLines]);
         if ('vibrate' in navigator) navigator.vibrate?.(freshCalls.length ? [200, 90, 200, 90, 200] : [160, 80, 160]);
       }
     }
     seen.current = { calls, ready };
-  }, [board, sound, t]);
+  }, [board, t, callLine, say]);
+
+  // Repeat every waiting call by name until someone answers ("On my way" or done) or the diner ends it.
+  const waiting = board?.requests.filter((row) => row.status === 'OPEN') ?? [];
+  const waitingKey = waiting.map((row) => row.id).sort().join();
+  const waitingRef = useRef(waiting);
+  waitingRef.current = waiting;
+  useEffect(() => {
+    if (!waitingKey) return;
+    const timer = window.setInterval(() => {
+      say(waitingRef.current.map(callLine));
+      if ('vibrate' in navigator) navigator.vibrate?.([200, 90, 200]);
+    }, REPEAT_EVERY_MS);
+    return () => window.clearInterval(timer);
+  }, [waitingKey, say, callLine]);
+
+  /** True while sound is switched on but the browser has not been allowed to play it yet. */
+  return { needsTap: sound && !unlocked };
 }
 
 /** Calls and orders for one table, oldest first. */
