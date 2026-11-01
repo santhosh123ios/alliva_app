@@ -678,6 +678,20 @@
         "due": "To pay"
       }
     },
+    "tablePage": {
+      "diningAt": "Dining at Table {table}",
+      "diningNote": "Let our team know if you need anything.",
+      "callStaff": "Call staff",
+      "requestBill": "Request bill",
+      "viewBill": "View bill",
+      "help": "Help",
+      "staffCalled": "Staff called",
+      "onTheWay": "On the way",
+      "add": "Add {name}",
+      "verified": "Verified table",
+      "openCalls": "Call staff, bill or help",
+      "closeCalls": "Close"
+    },
     "comboIncludes": "Included in this combo",
     "soldOut": "Sold out",
     "optionalUpTo": "Optional • Up to {count}",

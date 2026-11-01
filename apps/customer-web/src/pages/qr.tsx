@@ -9,8 +9,7 @@ export default function QrPage() {
   useEffect(() => {
     void api.enterQr(code).then((result) => {
       const payload = result as { merchantSlug: string; fulfillment?: string | null; tableId?: string | null };
-      const query = payload.fulfillment === 'DINE_IN' ? '?fulfillment=DINE_IN' : '';
-      router.replace(`/merchants/${payload.merchantSlug}${query}`);
+      router.replace(payload.fulfillment === 'DINE_IN' ? `/table/${payload.merchantSlug}` : `/merchants/${payload.merchantSlug}`);
     });
   }, [code, router]);
   return <p>Opening storefront…</p>;

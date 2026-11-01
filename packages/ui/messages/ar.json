@@ -678,6 +678,20 @@
         "due": "المطلوب دفعه"
       }
     },
+    "tablePage": {
+      "diningAt": "تتناول الطعام على الطاولة {table}",
+      "diningNote": "أخبر فريقنا إذا احتجت أي شيء.",
+      "callStaff": "نداء الموظف",
+      "requestBill": "طلب الفاتورة",
+      "viewBill": "عرض الفاتورة",
+      "help": "مساعدة",
+      "staffCalled": "تم النداء",
+      "onTheWay": "في الطريق",
+      "add": "أضف {name}",
+      "verified": "طاولة موثّقة",
+      "openCalls": "نداء الموظف أو الفاتورة أو المساعدة",
+      "closeCalls": "إغلاق"
+    },
     "comboIncludes": "مشمول في هذا الكومبو",
     "soldOut": "نفدت الكمية",
     "optionalUpTo": "اختياري • حتى {count}",
