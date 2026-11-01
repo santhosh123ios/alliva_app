@@ -2,6 +2,7 @@ import * as argon2 from 'argon2';
 import type { NextFunction, Request, Response } from 'express';
 import multer from 'multer';
 import {
+  adminPasswordResetSchema,
   assignSubscriptionSchema,
   merchantAutoRenewSchema,
   merchantRenewalSchema,
@@ -51,7 +52,7 @@ import { dec, loc } from '../common/crypto';
 import { badRequest, forbidden, HttpError, notFound } from '../common/errors';
 import { businessSetupGaps, detailedDeliveryPricing } from '../domain/business-setup';
 import { merchantOrderCharges, normalizeOrderCharges, platformPlanCharges, priceWithCharges } from '../domain/charges';
-import { RequestUser, scopedMerchantId, validate } from '../common/http';
+import { forgetAuthUser, RequestUser, scopedMerchantId, validate } from '../common/http';
 import { createRoutes } from '../common/routes';
 import type { Container } from '../container';
 import type { PlatformService } from '../modules/platform.service';
@@ -325,6 +326,53 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
   });
 
   routes.get('/admin/merchants/:id', { permissions: ['merchant.view'] }, (request) => merchantDetail(param(request, 'id')));
+
+  // Merchant owners also hold staff.manage, so these routes also require a platform (STAFF) account.
+  routes.get('/admin/merchants/:id/users', { permissions: ['staff.manage'] }, async (request) => {
+    requirePlatformStaff(request.user!);
+    const rows = await prisma.user.findMany({
+      where: { merchantId: param(request, 'id'), kind: 'MERCHANT_USER', deletedAt: null },
+      include: { userRoles: { include: { role: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      email: row.email,
+      phone: row.phone,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      status: row.status,
+      roles: row.userRoles.map((entry) => entry.role.key),
+      hasPassword: Boolean(row.passwordHash),
+    }));
+  });
+
+  routes.post('/admin/merchants/:id/users/:userId/password', { permissions: ['staff.manage'], throttle: 20 }, async (request) => {
+    const user = request.user!;
+    requirePlatformStaff(user);
+    const merchantId = param(request, 'id');
+    const userId = param(request, 'userId');
+    const body = validate<{ password: string }>(adminPasswordResetSchema, request.body);
+    const target = await prisma.user.findFirst({ where: { id: userId, merchantId, kind: 'MERCHANT_USER', deletedAt: null }, select: { id: true } });
+    if (!target) throw notFound('Merchant user not found');
+    const now = new Date();
+    const [, revoked] = await prisma.$transaction([
+      prisma.user.update({ where: { id: userId }, data: { passwordHash: await argon2.hash(body.password), updatedById: user.id } }),
+      prisma.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } }),
+      // Reset links sent earlier would otherwise still overwrite the new password.
+      prisma.passwordResetToken.updateMany({ where: { userId, usedAt: null }, data: { usedAt: now } }),
+    ]);
+    forgetAuthUser(userId);
+    await audit.log({
+      actorId: user.id,
+      action: 'user.password_reset_by_admin',
+      entityType: 'User',
+      entityId: userId,
+      metadata: { merchantId, sessionsRevoked: revoked.count },
+      ipAddress: request.ip,
+    });
+    return { ok: true, sessionsRevoked: revoked.count };
+  });
 
   routes.get('/merchant/profile', async (request) => {
     const user = request.user!;
@@ -1751,6 +1799,10 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
   }
 
   return routes;
+}
+
+function requirePlatformStaff(user: RequestUser) {
+  if (user.kind !== 'STAFF') throw forbidden('Platform admin account required');
 }
 
 function mask(iban: string) {

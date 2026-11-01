@@ -94,7 +94,7 @@ function FloorChrome() {
             >
               <ShoppingBag className="size-4" />
               <span className="min-w-0 flex-1 truncate">
-                {draft.target?.kind === 'DINE_IN' ? t('draft.forTable', { table: tableNo(draft.target.tableNumber) }) : draft.target ? t('draft.takeaway') : t('draft.noTarget')}
+                {draft.target ? t('draft.forTable', { table: tableNo(draft.target.tableNumber) }) : t('draft.noTarget')}
                 {' · '}{t('draft.items', { count: draft.count })}
               </span>
               <span className="tabular-nums">{money(draft.subtotal, locale)}</span>

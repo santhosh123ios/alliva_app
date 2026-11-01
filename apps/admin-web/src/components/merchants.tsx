@@ -1,3 +1,4 @@
+import { MerchantAccounts } from '@/components/merchant-accounts';
 import { api } from '@/components/providers';
 import { pickLocalized } from '@alliva/design-tokens';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, Input, Label, Sheet, SheetContent } from '@alliva/ui';
@@ -352,6 +353,7 @@ export function Merchants({ rows }: { rows: MerchantRow[] }) {
                   <Button variant="outline" className="h-11 rounded-xl" onClick={() => { setError(''); setConfirm({ id: openRow.id, action: 'suspend' }); }}>{t('suspend')}</Button>
                 ) : null}
               </div>
+              <MerchantAccounts merchantId={openRow.id} />
             </div>
           ) : null}
         </SheetContent>

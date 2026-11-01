@@ -89,24 +89,21 @@ export default function FloorMenu() {
   );
 }
 
-/** Who this order is for. Takeaway needs no table; dine-in is picked from the floor plan. */
+/** Which table this order is for, picked from the floor plan. */
 function TargetBar() {
   const t = useTranslations('floor.menu');
   const draft = useDraft();
   const target = draft.target;
   return (
-    <section className="flex items-center gap-3 rounded-2xl bg-white p-3">
-      <span className={cn('grid size-11 shrink-0 place-items-center rounded-xl text-base font-bold', target ? 'bg-[#FFC400] text-[#111111]' : 'bg-[#F2F2EF] text-[#8A8A86]')}>
-        {target?.kind === 'DINE_IN' ? tableNo(target.tableNumber) : <ShoppingBag className="size-5" />}
+    <section className="flex items-center gap-3 rounded-2xl bg-card p-3">
+      <span className={cn('grid size-11 shrink-0 place-items-center rounded-xl text-base font-bold', target ? 'bg-primary text-primary-foreground' : 'bg-surface-2 text-subtle')}>
+        {target ? tableNo(target.tableNumber) : <LayoutGrid className="size-5" />}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-[#696965]">{t('orderingFor')}</p>
-        <p className="truncate font-semibold">{target?.kind === 'DINE_IN' ? t('table', { table: tableNo(target.tableNumber) }) : target ? t('takeaway') : t('noTarget')}</p>
+        <p className="text-xs text-muted-foreground">{t('orderingFor')}</p>
+        <p className="truncate font-semibold">{target ? t('table', { table: tableNo(target.tableNumber) }) : t('noTarget')}</p>
       </div>
-      <Link href="/floor/tables" aria-label={t('pickTable')} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-[#E6E6E2] px-3 text-sm font-semibold"><LayoutGrid className="size-4" /><span className="hidden sm:inline">{t('pickTable')}</span></Link>
-      {target?.kind !== 'TAKEAWAY' ? (
-        <button type="button" aria-label={t('takeaway')} onClick={() => draft.setTarget({ kind: 'TAKEAWAY' })} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-[#E6E6E2] px-3 text-sm font-semibold"><ShoppingBag className="size-4" /><span className="hidden sm:inline">{t('takeaway')}</span></button>
-      ) : null}
+      <Link href="/floor/tables" aria-label={t('pickTable')} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-border px-3 text-sm font-semibold"><LayoutGrid className="size-4" /><span className="hidden sm:inline">{t('pickTable')}</span></Link>
     </section>
   );
 }
@@ -115,23 +112,31 @@ function ProductRow({ product, onAdd }: { product: FloorMenuProduct; onAdd: () =
   const t = useTranslations('floor.menu');
   const locale = useFloorLocale();
   const draft = useDraft();
-  const inDraft = draft.lines.filter((line) => line.productId === product.id).reduce((sum, line) => sum + line.quantity, 0);
+  const lines = draft.lines.filter((line) => line.productId === product.id);
+  const inDraft = lines.reduce((sum, line) => sum + line.quantity, 0);
+  // One less takes from the newest line of this dish; one more adds like the first tap (dishes with choices open the picker).
+  const last = lines[lines.length - 1];
   const from = product.variants.length ? Math.min(...product.variants.map((variant) => Number(variant.price))) : Number(product.price);
   return (
-    <article className={cn('flex gap-3 rounded-2xl bg-white p-3', !product.available && 'opacity-60')}>
+    <article className={cn('flex gap-3 rounded-2xl bg-card p-3', !product.available && 'opacity-60')}>
       {product.imageUrl ? <img src={product.imageUrl} alt="" className="size-16 shrink-0 rounded-xl object-cover" loading="lazy" /> : null}
       <div className="min-w-0 flex-1">
         <h3 className="font-semibold leading-snug">{text(product.name, locale)}</h3>
-        {text(product.description, locale) ? <p className="line-clamp-2 text-xs text-[#696965]">{text(product.description, locale)}</p> : null}
+        {text(product.description, locale) ? <p className="line-clamp-2 text-xs text-muted-foreground">{text(product.description, locale)}</p> : null}
         <p className="mt-1 text-sm font-semibold tabular-nums">{product.variants.length ? t('from', { price: money(from, locale) }) : money(product.price, locale)}</p>
       </div>
       <div className="flex shrink-0 flex-col items-end justify-between">
-        {product.available ? (
-          <button type="button" onClick={onAdd} aria-label={t('add', { name: text(product.name, locale) })} className="relative grid size-11 place-items-center rounded-xl bg-[#FFC400] text-[#111111]">
+        {product.available && last ? (
+          <div className="flex h-11 items-center rounded-xl bg-primary text-primary-foreground">
+            <button type="button" aria-label={t('less')} onClick={() => draft.setQuantity(last.key, last.quantity - 1)} className="grid h-full w-10 place-items-center"><Minus className="size-4" /></button>
+            <span className="min-w-6 text-center text-sm font-bold tabular-nums" aria-live="polite">{inDraft}</span>
+            <button type="button" aria-label={t('more')} onClick={onAdd} className="grid h-full w-10 place-items-center"><Plus className="size-4" /></button>
+          </div>
+        ) : product.available ? (
+          <button type="button" onClick={onAdd} aria-label={t('add', { name: text(product.name, locale) })} className="grid size-11 place-items-center rounded-xl bg-primary text-primary-foreground">
             <Plus className="size-5" />
-            {inDraft ? <span className="absolute -end-1.5 -top-1.5 grid min-w-5 place-items-center rounded-full bg-[#111111] px-1 text-[11px] font-bold text-white">{inDraft}</span> : null}
           </button>
-        ) : <span className="rounded-full bg-[#FDECEA] px-2.5 py-1 text-xs font-semibold text-[#B42318]">{t('soldOut')}</span>}
+        ) : <span className="rounded-full bg-destructive-soft px-2.5 py-1 text-xs font-semibold text-destructive">{t('soldOut')}</span>}
       </div>
     </article>
   );
@@ -278,8 +283,8 @@ function ReviewSheet({ onClose }: { onClose: () => void }) {
   const board = useFloorBoard();
   const place = useMutation({
     mutationFn: () => api.staffOrder({
-      fulfillmentType: draft.target!.kind,
-      tableId: draft.target!.kind === 'DINE_IN' ? draft.target!.tableId : null,
+      fulfillmentType: 'DINE_IN',
+      tableId: draft.target!.tableId,
       branchId: branchId || undefined,
       notes: draft.notes.trim() || undefined,
       items: draft.lines.map((line) => ({ productId: line.productId, variantId: line.variantId, addonIds: line.addonIds, quantity: line.quantity, notes: line.notes || undefined })),
@@ -297,7 +302,7 @@ function ReviewSheet({ onClose }: { onClose: () => void }) {
     },
     onError: (error: Error) => toast.error(error.message),
   });
-  const table = draft.target?.kind === 'DINE_IN' ? board.data?.tables.find((row) => row.id === (draft.target as { tableId: string }).tableId) : null;
+  const table = draft.target ? board.data?.tables.find((row) => row.id === draft.target!.tableId) : null;
 
   return (
     <Sheet
@@ -306,45 +311,42 @@ function ReviewSheet({ onClose }: { onClose: () => void }) {
       footer={(
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-[#696965]">{t('subtotal')}</span>
+            <span className="text-muted-foreground">{t('subtotal')}</span>
             <span className="font-semibold tabular-nums">{money(draft.subtotal, locale)}</span>
           </div>
           {draft.target ? (
-            <button type="button" disabled={!draft.count || place.isPending} onClick={() => place.mutate()} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#111111] text-sm font-semibold text-white disabled:opacity-50">
+            <button type="button" disabled={!draft.count || place.isPending} onClick={() => place.mutate()} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-secondary text-sm font-semibold text-secondary-foreground disabled:opacity-50">
               <ChefHat className="size-4" />{place.isPending ? t('sending') : t('send')}
             </button>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
-              <Link href="/floor/tables" className="flex h-12 items-center justify-center rounded-xl bg-[#111111] text-sm font-semibold text-white">{t('pickTable')}</Link>
-              <button type="button" onClick={() => draft.setTarget({ kind: 'TAKEAWAY' })} className="h-12 rounded-xl border border-[#E6E6E2] text-sm font-semibold">{t('takeaway')}</button>
-            </div>
+            <Link href="/floor/tables" className="flex h-12 w-full items-center justify-center rounded-xl bg-secondary text-sm font-semibold text-secondary-foreground">{t('pickTable')}</Link>
           )}
-          <p className="text-center text-xs text-[#8A8A86]">{t('payNote')}</p>
+          <p className="text-center text-xs text-subtle">{t('payNote')}</p>
         </div>
       )}
     >
-      <p className="mb-3 rounded-xl bg-[#FFF8DC] px-3 py-2 text-sm font-semibold">
-        {draft.target?.kind === 'DINE_IN' ? t('table', { table: tableNo(draft.target.tableNumber) }) : draft.target ? t('takeaway') : t('noTarget')}
-        {table && table.status === 'RESERVED' ? <span className="ms-2 text-xs font-normal text-[#2F6FED]">{t('reservedWarning')}</span> : null}
+      <p className="mb-3 rounded-xl bg-primary-soft px-3 py-2 text-sm font-semibold">
+        {draft.target ? t('table', { table: tableNo(draft.target.tableNumber) }) : t('noTarget')}
+        {table && table.status === 'RESERVED' ? <span className="ms-2 text-xs font-normal text-info">{t('reservedWarning')}</span> : null}
       </p>
       {draft.lines.length ? (
-        <ul className="divide-y divide-[#F0F0EC]">
+        <ul className="divide-y divide-border">
           {draft.lines.map((line) => (
             <li key={line.key} className="flex items-center gap-3 py-3">
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">{text(line.name, locale)}</p>
-                {line.detail.length ? <p className="text-xs text-[#696965]">{line.detail.map((part) => text(part, locale)).join(' · ')}</p> : null}
-                {line.notes ? <p className="text-xs text-[#8A5A00]"><bdi>{line.notes}</bdi></p> : null}
+                {line.detail.length ? <p className="text-xs text-muted-foreground">{line.detail.map((part) => text(part, locale)).join(' · ')}</p> : null}
+                {line.notes ? <p className="text-xs text-warning"><bdi>{line.notes}</bdi></p> : null}
                 <p className="text-sm tabular-nums">{money(Number(line.unitPrice) * line.quantity, locale)}</p>
               </div>
               <Stepper value={line.quantity} min={0} onChange={(next) => draft.setQuantity(line.key, next)} />
             </li>
           ))}
         </ul>
-      ) : <p className="py-6 text-center text-sm text-[#8A8A86]">{t('emptyDraft')}</p>}
+      ) : <p className="py-6 text-center text-sm text-subtle">{t('emptyDraft')}</p>}
       <label className="mt-3 block">
         <span className="mb-1.5 block text-sm font-semibold">{t('orderNote')}</span>
-        <textarea value={draft.notes} maxLength={500} rows={2} onChange={(event) => draft.setNotes(event.target.value)} placeholder={t('orderNotePlaceholder')} className="w-full rounded-xl border border-[#E6E6E2] px-3 py-2 text-sm outline-none focus:border-[#111111]" />
+        <textarea value={draft.notes} maxLength={500} rows={2} onChange={(event) => draft.setNotes(event.target.value)} placeholder={t('orderNotePlaceholder')} className="w-full rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-foreground" />
       </label>
     </Sheet>
   );

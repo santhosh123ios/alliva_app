@@ -77,7 +77,8 @@ export function useFloorSettings() {
 
 /* ---------- The order being built ---------- */
 
-export type DraftTarget = { kind: 'DINE_IN'; tableId: string; tableNumber: string } | { kind: 'TAKEAWAY' };
+/** The floor app only takes table orders. */
+export type DraftTarget = { kind: 'DINE_IN'; tableId: string; tableNumber: string };
 export type DraftLine = {
   key: string;
   productId: string;
@@ -110,7 +111,11 @@ export function useDraft() {
 function readDraft(): Draft {
   try {
     const saved = sessionStorage.getItem(DRAFT_KEY);
-    if (saved) return JSON.parse(saved) as Draft;
+    if (saved) {
+      const draft = JSON.parse(saved) as Draft;
+      // Drafts saved before the floor went tables-only may still point at takeaway.
+      return draft.target?.kind === 'DINE_IN' ? draft : { ...draft, target: null };
+    }
   } catch {
     // Fall through to an empty draft.
   }
@@ -154,7 +159,7 @@ export function FloorProvider({ children }: { children: React.ReactNode }) {
       lines: quantity <= 0 ? current.lines.filter((row) => row.key !== key) : current.lines.map((row) => (row.key === key ? { ...row, quantity: Math.min(50, quantity) } : row)),
     })),
     setNotes: (notes) => setDraft((current) => ({ ...current, notes })),
-    clear: () => setDraft((current) => ({ target: current.target?.kind === 'TAKEAWAY' ? current.target : null, lines: [], notes: '' })),
+    clear: () => setDraft({ target: null, lines: [], notes: '' }),
     count: draft.lines.reduce((sum, line) => sum + line.quantity, 0),
     subtotal: draft.lines.reduce((sum, line) => sum + Number(line.unitPrice) * line.quantity, 0),
   }), [draft]);
@@ -170,11 +175,17 @@ export function FloorProvider({ children }: { children: React.ReactNode }) {
 
 export const floorKey = (branchId: string) => ['merchant', 'floor', 'board', branchId] as const;
 
+/** Order takers only run tables: customer orders still waiting for the store to accept them stay with managers. */
+function tableOrdersOnly(board: FloorBoard): FloorBoard {
+  return { ...board, orders: board.orders.filter((order) => order.tableId && order.status !== 'PENDING') };
+}
+
 export function useFloorBoard() {
   const { branchId } = useFloorSettings();
   return useQuery({
     queryKey: floorKey(branchId),
     queryFn: () => api.floor(branchId || undefined),
+    select: tableOrdersOnly,
     refetchInterval: 20_000,
     refetchOnWindowFocus: true,
     placeholderData: (previous) => previous,

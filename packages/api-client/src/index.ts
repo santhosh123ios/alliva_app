@@ -121,6 +121,18 @@ function queryString(query?: Record<string, unknown>) {
 
 export type AuthPortal = 'admin' | 'merchant' | 'customer' | 'marketing';
 
+/** A sign-in account that belongs to a merchant, as the admin portal lists it. */
+export type MerchantAccount = {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  firstName: string;
+  lastName: string;
+  status: string;
+  roles: string[];
+  hasPassword: boolean;
+};
+
 export function createApiClient(baseUrl = '', portal?: AuthPortal) {
   const csrfCookie = portal ? `alliva_csrf_${portal}` : 'alliva_csrf';
 
@@ -215,6 +227,8 @@ export function createApiClient(baseUrl = '', portal?: AuthPortal) {
     socketToken: () => request<{ token: string }>('/api/auth/socket-token'),
     home: (query = '') => request<StorefrontHome>(`/api/storefront/home${query}`),
     merchant: (slug: string) => request<MerchantStorefront>(`/api/storefront/merchants/${slug}`),
+    storeDistance: (slug: string, lat: string | number, lng: string | number) =>
+      request<{ branchId: string | null; distanceKm: string | null; method: 'ROAD' | 'HAVERSINE' | null }>(`/api/storefront/merchants/${slug}/distance${queryString({ lat, lng })}`),
     product: (id: string) => request<ProductDetail>(`/api/storefront/products/${id}`),
     cart: () => request<CartView>('/api/cart'),
     addItem: (body: Json) => send<CartView>('/api/cart/items', 'POST', body),
@@ -227,8 +241,6 @@ export function createApiClient(baseUrl = '', portal?: AuthPortal) {
       request<OrderView>('/api/orders', { method: 'POST', body: JSON.stringify(body), headers: { 'idempotency-key': idempotencyKey } }),
     orders: () => request<OrderView[]>('/api/orders'),
     order: (id: string) => request<OrderView>(`/api/orders/${id}`),
-    storeDistance: (slug: string, lat: string | number, lng: string | number) =>
-      request<{ branchId: string | null; distanceKm: string | null; method: 'ROAD' | 'HAVERSINE' | null }>(`/api/storefront/merchants/${slug}/distance${queryString({ lat, lng })}`),
     cancel: (id: string, reason: string) => send(`/api/orders/${id}/cancel`, 'POST', { reason }),
     review: (id: string, body: Json) => send(`/api/orders/${id}/review`, 'POST', body),
     reorder: (id: string) => send<CartView>(`/api/orders/${id}/reorder`, 'POST'),
@@ -246,6 +258,9 @@ export function createApiClient(baseUrl = '', portal?: AuthPortal) {
     createMerchant: (body: Json) => send('/api/admin/merchants', 'POST', body),
     approveMerchant: (id: string, options?: { confirmPayment?: boolean }) => send(`/api/admin/merchants/${id}/approve`, 'POST', { confirmPayment: options?.confirmPayment === true }),
     suspendMerchant: (id: string) => send(`/api/admin/merchants/${id}/suspend`, 'POST'),
+    merchantUsers: (merchantId: string) => request<MerchantAccount[]>(`/api/admin/merchants/${merchantId}/users`),
+    resetMerchantUserPassword: (merchantId: string, userId: string, password: string) =>
+      send<{ ok: true; sessionsRevoked: number }>(`/api/admin/merchants/${merchantId}/users/${userId}/password`, 'POST', { password }),
     businessCategories: () => request<{ id: string; slug: string; name: { en?: string; ar?: string } }[]>('/api/business-categories'),
     plans: () => request<SubscriptionPlanView[]>('/api/admin/plans'),
     subscriptionBoard: () => request<SubscriptionBoard>('/api/admin/subscriptions'),

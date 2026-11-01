@@ -216,6 +216,11 @@ export const staffSchema = z.object({
   merchantId: z.uuid().optional(),
 });
 
+/** A platform admin setting a merchant user's password by hand. */
+export const adminPasswordResetSchema = z.object({
+  password: z.string().min(8).max(128),
+});
+
 export const rolePermissionsSchema = z.object({
   permissionKeys: z.array(z.string().min(1)).min(1),
 });

@@ -49,6 +49,8 @@ export function storeRoutes({ prisma, jwt, storeOps, floor, commerce, billing }:
   routes.post('/merchant/floor/orders', { permissions: ['order.update'], throttle: 60 }, async (request) => {
     const staff = floorStaff(request.user!);
     const body = validate<{ fulfillmentType: 'DINE_IN' | 'TAKEAWAY'; tableId?: string | null; branchId?: string; notes?: string; items: { productId: string; variantId?: string | null; addonIds: string[]; quantity: number; notes?: string }[] }>(staffOrderSchema, request.body);
+    // The order taker app only runs tables; takeaway is placed elsewhere.
+    if (body.fulfillmentType !== 'DINE_IN' || !body.tableId) throw badRequest('Choose a table for this order');
     return commerce.staffOrder(staff, { ...body, branchId: await ownBranch(staff.merchantId, body.branchId) });
   });
 
