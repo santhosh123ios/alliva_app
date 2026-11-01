@@ -1,4 +1,6 @@
 import './../src/load-env';
+// The assertions below are straight-line distances, so keep the map provider out of this run.
+process.env.DISTANCE_PROVIDER = 'haversine';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';

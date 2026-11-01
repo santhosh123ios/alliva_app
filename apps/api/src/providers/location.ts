@@ -1,13 +1,7 @@
 import { Logger } from '../common/logger';
-import { haversineKm, type Point } from '../domain/geo';
-import type { DistanceMethod } from '../domain/delivery-quote';
+import type { Point } from '../domain/geo';
 
-export type Measured = { km: number; method: DistanceMethod };
-
-/** Travel distance between a branch and a customer. Swap the implementation without touching pricing. */
-export interface DistanceProvider {
-  measure(from: Point, to: Point): Promise<Measured>;
-}
+export { createDistanceProvider, HaversineDistance, RoadDistance, type DistanceProvider, type Measured } from './road-distance';
 
 export type ReverseGeocoded = {
   label: string;
@@ -20,44 +14,6 @@ export type ReverseGeocoded = {
 
 export interface ReverseGeocoder {
   reverse(point: Point, locale: 'en' | 'ar'): Promise<ReverseGeocoded | null>;
-}
-
-export class HaversineDistance implements DistanceProvider {
-  async measure(from: Point, to: Point): Promise<Measured> {
-    return { km: haversineKm(from, to), method: 'HAVERSINE' };
-  }
-}
-
-/** Google road distance, falling back to straight-line distance whenever the call fails. */
-export class GoogleRoadDistance implements DistanceProvider {
-  private readonly logger = new Logger('GoogleRoadDistance');
-  private readonly fallback = new HaversineDistance();
-  private readonly cache = new Map<string, { at: number; value: Measured }>();
-
-  constructor(private readonly apiKey: string) {}
-
-  async measure(from: Point, to: Point): Promise<Measured> {
-    const key = [from.latitude, from.longitude, to.latitude, to.longitude].map((value) => value.toFixed(5)).join(',');
-    const cached = this.cache.get(key);
-    if (cached && Date.now() - cached.at < 10 * 60_000) return cached.value;
-    try {
-      const url = new URL('https://maps.googleapis.com/maps/api/distancematrix/json');
-      url.searchParams.set('origins', `${from.latitude},${from.longitude}`);
-      url.searchParams.set('destinations', `${to.latitude},${to.longitude}`);
-      url.searchParams.set('mode', 'driving');
-      url.searchParams.set('key', this.apiKey);
-      const response = await fetch(url, { signal: AbortSignal.timeout(4000) });
-      const body = (await response.json()) as { rows?: { elements?: { status?: string; distance?: { value?: number } }[] }[] };
-      const element = body.rows?.[0]?.elements?.[0];
-      if (!response.ok || element?.status !== 'OK' || typeof element.distance?.value !== 'number') throw new Error(element?.status ?? `HTTP ${response.status}`);
-      const value: Measured = { km: element.distance.value / 1000, method: 'ROAD' };
-      this.cache.set(key, { at: Date.now(), value });
-      return value;
-    } catch (error) {
-      this.logger.warn(`Road distance unavailable, using straight-line distance: ${error instanceof Error ? error.message : error}`);
-      return this.fallback.measure(from, to);
-    }
-  }
 }
 
 /** OpenStreetMap Nominatim, cached because its usage policy allows about one request a second. */
@@ -139,11 +95,6 @@ export class GoogleGeocoder implements ReverseGeocoder {
       return null;
     }
   }
-}
-
-export function createDistanceProvider(): DistanceProvider {
-  const key = process.env.GOOGLE_MAPS_SERVER_KEY;
-  return process.env.DISTANCE_PROVIDER === 'google' && key ? new GoogleRoadDistance(key) : new HaversineDistance();
 }
 
 export function createReverseGeocoder(): ReverseGeocoder {

@@ -1,7 +1,7 @@
 import { CartButtonSpinner, flyFromButton } from '@/components/cart-motion';
 import { api } from '@/components/providers';
 import { useCartAdd } from '@/components/store-switch';
-import { categoryIcon, formatDistanceKm } from '@/components/storefront';
+import { categoryIcon } from '@/components/storefront';
 import { Link } from '@/i18n/navigation';
 import { useAreaPoint } from '@/lib/location';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
@@ -103,8 +103,8 @@ export default function FavouritesPage() {
   const cartAdd = useCartAdd();
 
   const distanceOf = (merchant: StoreCardData) => {
-    const km = formatDistanceKm(merchant.latitude, merchant.longitude, area);
-    return km ? Number(km) : Number.POSITIVE_INFINITY;
+    // The store list already carries road distance from the API.
+    return merchant.distanceKm ? Number(merchant.distanceKm) : Number.POSITIVE_INFINITY;
   };
 
   const collection = collections.find((item) => item.id === collectionId) ?? null;

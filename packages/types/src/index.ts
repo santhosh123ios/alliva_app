@@ -763,6 +763,8 @@ export type DispatchBoard = {
   ready: DispatchOrder[];
   upcoming: DispatchOrder[];
   riders: DispatchRider[];
+  /** Road kilometres between the store, ready drops and riders' stops: `km[from][to]` indexes `points`. */
+  roadKm: { points: { latitude: number; longitude: number }[]; km: number[][] };
   generatedAt: string;
 };
 

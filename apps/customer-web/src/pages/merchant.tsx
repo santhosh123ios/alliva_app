@@ -2,7 +2,7 @@ import { CartButtonSpinner, flyFromButton } from '@/components/cart-motion';
 import { api } from '@/components/providers';
 import { useCartAdd } from '@/components/store-switch';
 import { beginCartChange, cartQueryOptions, clearCartLines, failCartChange, optimisticLine, setLineQuantity, settleCartChange } from '@/lib/cart-cache';
-import { categoryIcon, formatDistanceKm, StoreUnavailable } from '@/components/storefront';
+import { categoryIcon, StoreUnavailable, useStoreDistance } from '@/components/storefront';
 import { Link, useRouter } from '@/i18n/navigation';
 import { usePlace, type FulfillmentMode } from '@/lib/place';
 import { useAreaPoint } from '@/lib/location';
@@ -45,6 +45,7 @@ export default function MerchantPage() {
     retry: false,
   });
   const merchant = useQuery({ queryKey: ['merchant', slug], queryFn: () => api.merchant(slug) });
+  const distance = useStoreDistance(slug, area);
   const cart = useQuery(cartQueryOptions());
   const cartAdd = useCartAdd();
   const favouriteIds = new Set(
@@ -102,7 +103,6 @@ export default function MerchantPage() {
   const saved = favouriteIds.has(data.id);
   const kinds = (data.businessCategories ?? []).map((item) => pickLocalized(item, locale)).filter(Boolean);
   const rating = Number(data.rating);
-  const distance = formatDistanceKm(Number(data.latitude), Number(data.longitude), area);
   const modes = fulfillmentOptions.filter(([id]) => data.fulfillment.includes(id));
   const catalog = data.categories.flatMap((category) => category.products.map((product) => ({ ...product, categoryId: category.id })));
   const needle = search.trim().toLowerCase();

@@ -45,6 +45,11 @@ export function storefrontRoutes({ prisma, jwt, crypto, commerce, floor }: Conta
 
   routes.get('/storefront/merchants/:slug', { public: true }, (request) => commerce.merchantBySlug(request.params.slug as string));
 
+  routes.get('/storefront/merchants/:slug/distance', { public: true, throttle: 120 }, (request) => {
+    const query = request.query as { lat?: string; lng?: string };
+    return commerce.storeDistance(request.params.slug as string, query.lat, query.lng);
+  });
+
   routes.get('/storefront/products/:id', { public: true }, async (request) => {
     const viewer = await viewerFor(request, request.user);
     return commerce.product(request.params.id as string, viewer);

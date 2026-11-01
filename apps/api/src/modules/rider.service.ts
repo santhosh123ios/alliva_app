@@ -3,7 +3,9 @@ import { dec, loc } from '../common/crypto';
 import { badRequest, forbidden, notFound } from '../common/errors';
 import type { RequestUser } from '../common/http';
 import { handoffCode, handoffToken, optimiseRoute, routeEstimate, normalizeHandoffCode, parsePickupQr, PICKUP_QR_PREFIX } from '../domain/dispatch';
-import { haversineKm, type Point } from '../domain/geo';
+import { haversineKm, type DistanceFn, type Point } from '../domain/geo';
+import type { DistanceProvider } from '../providers/location';
+import { recordedKm } from './delivery.service';
 import { money, moneyString } from '../domain/money';
 import { startOfDay } from '../domain/store-day';
 import type { PrismaService } from '../prisma/prisma.service';
@@ -59,6 +61,7 @@ export class RiderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly commerce: CommerceService,
+    private readonly distance: DistanceProvider,
   ) {}
 
   /** The rider's driver profile. Every rider endpoint goes through this, so a rider never sees another store. */
@@ -138,15 +141,17 @@ export class RiderService {
     const toCollect = active.filter((row) => !row.dispatch?.pickupVerifiedAt).length;
     const start = toCollect || !from ? 'store' : 'rider';
     const origin = start === 'rider' ? from : store ?? from;
-    const route = optimiseRoute(origin, active.map((row) => ({ item: row, point: dropoffPoint(row) })));
+    // Road distances between the store, the rider and every stop, measured once for the whole route.
+    const distance = await this.distance.lookup([store, from, ...active.map(dropoffPoint)].filter((point): point is Point => point !== null));
+    const route = optimiseRoute(origin, active.map((row) => ({ item: row, point: dropoffPoint(row) })), distance);
     const totalKm = route.reduce((total, stop) => total + (stop.legKm ?? 0), 0);
     return {
       origin,
       route: active.length ? { start, toCollect, totalKm: round1(totalKm), etaMinutes: routeEstimate(totalKm, route.length) } : null,
       active: route.map((stop, index) =>
-        this.present(stop.item, { stop: index + 1, from, legKm: stop.legKm, etaMinutes: stop.cumulativeKm === null ? null : routeEstimate(stop.cumulativeKm, index + 1) }),
+        this.present(stop.item, { stop: index + 1, from, distance, legKm: stop.legKm, etaMinutes: stop.cumulativeKm === null ? null : routeEstimate(stop.cumulativeKm, index + 1) }),
       ),
-      delivered: done.map((row) => this.present(row, { stop: null, from: null })),
+      delivered: done.map((row) => this.present(row, { stop: null, from: null, distance })),
     };
   }
 
@@ -154,7 +159,8 @@ export class RiderService {
     const driver = await this.driver(user);
     const row = (await this.prisma.order.findFirst({ where: { id, merchantId: driver.merchantId!, dispatch: { driverId: driver.id } }, include: riderOrderInclude })) as unknown as RiderOrderRow | null;
     if (!row) throw notFound('Order not found');
-    return this.present(row, { stop: null, from: null });
+    const distance = await this.distance.lookup([branchPoint(row.branch), dropoffPoint(row)].filter((point): point is Point => point !== null));
+    return this.present(row, { stop: null, from: null, distance });
   }
 
   async verifyPickup(user: RequestUser, input: { qr?: string; code?: string; orderId?: string; manual?: boolean }) {
@@ -374,7 +380,8 @@ export class RiderService {
     return { orderId: order.id, number: order.number, code, qr: `${PICKUP_QR_PREFIX}${token}` };
   }
 
-  private present(row: RiderOrderRow, options: { stop: number | null; from: Point | null; legKm?: number | null; etaMinutes?: number | null }) {
+  private present(row: RiderOrderRow, options: { stop: number | null; from: Point | null; distance?: DistanceFn; legKm?: number | null; etaMinutes?: number | null }) {
+    const distance = options.distance ?? haversineKm;
     const snapshot = (row.addressSnapshot ?? {}) as Snapshot;
     const drop = dropoffPoint(row);
     const store = branchPoint(row.branch);
@@ -424,8 +431,8 @@ export class RiderService {
         latitude: store.latitude,
         longitude: store.longitude,
       },
-      distanceKm: drop ? round1(haversineKm(store, drop)) : null,
-      fromHereKm: drop && options.from ? round1(haversineKm(options.from, drop)) : null,
+      distanceKm: drop ? round1(recordedKm(row.deliveryQuote, drop) ?? distance(store, drop)) : null,
+      fromHereKm: drop && options.from ? round1(distance(options.from, drop)) : null,
       items: row.items.map((item) => ({
         name: loc(item.name),
         quantity: item.quantity,

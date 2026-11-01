@@ -10,7 +10,7 @@ import {
 } from '../domain/delivery-quote';
 import { haversineKm, pointInGeoJson, type Point } from '../domain/geo';
 import type { PrismaService } from '../prisma/prisma.service';
-import type { DistanceProvider } from '../providers/location';
+import type { DistanceProvider, Measured } from '../providers/location';
 
 type DecimalLike = { toString(): string };
 
@@ -75,7 +75,8 @@ export class DeliveryService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly distance: DistanceProvider,
+    /** Shared with order views, the rider app and dispatch, so every distance comes from one cache. */
+    readonly distance: DistanceProvider,
   ) {}
 
   /** Platform fallback fee and the service-area zones that contain the point. Cached for a minute. */
@@ -134,16 +135,26 @@ export class DeliveryService {
   }
 
   /**
-   * Quote for the store list. Straight-line distance only, so a long list costs no map calls.
+   * Road distance from every active branch of these stores to the customer, measured together so a whole
+   * store list costs one or two provider requests. Keyed by branch id.
+   */
+  async listingDistances(merchants: Pick<DeliveryMerchant, 'branches'>[], point: Point): Promise<Map<string, Measured>> {
+    const branches = merchants.flatMap((merchant) => merchant.branches.filter((branch) => branch.active));
+    const measured = await this.distance.measureMany(branches.map(branchPoint), point);
+    return new Map(branches.map((branch, index) => [branch.id, measured[index]!]));
+  }
+
+  /**
+   * Quote for the store list, from distances `listingDistances` measured (else a cached road distance, else straight line).
    * Picks the closest active branch that can deliver, or the closest active branch with its reason.
    */
-  listingQuote(merchant: DeliveryMerchant, point: Point, context: DeliveryContext, now = new Date()): BranchQuote {
+  listingQuote(merchant: DeliveryMerchant, point: Point, context: DeliveryContext, now = new Date(), distances?: Map<string, Measured>): BranchQuote {
     const branches = merchant.branches.filter((branch) => branch.active);
     if (!branches.length) return { branch: null, quote: null, reason: 'BRANCH_INACTIVE', minutes: estimateDeliveryMinutes(merchant.preparationMinutes, null) };
     const quotes = branches
       .map((branch) => {
-        const km = haversineKm(point, branchPoint(branch));
-        return { branch, km, quote: quoteDelivery({ rule: this.ruleFor(merchant, branch.id, context), distanceKm: km, method: 'HAVERSINE', orderAmount: null, now }) };
+        const distance = distances?.get(branch.id) ?? this.distance.peek(branchPoint(branch), point) ?? { km: haversineKm(point, branchPoint(branch)), method: 'HAVERSINE' as const };
+        return { branch, km: distance.km, quote: quoteDelivery({ rule: this.ruleFor(merchant, branch.id, context), distanceKm: distance.km, method: distance.method, orderAmount: null, now }) };
       })
       .sort((a, b) => Number(b.quote.available) - Number(a.quote.available) || a.km - b.km);
     const best = quotes[0]!;
@@ -165,17 +176,29 @@ export class DeliveryService {
     const active = merchant.branches.filter((branch) => branch.active && (!input.branchId || branch.id === input.branchId));
     if (!active.length) return { branch: null, quote: null, reason: 'BRANCH_INACTIVE', minutes: estimateDeliveryMinutes(merchant.preparationMinutes, null) };
     const nearest = [...active].sort((a, b) => haversineKm(point, branchPoint(a)) - haversineKm(point, branchPoint(b))).slice(0, 3);
-    const measured = await Promise.all(
-      nearest.map(async (branch) => {
-        const distance = await this.distance.measure(branchPoint(branch), point);
-        const quote = quoteDelivery({ rule: this.ruleFor(merchant, branch.id, context), distanceKm: distance.km, method: distance.method, orderAmount: input.orderAmount, now });
-        return { branch, km: distance.km, quote };
-      }),
-    );
+    const distances = await this.distance.measureMany(nearest.map(branchPoint), point);
+    const measured = nearest.map((branch, index) => {
+      const distance = distances[index]!;
+      const quote = quoteDelivery({ rule: this.ruleFor(merchant, branch.id, context), distanceKm: distance.km, method: distance.method, orderAmount: input.orderAmount, now });
+      return { branch, km: distance.km, quote };
+    });
     measured.sort((a, b) => Number(b.quote.available) - Number(a.quote.available) || a.km - b.km);
     const best = measured[0]!;
     return { branch: best.branch, quote: best.quote, reason: best.quote.reason, minutes: estimateDeliveryMinutes(merchant.preparationMinutes, best.km) };
   }
+}
+
+/**
+ * The distance an order was charged for, from the quote saved at checkout, while the drop pin is still where it was quoted.
+ * Older orders and moved pins return null so the caller measures again.
+ */
+export function recordedKm(quote: unknown, drop: Point | null): number | null {
+  if (!drop || !quote || typeof quote !== 'object') return null;
+  const saved = quote as { distanceKm?: unknown; customer?: { latitude?: unknown; longitude?: unknown } };
+  const km = Number(saved.distanceKm);
+  if (!Number.isFinite(km) || saved.distanceKm === null || saved.distanceKm === undefined) return null;
+  const same = Number(saved.customer?.latitude).toFixed(5) === drop.latitude.toFixed(5) && Number(saved.customer?.longitude).toFixed(5) === drop.longitude.toFixed(5);
+  return same ? km : null;
 }
 
 export function branchPoint(branch: { latitude: DecimalLike; longitude: DecimalLike }): Point {

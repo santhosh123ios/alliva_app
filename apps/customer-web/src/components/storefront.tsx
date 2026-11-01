@@ -1,5 +1,7 @@
 import { CartButtonSpinner, flyFromButton } from '@/components/cart-motion';
 import { Link } from '@/i18n/navigation';
+import { api } from '@/components/providers';
+import { useQuery } from '@tanstack/react-query';
 import type { ApiClient } from '@alliva/api-client';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { cn } from '@alliva/ui';
@@ -62,16 +64,20 @@ export function HeroBanner({ title, subtitle, action }: { title: string; subtitl
   );
 }
 
-export function formatDistanceKm(latitude: number | null, longitude: number | null, area: { lat: string; lng: string }) {
-  if (latitude == null || longitude == null) return null;
-  const fromLat = Number(area.lat);
-  const fromLng = Number(area.lng);
-  const dLat = ((latitude - fromLat) * Math.PI) / 180;
-  const dLng = ((longitude - fromLng) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((fromLat * Math.PI) / 180) * Math.cos((latitude * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return (2 * 6371 * Math.asin(Math.sqrt(a))).toFixed(1);
+/**
+ * Road distance from the store to the shopper's location, measured by the API the way checkout prices it.
+ * Shows nothing until it arrives rather than a straight-line figure that would then jump.
+ */
+export function useStoreDistance(slug: string | null | undefined, area: { lat: string; lng: string }) {
+  const distance = useQuery({
+    queryKey: ['store-distance', slug, area.lat, area.lng],
+    queryFn: () => api.storeDistance(slug!, area.lat, area.lng),
+    enabled: Boolean(slug),
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const km = distance.data?.distanceKm;
+  return km ? Number(km).toFixed(1) : null;
 }
 
 export function StoreUnavailable({ name, title, body, backLabel }: { name: string; title: string; body: string; backLabel: string }) {

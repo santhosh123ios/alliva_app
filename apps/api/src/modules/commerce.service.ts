@@ -20,8 +20,8 @@ import { deliveryFeeForDistance } from '../domain/delivery-pricing';
 import { merchantOrderCharges } from '../domain/charges';
 import { planCartMerge, mergeLineKey } from '../domain/cart-merge';
 import { checkedSelections, optionGroupsInclude, optionsFulfillable, presentOptionGroups, type OptionGroupLink } from './product-options';
-import { haversineKm, parsePoint, type Point } from '../domain/geo';
-import { branchPoint, deliveryInclude, deliverySnapshot, presentBranchQuote, type BranchQuote, type DeliveryContext, type DeliveryService } from './delivery.service';
+import { parsePoint, type Point } from '../domain/geo';
+import { branchPoint, deliveryInclude, deliverySnapshot, presentBranchQuote, recordedKm, type BranchQuote, type DeliveryContext, type DeliveryService } from './delivery.service';
 
 type CartRecord = NonNullable<Awaited<ReturnType<CommerceService['loadCartRecord']>>>;
 
@@ -156,6 +156,17 @@ export class CommerceService {
       recentlyViewed: recent,
       freeDelivery: sorted.filter((merchant) => merchant.freeDelivery || Number(merchant.deliveryFee) === 0),
     };
+  }
+
+  /** Road distance from the store's best branch for this point to the customer, as checkout measures it. */
+  async storeDistance(slug: string, lat: unknown, lng: unknown) {
+    const point = parsePoint(lat, lng);
+    if (!point) throw badRequest('Choose a valid location');
+    const merchant = await this.prisma.merchant.findFirst({ where: { slug, deletedAt: null, status: 'ACTIVE' }, include: deliveryInclude });
+    if (!merchant) throw notFound('Store not found');
+    const result = await this.delivery.checkoutQuote(merchant, point, { orderAmount: null });
+    const quote = result.quote && result.reason !== 'INVALID_COORDINATES' ? result.quote : null;
+    return { branchId: result.branch?.id ?? null, distanceKm: quote?.distanceKm ?? null, method: quote?.method ?? null };
   }
 
   async merchantBySlug(slug: string) {
@@ -965,6 +976,18 @@ export class CommerceService {
     return refund;
   }
 
+  /** Road distance from the branch to the drop: the one charged at checkout, else measured now. */
+  private async routeDistance(branch: { latitude: unknown; longitude: unknown }, snapshot: unknown, quote: unknown) {
+    if (!snapshot || typeof snapshot !== 'object') return null;
+    const row = snapshot as { latitude?: unknown; longitude?: unknown };
+    const from = parsePoint(branch.latitude, branch.longitude);
+    const drop = parsePoint(row.latitude, row.longitude);
+    if (!from || !drop) return null;
+    const km = recordedKm(quote, drop) ?? (await this.delivery.distance.measure(from, drop)).km;
+    if (!Number.isFinite(km) || km <= 0 || km > 80) return null;
+    return km.toFixed(1);
+  }
+
   async presentOrder(id: string) {
     const order = await this.prisma.order.findUniqueOrThrow({
       where: { id },
@@ -1021,7 +1044,7 @@ export class CommerceService {
       preparationMinutes: order.preparationMinutes,
       estimatedArrival: order.estimatedReadyAt?.toISOString() ?? null,
       scheduledFor: order.scheduledFor?.toISOString() ?? null,
-      distanceKm: routeDistance(order.branch, order.addressSnapshot),
+      distanceKm: await this.routeDistance(order.branch, order.addressSnapshot, order.deliveryQuote),
       createdAt: order.createdAt.toISOString(),
       events: order.events.map((event) => ({ status: event.status, createdAt: event.createdAt.toISOString(), note: event.note })),
       customerName: `${order.customer.user.firstName} ${order.customer.user.lastName}`.trim(),
@@ -1259,6 +1282,7 @@ export class CommerceService {
       where,
       include: { hours: true, ...deliveryInclude, categories: { include: { category: true } }, subscription: { include: { plan: { include: { entitlements: true } } } } },
     });
+    const distances = located ? await this.delivery.listingDistances(merchants, located.point) : undefined;
     const due = merchants.flatMap((merchant) =>
       merchant.subscription && subscriptionShouldExpire(merchant.subscription) ? [merchant.subscription.id] : [],
     );
@@ -1274,7 +1298,7 @@ export class CommerceService {
       if (merchant.dineInEnabled) fulfillment.push('DINE_IN');
       const paused = merchant.availability === 'CLOSED' || merchant.availability === 'BUSY' || (merchant.temporaryClosedUntil && merchant.temporaryClosedUntil > new Date());
       const open = paused ? false : isOpenAt(merchant.hours, new Date());
-      const reach = located ? this.delivery.listingQuote(merchant, located.point, located.context) : null;
+      const reach = located ? this.delivery.listingQuote(merchant, located.point, located.context, new Date(), distances) : null;
       const nearestBranch = reach?.branch ?? merchant.branches.find((branch) => branch.active) ?? merchant.branches[0];
       const legacyFee = deliveryFeeForDistance({
         freeDeliveryEnabled: merchant.freeDeliveryEnabled,
@@ -1423,19 +1447,6 @@ function sameCartLine(
   return cartLineKey(item) === cartLineKey({ ...next, variantId: next.variantId, addons: next.addonIds.map((addonId) => ({ addonId })) });
 }
 
-function routeDistance(branch: { latitude: unknown; longitude: unknown }, snapshot: unknown) {
-  if (!snapshot || typeof snapshot !== 'object') return null;
-  const row = snapshot as { latitude?: unknown; longitude?: unknown };
-  const lat1 = Number(branch.latitude);
-  const lng1 = Number(branch.longitude);
-  const lat2 = Number(row.latitude);
-  const lng2 = Number(row.longitude);
-  if (![lat1, lng1, lat2, lng2].every((value) => Number.isFinite(value))) return null;
-  const km = distance(lat1, lng1, lat2, lng2);
-  if (!Number.isFinite(km) || km <= 0 || km > 80) return null;
-  return km.toFixed(1);
-}
-
 function formatAddress(value: unknown) {
   if (!value || typeof value !== 'object') return null;
   const row = value as { line1?: string; city?: string };
@@ -1546,10 +1557,3 @@ function safeSuggestion(rows: { key: string; value: unknown }[]) {
   }
 }
 
-function distance(lat1: number, lng1: number, lat2: number, lng2: number) {
-  const r = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return 2 * r * Math.asin(Math.sqrt(a));
-}

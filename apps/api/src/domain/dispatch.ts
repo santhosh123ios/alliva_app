@@ -1,5 +1,5 @@
 import { randomBytes, randomInt } from 'crypto';
-import { haversineKm, type Point } from './geo';
+import { haversineKm, type DistanceFn, type Point } from './geo';
 
 /** No 0/O or 1/I so a rider can read the code off a ticket without guessing. */
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -33,7 +33,7 @@ export type RouteStop<T> = { item: T; point: Point | null };
  * Orders stops for one rider: nearest unvisited stop first, starting at `origin`.
  * Stops without a pin go last, in the order given.
  */
-export function nearestNeighbourRoute<T>(origin: Point | null, stops: RouteStop<T>[]): { item: T; legKm: number | null; cumulativeKm: number | null }[] {
+export function nearestNeighbourRoute<T>(origin: Point | null, stops: RouteStop<T>[], distance: DistanceFn = haversineKm): { item: T; legKm: number | null; cumulativeKm: number | null }[] {
   const located = stops.filter((stop): stop is { item: T; point: Point } => stop.point !== null);
   const unlocated = stops.filter((stop) => stop.point === null);
   const result: { item: T; legKm: number | null; cumulativeKm: number | null }[] = [];
@@ -44,7 +44,7 @@ export function nearestNeighbourRoute<T>(origin: Point | null, stops: RouteStop<
     let best = 0;
     let bestKm = Infinity;
     for (let index = 0; index < left.length; index += 1) {
-      const km = haversineKm(here, left[index]!.point);
+      const km = distance(here, left[index]!.point);
       if (km < bestKm) {
         bestKm = km;
         best = index;
@@ -64,8 +64,8 @@ export function nearestNeighbourRoute<T>(origin: Point | null, stops: RouteStop<
  * Starts from the nearest-next order, then keeps reversing stretches of it (2-opt) while that shortens the trip.
  * Stops without a pin go last, in the order given.
  */
-export function optimiseRoute<T>(origin: Point | null, stops: RouteStop<T>[]): { item: T; legKm: number | null; cumulativeKm: number | null }[] {
-  const greedy = nearestNeighbourRoute(origin, stops);
+export function optimiseRoute<T>(origin: Point | null, stops: RouteStop<T>[], distance: DistanceFn = haversineKm): { item: T; legKm: number | null; cumulativeKm: number | null }[] {
+  const greedy = nearestNeighbourRoute(origin, stops, distance);
   const located = greedy.filter((stop) => stop.legKm !== null).map((stop) => stops.find((entry) => entry.item === stop.item)! as { item: T; point: Point });
   const unlocated = greedy.filter((stop) => stop.legKm === null);
   const start = origin ?? located[0]?.point ?? null;
@@ -79,8 +79,8 @@ export function optimiseRoute<T>(origin: Point | null, stops: RouteStop<T>[]): {
     improved = false;
     for (let i = 1; i < order.length; i += 1) {
       for (let k = i + 1; k <= order.length; k += 1) {
-        const before = haversineKm(at(i - 1), at(i)) + (k < order.length ? haversineKm(at(k), at(k + 1)) : 0);
-        const after = haversineKm(at(i - 1), at(k)) + (k < order.length ? haversineKm(at(i), at(k + 1)) : 0);
+        const before = distance(at(i - 1), at(i)) + (k < order.length ? distance(at(k), at(k + 1)) : 0);
+        const after = distance(at(i - 1), at(k)) + (k < order.length ? distance(at(i), at(k + 1)) : 0);
         if (after < before - 1e-9) {
           order.splice(i - 1, k - i + 1, ...order.slice(i - 1, k).reverse());
           improved = true;
@@ -93,7 +93,7 @@ export function optimiseRoute<T>(origin: Point | null, stops: RouteStop<T>[]): {
   let total = 0;
   for (const position of order) {
     const stop = located[position - 1]!;
-    const km = haversineKm(here, stop.point);
+    const km = distance(here, stop.point);
     total += km;
     result.push({ item: stop.item, legKm: round(km), cumulativeKm: round(total) });
     here = stop.point;
@@ -138,7 +138,7 @@ export type PriorityInput = {
  * How urgently an order should leave the store. Higher goes first.
  * Time waiting on the counter matters most, then how old the order is, hot food, scheduled time and trip length.
  */
-export function dispatchPriority(order: PriorityInput, store: Point, now = new Date()): { score: number; reasons: PriorityReason[]; km: number | null } {
+export function dispatchPriority(order: PriorityInput, store: Point, now = new Date(), distance: DistanceFn = haversineKm): { score: number; reasons: PriorityReason[]; km: number | null } {
   const reasons: PriorityReason[] = [];
   let score = 0;
   const waiting = Math.max(0, Math.round((now.getTime() - (order.readyAt ?? order.createdAt).getTime()) / 60_000));
@@ -161,7 +161,7 @@ export function dispatchPriority(order: PriorityInput, store: Point, now = new D
       reasons.push({ code: 'SCHEDULED_LATER', minutes: due });
     }
   }
-  const km = order.point ? round(haversineKm(store, order.point)) : null;
+  const km = order.point ? round(distance(store, order.point)) : null;
   if (km !== null) {
     // Long trips take a rider out of rotation for longer, so start them a little earlier.
     score += Math.min(km, 10);
@@ -195,8 +195,9 @@ export function routeEstimate(totalKm: number, stops: number) {
  * otherwise starts a route for a free rider, so riders are spread out before routes get long.
  * A rider's current stops count as part of their route. Orders that fit nowhere are left over.
  */
-export function planDispatch(input: { store: Point; riders: PlanRider[]; orders: PlanOrder[]; joinKm?: number }): { routes: PlannedRoute[]; leftover: string[] } {
+export function planDispatch(input: { store: Point; riders: PlanRider[]; orders: PlanOrder[]; joinKm?: number; distance?: DistanceFn }): { routes: PlannedRoute[]; leftover: string[] } {
   const joinKm = input.joinKm ?? 2.5;
+  const distance = input.distance ?? haversineKm;
   const groups = input.riders.map((rider) => ({ rider, orders: [] as PlanOrder[] }));
   const leftover: string[] = [];
   const open = (group: (typeof groups)[number]) => group.orders.length < group.rider.capacity;
@@ -217,7 +218,7 @@ export function planDispatch(input: { store: Point; riders: PlanRider[]; orders:
     let nearestKm = Infinity;
     for (const group of candidates) {
       for (const point of points(group)) {
-        const km = haversineKm(point, order.point);
+        const km = distance(point, order.point);
         if (km < nearestKm) {
           nearestKm = km;
           nearest = group;
@@ -235,7 +236,7 @@ export function planDispatch(input: { store: Point; riders: PlanRider[]; orders:
     .filter((group) => group.orders.length)
     .map((group) => {
       const start = group.rider.anchors.at(-1) ?? input.store;
-      const route = nearestNeighbourRoute(start, group.orders.map((order) => ({ item: order.id, point: order.point })));
+      const route = nearestNeighbourRoute(start, group.orders.map((order) => ({ item: order.id, point: order.point })), distance);
       const totalKm = route.reduce((total, stop) => total + (stop.legKm ?? 0), 0);
       return {
         riderId: group.rider.id,

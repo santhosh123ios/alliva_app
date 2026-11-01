@@ -3,9 +3,11 @@ import { dec, loc } from '../common/crypto';
 import { badRequest, notFound } from '../common/errors';
 import type { RequestUser } from '../common/http';
 import { dispatchPriority, isColdItem, planDispatch, type PriorityReason } from '../domain/dispatch';
-import type { Point } from '../domain/geo';
+import { haversineKm, type DistanceFn, type Point } from '../domain/geo';
+import type { DistanceProvider } from '../providers/location';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { CommerceService } from './commerce.service';
+import { recordedKm } from './delivery.service';
 
 const ON_ROAD: OrderStatus[] = ['ASSIGNED_TO_DRIVER', 'OUT_FOR_DELIVERY'];
 const UPCOMING: OrderStatus[] = ['ACCEPTED', 'PREPARING'];
@@ -17,6 +19,7 @@ export class DispatchService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly commerce: CommerceService,
+    private readonly distance: DistanceProvider,
   ) {}
 
   async board(merchantId: string, branchId?: string, now = new Date()) {
@@ -55,13 +58,20 @@ export class DispatchService {
         .map((row) => [row.id, Object.values(loc(row.category.name)).join(' ')]),
     );
 
-    const orders = waiting.map((order) => {
+    // Road distance from the store to each drop: the one charged at checkout, else measured together in one lookup.
+    const drops = waiting.map((order) => toPoint((order.addressSnapshot ?? {}) as Snapshot));
+    const unrecorded = drops.flatMap((point, index) => (point && recordedKm(waiting[index]!.deliveryQuote, point) === null ? [point] : []));
+    const measured = unrecorded.length ? (await this.distance.table([store], unrecorded))[0]! : [];
+    const fromStore = new Map(unrecorded.map((point, index) => [pointKey(point), measured[index]!.km]));
+
+    const orders = waiting.map((order, index) => {
       const snapshot = (order.addressSnapshot ?? {}) as Snapshot;
-      const point = toPoint(snapshot);
+      const point = drops[index]!;
+      const storeKm: DistanceFn = (from, to) => recordedKm(order.deliveryQuote, to) ?? fromStore.get(pointKey(to)) ?? haversineKm(from, to);
       // An order is hot unless every item looks like a drink, dessert or salad.
       const hot = order.items.some((item) => !isColdItem([...Object.values(loc(item.name)), item.productId ? categories.get(item.productId) ?? '' : '']));
       const readyAt = order.events[0]?.createdAt ?? null;
-      const priority = dispatchPriority({ point, createdAt: order.createdAt, readyAt: order.status === 'READY_FOR_PICKUP' ? readyAt ?? order.updatedAt : null, scheduledFor: order.scheduledFor, hot }, store, now);
+      const priority = dispatchPriority({ point, createdAt: order.createdAt, readyAt: order.status === 'READY_FOR_PICKUP' ? readyAt ?? order.updatedAt : null, scheduledFor: order.scheduledFor, hot }, store, now, storeKm);
       return {
         id: order.id,
         number: order.number,
@@ -116,12 +126,23 @@ export class DispatchService {
       })
       .sort((a, b) => Number(b.onShift) - Number(a.onShift) || a.active.length - b.active.length || a.name.localeCompare(b.name));
 
+    const ready = orders.filter((order) => order.ready).sort((a, b) => b.score - a.score);
+    // Every place a plan can route between: the store, ready drops and the riders' current stops.
+    // Sent as a table so the board can show road legs while the merchant rearranges routes.
+    const places = uniquePoints([
+      store,
+      ...ready.flatMap((order) => (order.latitude !== null && order.longitude !== null ? [{ latitude: order.latitude, longitude: order.longitude }] : [])),
+      ...riders.flatMap((rider) => rider.active.flatMap((stop) => (stop.latitude !== null && stop.longitude !== null ? [{ latitude: stop.latitude, longitude: stop.longitude }] : []))),
+    ]).slice(0, MAX_ROUTE_PLACES);
+    const road = await this.distance.lookup(places);
+
     return {
       branch: { id: branch.id, name: loc(branch.name), line1: branch.line1, latitude: store.latitude, longitude: store.longitude },
       branches: branches.map((row) => ({ id: row.id, name: loc(row.name) })),
-      ready: orders.filter((order) => order.ready).sort((a, b) => b.score - a.score),
+      ready,
       upcoming: orders.filter((order) => !order.ready).sort((a, b) => (a.estimatedReadyAt ?? a.createdAt).localeCompare(b.estimatedReadyAt ?? b.createdAt)),
       riders,
+      roadKm: { points: places, km: places.map((from) => places.map((to) => Math.round(road(from, to) * 100) / 100)) },
       generatedAt: now.toISOString(),
     };
   }
@@ -140,6 +161,7 @@ export class DispatchService {
         anchors: rider.active.flatMap((stop) => (stop.latitude !== null && stop.longitude !== null ? [{ latitude: stop.latitude, longitude: stop.longitude }] : [])),
       })),
       orders: orders.map((order) => ({ id: order.id, point: order.latitude !== null && order.longitude !== null ? { latitude: order.latitude, longitude: order.longitude } : null, score: order.score })),
+      distance: tableDistance(board.roadKm),
     });
     return { ...result, board };
   }
@@ -193,6 +215,27 @@ export class DispatchService {
     }
     return { assigned };
   }
+}
+
+/** Caps the road table the board sends; past this many places, the rest use straight-line distance. */
+const MAX_ROUTE_PLACES = 60;
+
+function pointKey(point: Point) {
+  return `${point.latitude.toFixed(5)},${point.longitude.toFixed(5)}`;
+}
+
+function uniquePoints(points: Point[]) {
+  return [...new Map(points.map((point) => [pointKey(point), point])).values()];
+}
+
+/** Reads distances back out of the board's road table, with straight line for places it does not hold. */
+export function tableDistance(table: { points: Point[]; km: number[][] }): DistanceFn {
+  const index = new Map(table.points.map((point, position) => [pointKey(point), position]));
+  return (from, to) => {
+    const row = index.get(pointKey(from));
+    const column = index.get(pointKey(to));
+    return row !== undefined && column !== undefined ? table.km[row]![column]! : haversineKm(from, to);
+  };
 }
 
 function toPoint(snapshot: Snapshot): Point | null {

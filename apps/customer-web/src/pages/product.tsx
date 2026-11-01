@@ -1,7 +1,7 @@
 import { CartButtonSpinner, flyToCart } from '@/components/cart-motion';
 import { api } from '@/components/providers';
 import { useCartAdd } from '@/components/store-switch';
-import { categoryIcon, formatDistanceKm, StoreUnavailable } from '@/components/storefront';
+import { categoryIcon, StoreUnavailable, useStoreDistance } from '@/components/storefront';
 import { Link } from '@/i18n/navigation';
 import { useAreaPoint } from '@/lib/location';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
@@ -547,7 +547,7 @@ function StoreCard({
   const kinds = (merchant?.businessCategories ?? []).map((item) => pickLocalized(item, locale)).filter(Boolean).join(' • ');
   const Icon = categoryIcon(merchant?.categorySlugs[0] ?? '');
   const rating = Number(merchant?.rating ?? 0);
-  const distance = merchant ? formatDistanceKm(Number(merchant.latitude), Number(merchant.longitude), area) : null;
+  const distance = useStoreDistance(merchant ? slug : null, area);
   return (
     <div className={cn('mt-4', compact ? '' : 'rounded-[24px] border border-[#eee] p-4')}>
       <div className="flex items-center gap-3">

@@ -138,3 +138,34 @@ describe('planDispatch', () => {
     expect(plan.routes.map((route) => route.riderId)).toEqual(['busy']);
   });
 });
+
+describe('routing on road distance', () => {
+  const store = { latitude: 26.2285, longitude: 50.586 };
+  const near = { latitude: 26.229, longitude: 50.587 };
+  const far = { latitude: 26.24, longitude: 50.6 };
+  // The straight-line nearest stop is a long drive round (say, across a bay); the road says go to `far` first.
+  const road = (from: { latitude: number }, to: { latitude: number }) => {
+    const pair = [from.latitude, to.latitude].sort().join('>');
+    if (pair === [store.latitude, near.latitude].sort().join('>')) return 9;
+    if (pair === [store.latitude, far.latitude].sort().join('>')) return 2;
+    if (pair === [near.latitude, far.latitude].sort().join('>')) return 3;
+    return 0;
+  };
+
+  it('orders stops and measures legs with the distance it is given', () => {
+    const route = nearestNeighbourRoute(store, [{ item: 'near', point: near }, { item: 'far', point: far }], road);
+    expect(route).toEqual([
+      { item: 'far', legKm: 2, cumulativeKm: 2 },
+      { item: 'near', legKm: 3, cumulativeKm: 5 },
+    ]);
+    expect(optimiseRoute(store, [{ item: 'near', point: near }, { item: 'far', point: far }], road).map((stop) => stop.item)).toEqual(['far', 'near']);
+  });
+
+  it('scores trip length and plans routes on road distance', () => {
+    const priority = dispatchPriority({ point: near, createdAt: new Date(), readyAt: null, scheduledFor: null, hot: false }, store, new Date(), road);
+    expect(priority.km).toBe(9);
+    expect(priority.reasons).toContainEqual({ code: 'FAR', km: 9 });
+    const plan = planDispatch({ store, riders: [{ id: 'r1', capacity: 2, anchors: [] }], orders: [{ id: 'a', point: near, score: 1 }, { id: 'b', point: far, score: 1 }], distance: road });
+    expect(plan.routes[0]!.totalKm).toBe(5);
+  });
+});

@@ -1,4 +1,6 @@
 import './../src/load-env';
+// The charges below are priced on straight-line distance, so keep the map provider out of this run.
+process.env.DISTANCE_PROVIDER = 'haversine';
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 

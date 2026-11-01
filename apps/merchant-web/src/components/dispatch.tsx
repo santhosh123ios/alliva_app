@@ -58,6 +58,7 @@ export function DispatchPage() {
   if (board.error || !board.data) return <ErrorState title={t('loadFailed')} body={(board.error as Error | null)?.message ?? ''} />;
   const data = board.data;
   const store = { latitude: data.branch.latitude, longitude: data.branch.longitude };
+  const distance = roadDistance(data.roadKm);
   const orders = new Map(data.ready.map((order) => [order.id, order]));
   // Drop orders that left the queue (assigned elsewhere, cancelled) since the plan was made.
   const live: Draft | null = draft ? Object.fromEntries(Object.entries(draft).map(([rider, ids]) => [rider, ids.filter((id) => orders.has(id))])) : null;
@@ -82,7 +83,7 @@ export function DispatchPage() {
   });
   const optimise = (rider: DispatchRider) => setDraft((current) => {
     if (!current) return current;
-    return { ...current, [rider.id]: nearestFirst(startPoint(rider, store), (current[rider.id] ?? []).map((id) => orders.get(id)).filter((order): order is DispatchOrder => Boolean(order))) };
+    return { ...current, [rider.id]: nearestFirst(distance, startPoint(rider, store), (current[rider.id] ?? []).map((id) => orders.get(id)).filter((order): order is DispatchOrder => Boolean(order))) };
   });
 
   const mapRoutes: MapRoute[] = [];
@@ -132,6 +133,7 @@ export function DispatchPage() {
                   ids={live[rider.id] ?? []}
                   orders={orders}
                   store={store}
+                  distance={distance}
                   riders={data.riders.filter((other) => live[other.id] !== undefined)}
                   focused={focus === rider.id}
                   onFocus={(on) => setFocus(on ? rider.id : null)}
@@ -265,12 +267,13 @@ export function DispatchPage() {
   );
 }
 
-function RouteCard({ rider, color, ids, orders, store, riders, focused, onFocus, onMove, onShift, onOptimise }: {
+function RouteCard({ rider, color, ids, orders, store, distance, riders, focused, onFocus, onMove, onShift, onOptimise }: {
   rider: DispatchRider;
   color: string;
   ids: string[];
   orders: Map<string, DispatchOrder>;
   store: Point;
+  distance: Distance;
   riders: DispatchRider[];
   focused: boolean;
   onFocus: (on: boolean) => void;
@@ -280,7 +283,7 @@ function RouteCard({ rider, color, ids, orders, store, riders, focused, onFocus,
 }) {
   const t = useTranslations('dispatch');
   const stops = ids.map((id) => orders.get(id)).filter((order): order is DispatchOrder => Boolean(order));
-  const legs = routeLegs(startPoint(rider, store), stops);
+  const legs = routeLegs(distance, startPoint(rider, store), stops);
   const totalKm = legs.reduce<number>((total, km) => total + (km ?? 0), 0);
   const minutes = Math.round((totalKm / 22) * 60 + stops.length * 4);
   return (
@@ -426,25 +429,25 @@ function startPoint(rider: DispatchRider, store: Point): Point {
   return last ? { latitude: last.latitude!, longitude: last.longitude! } : store;
 }
 
-function routeLegs(start: Point, stops: DispatchOrder[]) {
+function routeLegs(distance: Distance, start: Point, stops: DispatchOrder[]) {
   let here: Point | null = start;
   return stops.map((order) => {
     if (!hasPoint(order) || !here) return null;
     const next = { latitude: order.latitude!, longitude: order.longitude! };
-    const km = haversineKm(here, next);
+    const km = distance(here, next);
     here = next;
     return km;
   });
 }
 
-function nearestFirst(start: Point, stops: DispatchOrder[]) {
+function nearestFirst(distance: Distance, start: Point, stops: DispatchOrder[]) {
   const left = stops.filter(hasPoint);
   const result: string[] = [];
   let here = start;
   while (left.length) {
     let best = 0;
     for (let index = 1; index < left.length; index += 1) {
-      if (haversineKm(here, toPoint(left[index]!)) < haversineKm(here, toPoint(left[best]!))) best = index;
+      if (distance(here, toPoint(left[index]!)) < distance(here, toPoint(left[best]!))) best = index;
     }
     const [stop] = left.splice(best, 1);
     result.push(stop!.id);
@@ -455,6 +458,19 @@ function nearestFirst(start: Point, stops: DispatchOrder[]) {
 
 function toPoint(order: DispatchOrder): Point {
   return { latitude: order.latitude!, longitude: order.longitude! };
+}
+
+type Distance = (from: Point, to: Point) => number;
+
+/** Road distance from the board's table, straight line for anything the table does not hold. */
+function roadDistance(table: { points: Point[]; km: number[][] } | undefined): Distance {
+  const key = (point: Point) => `${point.latitude.toFixed(5)},${point.longitude.toFixed(5)}`;
+  const index = new Map((table?.points ?? []).map((point, position) => [key(point), position]));
+  return (from, to) => {
+    const row = index.get(key(from));
+    const column = index.get(key(to));
+    return row !== undefined && column !== undefined ? table!.km[row]![column]! : haversineKm(from, to);
+  };
 }
 
 function haversineKm(a: Point, b: Point) {

@@ -1,5 +1,8 @@
 export type Point = { latitude: number; longitude: number };
 
+/** Kilometres between two places. Road distance when a provider measured it, else straight line. */
+export type DistanceFn = (from: Point, to: Point) => number;
+
 /** Bahrain with a small margin, so a pin dropped just offshore on a reclaimed island still counts. */
 const BAHRAIN = { minLat: 25.5, maxLat: 26.45, minLng: 50.3, maxLng: 50.85 };
 

@@ -227,6 +227,8 @@ export function createApiClient(baseUrl = '', portal?: AuthPortal) {
       request<OrderView>('/api/orders', { method: 'POST', body: JSON.stringify(body), headers: { 'idempotency-key': idempotencyKey } }),
     orders: () => request<OrderView[]>('/api/orders'),
     order: (id: string) => request<OrderView>(`/api/orders/${id}`),
+    storeDistance: (slug: string, lat: string | number, lng: string | number) =>
+      request<{ branchId: string | null; distanceKm: string | null; method: 'ROAD' | 'HAVERSINE' | null }>(`/api/storefront/merchants/${slug}/distance${queryString({ lat, lng })}`),
     cancel: (id: string, reason: string) => send(`/api/orders/${id}/cancel`, 'POST', { reason }),
     review: (id: string, body: Json) => send(`/api/orders/${id}/review`, 'POST', body),
     reorder: (id: string) => send<CartView>(`/api/orders/${id}/reorder`, 'POST'),
