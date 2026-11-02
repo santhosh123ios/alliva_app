@@ -1,7 +1,7 @@
 import { api } from '@/components/providers';
 import { canSetStatus } from '@/lib/roles';
 import type { FloorOrder } from '@alliva/types';
-import { cn, ErrorState, Skeleton } from '@alliva/ui';
+import { cn, ErrorState, Skeleton, toast } from '@alliva/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Bike, ChevronDown, ShoppingBag, StickyNote, UtensilsCrossed } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -10,6 +10,7 @@ import { useTranslations } from 'use-intl';
 import { itemLine, tableNo, money, stageOf, StagePill, useAge, useFloorBoard, useFloorLocale, useNow, useOrderStep, type Stage } from './shared';
 
 const SECTIONS: { key: Stage | 'kitchen'; stages: Stage[] }[] = [
+  { key: 'new', stages: ['new'] },
   { key: 'kitchen', stages: ['toStart', 'cooking'] },
   { key: 'ready', stages: ['ready'] },
 ];
@@ -51,6 +52,8 @@ export default function FloorOrders() {
         const rows = orders
           .filter((order) => section.stages.includes(stageOf(order.status)))
           .sort((a, b) => (section.key === 'ready' ? (a.readyAt ?? a.createdAt).localeCompare(b.readyAt ?? b.createdAt) : a.createdAt.localeCompare(b.createdAt)));
+        // Table orders waiting to be confirmed only take space while there are some.
+        if (section.key === 'new' && !rows.length) return null;
         return (
           <section key={section.key}>
             <h2 className="mb-2 flex items-center gap-2 px-1 text-sm font-semibold text-muted-foreground">
@@ -77,6 +80,7 @@ function OrderCard({ order, now, open, onToggle }: { order: FloorOrder; now: num
   const age = useAge();
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.me(), retry: false });
   const step = useOrderStep();
+  const [rejecting, setRejecting] = useState(false);
   const Icon = fulfillmentIcon[order.fulfillmentType];
   const may = (status: Parameters<typeof canSetStatus>[1]) => Boolean(me.data && canSetStatus(me.data, status, order.fulfillmentType));
   const late = order.estimatedReadyAt && order.status !== 'READY_FOR_PICKUP' && new Date(order.estimatedReadyAt).getTime() < now;
@@ -112,6 +116,19 @@ function OrderCard({ order, now, open, onToggle }: { order: FloorOrder; now: num
             <span className="font-semibold tabular-nums">{money(order.total, locale)}</span>
           </p>
 
+          {order.status === 'PENDING' && may('ACCEPTED') ? (
+            rejecting ? (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button type="button" disabled={step.isPending} onClick={() => setRejecting(false)} className="h-11 rounded-xl border border-border text-sm font-semibold disabled:opacity-50">{t('orders.keep')}</button>
+                <button type="button" disabled={step.isPending} onClick={() => step.mutate({ order, status: 'CANCELLED', cancellationReason: t('home.rejectReason') }, { onSuccess: () => toast(t('home.rejectedToast')) })} className="h-11 rounded-xl bg-destructive text-sm font-semibold text-white disabled:opacity-50">{t('orders.confirmReject')}</button>
+              </div>
+            ) : (
+              <div className="mt-3 flex gap-2">
+                <button type="button" disabled={step.isPending} onClick={() => setRejecting(true)} className="h-11 shrink-0 rounded-xl border border-border px-4 text-sm font-semibold text-destructive disabled:opacity-50">{t('orders.reject')}</button>
+                <button type="button" disabled={step.isPending} onClick={() => step.mutate({ order, status: 'ACCEPTED' }, { onSuccess: () => toast.success(t('home.confirmedToast', { table: tableNo(order.tableNumber ?? '') })) })} className="h-11 flex-1 rounded-xl bg-secondary text-sm font-semibold text-secondary-foreground disabled:opacity-50">{t('home.confirm')}</button>
+              </div>
+            )
+          ) : null}
           {order.status === 'READY_FOR_PICKUP' && order.fulfillmentType !== 'DELIVERY' && may('DELIVERED') ? (
             <button type="button" disabled={step.isPending} onClick={() => step.mutate({ order, status: 'DELIVERED' })} className="mt-3 h-11 w-full rounded-xl bg-success text-sm font-semibold text-white disabled:opacity-50">
               {order.fulfillmentType === 'DINE_IN' ? t('actions.served') : t('actions.handedOver')}

@@ -1,11 +1,12 @@
 import { CartButtonSpinner, flyToCart } from '@/components/cart-motion';
+import { DishRatingSummary, DishReviews, useDishReviews } from '@/components/dish-reviews';
 import { NoteField, ProductOptions, Quantity, runningTotal, toggleAddonIn, type ProductPayload } from '@/components/product-options';
 import { api } from '@/components/providers';
 import type { useCartAdd } from '@/components/store-switch';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { cn, DialogDescription, DialogTitle, Sheet, SheetContent, Skeleton } from '@alliva/ui';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, ChevronDown, ClipboardList, X } from 'lucide-react';
+import { ChevronDown, ClipboardList, ShoppingCart, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 
@@ -13,7 +14,7 @@ import { useLocale, useTranslations } from 'use-intl';
  * Sizes, options and combos for one dish, in a bottom sheet over the menu (a centred card on desktop),
  * so the diner never leaves the table page to customise it.
  */
-export function ProductSheet({ productId, onClose, cartAdd }: { productId: string | null; onClose: () => void; cartAdd: ReturnType<typeof useCartAdd> }) {
+export function ProductSheet({ productId, onClose, cartAdd, viewOnly = false }: { productId: string | null; onClose: () => void; cartAdd: ReturnType<typeof useCartAdd>; viewOnly?: boolean }) {
   const t = useTranslations();
   const product = useQuery({ queryKey: ['product', productId], queryFn: () => api.product(productId!), enabled: Boolean(productId) });
   const data = product.data?.id === productId ? product.data : undefined;
@@ -28,7 +29,7 @@ export function ProductSheet({ productId, onClose, cartAdd }: { productId: strin
       >
         {data ? (
           // Keyed so every dish opens with fresh picks.
-          <SheetBody key={data.id} data={data} cartAdd={cartAdd} onClose={onClose} />
+          <SheetBody key={data.id} data={data} cartAdd={cartAdd} onClose={onClose} viewOnly={viewOnly} />
         ) : (
           <div className="p-5" aria-busy>
             <DialogTitle className="sr-only">{t('common.loading')}</DialogTitle>
@@ -43,7 +44,8 @@ export function ProductSheet({ productId, onClose, cartAdd }: { productId: strin
   );
 }
 
-function SheetBody({ data, cartAdd, onClose }: { data: ProductPayload; cartAdd: ReturnType<typeof useCartAdd>; onClose: () => void }) {
+/** `viewOnly`: the table has paid, so the add button says to scan again instead of adding. */
+function SheetBody({ data, cartAdd, onClose, viewOnly }: { data: ProductPayload; cartAdd: ReturnType<typeof useCartAdd>; onClose: () => void; viewOnly: boolean }) {
   const t = useTranslations();
   const locale = useLocale() as 'en' | 'ar';
   const [variantId, setVariantId] = useState<string | null>(() => data.variants.find((variant) => variant.available)?.id ?? null);
@@ -52,6 +54,7 @@ function SheetBody({ data, cartAdd, onClose }: { data: ProductPayload; cartAdd: 
   const [notes, setNotes] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
   const photoRef = useRef<HTMLImageElement>(null);
+  const reviews = useDishReviews(data.id);
   const name = pickLocalized(data.name, locale);
   const description = pickLocalized(data.description, locale);
   const image = data.images?.[0] || data.imageUrl || '/no-image-16x9.jpg';
@@ -97,6 +100,7 @@ function SheetBody({ data, cartAdd, onClose }: { data: ProductPayload; cartAdd: 
         <div className="px-5 pt-4 pb-5">
           <DialogTitle className="text-[22px] leading-tight font-extrabold tracking-[-0.02em] text-[#111]">{name}</DialogTitle>
           <p className="mt-1 text-lg font-bold text-[#111]">{formatMoney(variant?.price ?? data.price, locale)}</p>
+          <DishRatingSummary reviews={reviews.data} />
           {description ? <DialogDescription className="mt-2 text-[14px] leading-relaxed text-[#6f6f6a]">{description}</DialogDescription> : null}
 
           <ProductOptions product={data} variantId={variantId} onVariant={setVariantId} addons={addons} onToggle={(group, addonId) => setAddons((current) => toggleAddonIn(current, group, addonId))} />
@@ -112,22 +116,28 @@ function SheetBody({ data, cartAdd, onClose }: { data: ProductPayload; cartAdd: 
             </button>
             {notesOpen ? <NoteField value={notes} onChange={setNotes} placeholder={t('customer.kitchenNote')} /> : null}
           </section>
+
+          <DishReviews productId={data.id} reviews={reviews.data} />
         </div>
       </div>
 
       <div className="flex items-center gap-3 border-t border-[#eee] bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <Quantity value={quantity} onChange={setQuantity} decreaseLabel={t('customer.decreaseQty')} increaseLabel={t('customer.increaseQty')} />
+        {viewOnly ? null : <Quantity value={quantity} onChange={setQuantity} decreaseLabel={t('customer.decreaseQty')} increaseLabel={t('customer.increaseQty')} />}
         <button
           type="button"
-          disabled={!canAdd || cartAdd.pending}
+          disabled={viewOnly || !canAdd || cartAdd.pending}
           aria-busy={cartAdd.pending}
           onClick={add}
-          className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-[#111] disabled:opacity-50"
+          className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-bold text-[#111] disabled:opacity-50"
         >
-          <span>{formatMoney(total, locale)}</span>
-          <span aria-hidden className="h-4 w-px bg-[#111]/25" />
-          <span className="truncate">{data.available ? t('customer.add') : t('customer.unavailable')}</span>
-          {cartAdd.pending ? <CartButtonSpinner className="size-4" /> : <ArrowRight className="size-4 shrink-0 rtl:rotate-180" />}
+          {cartAdd.pending ? <CartButtonSpinner className="size-4" /> : <ShoppingCart className="size-[18px] shrink-0" strokeWidth={2.2} />}
+          <span className="whitespace-nowrap">{viewOnly ? t('customer.tablePage.paidScanAgain') : data.available ? t('customer.add') : t('customer.unavailable')}</span>
+          {viewOnly ? null : (
+            <>
+              <span aria-hidden className="h-4 w-px shrink-0 bg-[#111]/25" />
+              <span className="whitespace-nowrap tabular-nums">{formatMoney(total, locale)}</span>
+            </>
+          )}
         </button>
       </div>
     </>

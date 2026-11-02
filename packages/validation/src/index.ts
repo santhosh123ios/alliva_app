@@ -580,6 +580,20 @@ export const reviewSchema = z.object({
   comment: z.string().max(1000).optional(),
 });
 
+/** How a diner rates ordering with the app, asked after they place an order. */
+/** A diner rates a dish they were served. */
+export const productReviewSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().trim().max(500).optional().nullable(),
+});
+
+export const appFeedbackSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().trim().max(1000).optional().nullable(),
+  source: z.enum(['TABLE_ORDER']),
+  orderId: z.uuid().optional().nullable(),
+});
+
 export const tableSchema = z.object({
   floorId: z.uuid(),
   name: z.string().min(1),
@@ -701,6 +715,11 @@ export const tableStatusSchema = z.object({
 /** A diner at a table asking for staff. The table comes from the QR cookie, not the body. */
 export const serviceRequestCreateSchema = z.object({
   kind: z.enum(['WAITER', 'BILL', 'HELP']),
+});
+
+/** A diner at a scanned table sends their cart to the kitchen. The table and the dishes come from the cookies and the cart. */
+export const tableOrderSchema = z.object({
+  notes: z.string().trim().max(250).optional().nullable(),
 });
 
 export const serviceRequestUpdateSchema = z.object({

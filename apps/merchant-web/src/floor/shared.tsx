@@ -177,9 +177,17 @@ export function FloorProvider({ children }: { children: React.ReactNode }) {
 
 export const floorKey = (branchId: string) => ['merchant', 'floor', 'board', branchId] as const;
 
-/** Order takers only run tables: customer orders still waiting for the store to accept them stay with managers. */
+/**
+ * Order takers only run tables. Orders diners send from the table QR arrive waiting (PENDING): the order taker
+ * confirms them before they reach the kitchen. Other customer orders waiting for the store stay with managers.
+ */
 function tableOrdersOnly(board: FloorBoard): FloorBoard {
-  return { ...board, orders: board.orders.filter((order) => order.tableId && order.status !== 'PENDING') };
+  return { ...board, orders: board.orders.filter((order) => order.tableId) };
+}
+
+/** Table orders a diner sent that nobody has confirmed yet, oldest first. */
+export function awaitingConfirm(orders: FloorOrder[]) {
+  return orders.filter((order) => order.status === 'PENDING' && order.tableId);
 }
 
 export function useFloorBoard() {
@@ -217,6 +225,27 @@ export function useAnswerCall() {
       return { before };
     },
     onSuccess: (_row, input) => toast.success(input.status === 'RESOLVED' ? t('doneToast') : t('comingToast')),
+    onError: (error: Error, _input, context) => {
+      if (context?.before) client.setQueryData(floorKey(branchId), context.before);
+      toast.error(error.message);
+    },
+    onSettled: () => void client.invalidateQueries({ queryKey: ['merchant', 'floor', 'board'] }),
+  });
+}
+
+/** Set a table's status, updating the board straight away; used to mark a cleaned table ready for guests. */
+export function useTableStatus() {
+  const client = useQueryClient();
+  const { branchId } = useFloorSettings();
+  return useMutation({
+    mutationFn: (input: { table: FloorTable; status: TableStatus }) => api.setTableStatus(input.table.id, input.status),
+    onMutate: async ({ table, status }) => {
+      const key = floorKey(branchId);
+      await client.cancelQueries({ queryKey: key });
+      const before = client.getQueryData<FloorBoard>(key);
+      client.setQueryData<FloorBoard>(key, (board) => board && { ...board, tables: board.tables.map((row) => (row.id === table.id ? { ...row, status } : row)) });
+      return { before };
+    },
     onError: (error: Error, _input, context) => {
       if (context?.before) client.setQueryData(floorKey(branchId), context.before);
       toast.error(error.message);
@@ -264,7 +293,7 @@ export function useFloorAlerts(board: FloorBoard | undefined) {
   const t = useTranslations('floor.alerts');
   const locale = useFloorLocale();
   const { sound } = useFloorSettings();
-  const seen = useRef<{ calls: Set<string>; ready: Set<string> } | null>(null);
+  const seen = useRef<{ calls: Set<string>; ready: Set<string>; fresh: Set<string>; cleaning: Set<string> } | null>(null);
   const [unlocked, setUnlocked] = useState(audioReady);
 
   // Browsers keep a page silent until someone taps it, and phones can lock audio again after the app was in
@@ -283,6 +312,7 @@ export function useFloorAlerts(board: FloorBoard | undefined) {
   }, []);
 
   const callLine = useCallback((call: ServiceRequestView) => t(`call.${call.kind}`, { table: tableNo(call.table.number) }), [t]);
+  const newOrderLine = useCallback((order: FloorOrder) => t('newTableOrder', { table: tableNo(order.tableNumber ?? '') }), [t]);
   const say = useCallback(
     (lines: string[]) => {
       if (!sound || !lines.length) return;
@@ -297,34 +327,41 @@ export function useFloorAlerts(board: FloorBoard | undefined) {
     if (!board) return;
     const calls = new Set(board.requests.filter((row) => row.status === 'OPEN').map((row) => row.id));
     const ready = new Set(board.orders.filter((row) => row.status === 'READY_FOR_PICKUP').map((row) => row.id));
+    const fresh = new Set(awaitingConfirm(board.orders).map((row) => row.id));
+    const cleaning = new Set(board.tables.filter((row) => row.status === 'INACTIVE').map((row) => row.id));
     if (seen.current) {
       const freshCalls = board.requests.filter((row) => row.status === 'OPEN' && !seen.current!.calls.has(row.id));
+      const freshOrders = awaitingConfirm(board.orders).filter((row) => !seen.current!.fresh.has(row.id));
       const freshReady = board.orders.filter((row) => row.status === 'READY_FOR_PICKUP' && !seen.current!.ready.has(row.id));
       const callLines = freshCalls.map(callLine);
+      const orderLines = freshOrders.map(newOrderLine);
       const readyLines = freshReady.map((order) => (order.tableNumber ? t('readyTable', { table: tableNo(order.tableNumber) }) : t('ready', { number: order.number.replace(/^#/, '') })));
-      for (const line of callLines) toast(line);
+      for (const line of [...callLines, ...orderLines]) toast(line);
+      const cleanLines = board.tables.filter((row) => row.status === 'INACTIVE' && !seen.current!.cleaning.has(row.id)).map((row) => t('needsCleaning', { table: tableNo(row.number) }));
       for (const line of readyLines) toast.success(line);
-      if (callLines.length || readyLines.length) {
-        say([...callLines, ...readyLines]);
-        if ('vibrate' in navigator) navigator.vibrate?.(freshCalls.length ? [200, 90, 200, 90, 200] : [160, 80, 160]);
+      for (const line of cleanLines) toast(line);
+      if (callLines.length || orderLines.length || readyLines.length || cleanLines.length) {
+        say([...callLines, ...orderLines, ...readyLines, ...cleanLines]);
+        if ('vibrate' in navigator) navigator.vibrate?.(freshCalls.length || freshOrders.length ? [200, 90, 200, 90, 200] : [160, 80, 160]);
       }
     }
-    seen.current = { calls, ready };
-  }, [board, t, callLine, say]);
+    seen.current = { calls, ready, fresh, cleaning };
+  }, [board, t, callLine, newOrderLine, say]);
 
-  // Repeat every waiting call by name until someone answers ("On my way" or done) or the diner ends it.
+  // Repeat every waiting call and unconfirmed table order by name until someone answers or confirms it.
   const waiting = board?.requests.filter((row) => row.status === 'OPEN') ?? [];
-  const waitingKey = waiting.map((row) => row.id).sort().join();
-  const waitingRef = useRef(waiting);
-  waitingRef.current = waiting;
+  const unconfirmed = board ? awaitingConfirm(board.orders) : [];
+  const waitingKey = [...waiting, ...unconfirmed].map((row) => row.id).sort().join();
+  const waitingRef = useRef({ waiting, unconfirmed });
+  waitingRef.current = { waiting, unconfirmed };
   useEffect(() => {
     if (!waitingKey) return;
     const timer = window.setInterval(() => {
-      say(waitingRef.current.map(callLine));
+      say([...waitingRef.current.waiting.map(callLine), ...waitingRef.current.unconfirmed.map(newOrderLine)]);
       if ('vibrate' in navigator) navigator.vibrate?.([200, 90, 200]);
     }, REPEAT_EVERY_MS);
     return () => window.clearInterval(timer);
-  }, [waitingKey, say, callLine]);
+  }, [waitingKey, say, callLine, newOrderLine]);
 
   /** True while sound is switched on but the browser has not been allowed to play it yet. */
   return { needsTap: sound && !unlocked };

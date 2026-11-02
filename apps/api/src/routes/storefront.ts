@@ -1,9 +1,10 @@
 import type { Request } from 'express';
-import { cartContextSchema, cartItemSchema, checkoutSchema, promoApplySchema, reviewSchema, serviceRequestCreateSchema } from '@alliva/validation';
+import { cartContextSchema, cartItemSchema, checkoutSchema, promoApplySchema, reviewSchema, serviceRequestCreateSchema, tableOrderSchema, appFeedbackSchema, productReviewSchema } from '@alliva/validation';
 import { checkoutError, forbidden, notFound } from '../common/errors';
 import { authCookieName, authPortal, cookieBase, RequestUser, validate } from '../common/http';
 import { createRoutes } from '../common/routes';
 import type { Container } from '../container';
+import { productReviews, rateProduct } from '../modules/product-reviews';
 import type { CheckoutRequest } from '../modules/commerce.service';
 
 export function storefrontRoutes({ prisma, jwt, crypto, commerce, floor }: Container) {
@@ -55,6 +56,14 @@ export function storefrontRoutes({ prisma, jwt, crypto, commerce, floor }: Conta
     return commerce.product(request.params.id as string, viewer);
   });
 
+  /** Ratings for a dish, and whether this viewer ate it and may rate it. */
+  routes.get('/storefront/products/:id/reviews', { public: true }, async (request) => productReviews(prisma, request.params.id as string, await raterFor(request, request.user)));
+
+  routes.post('/storefront/products/:id/reviews', { public: true, throttle: 10 }, async (request) => {
+    const body = validate<{ rating: number; comment?: string | null }>(productReviewSchema, request.body);
+    return rateProduct(prisma, request.params.id as string, await raterFor(request, request.user), body);
+  });
+
   routes.get('/qr/:code', { public: true }, (request) => commerce.resolveQr(request.params.code as string));
 
   routes.post('/qr/:code/enter', { public: true }, async (request, response) => {
@@ -62,21 +71,52 @@ export function storefrontRoutes({ prisma, jwt, crypto, commerce, floor }: Conta
     response.cookie('alliva_storefront', resolved.merchantSlug, { ...cookieBase(), httpOnly: false, maxAge: 12 * 3600000 });
     if (resolved.tableId) {
       response.cookie('alliva_table', resolved.tableId, { ...cookieBase(), httpOnly: false, maxAge: 12 * 3600000 });
+      // Scanning joins the table's current visit, or starts a new one once the last guests paid.
+      const visit = await floor.openVisit(resolved.tableId);
+      response.cookie('alliva_visit', visit.id, { ...cookieBase(), httpOnly: true, maxAge: 12 * 3600000 });
     }
     return resolved;
   });
 
-  /** The table the diner scanned in at, and whether staff are on the way. */
-  routes.get('/table-service', { public: true }, (request) => floor.tableService(request.cookies?.alliva_table as string | undefined));
+  /** The table the diner scanned in at, whether staff are on the way, and what the table has ordered. */
+  routes.get('/table-service', { public: true }, async (request, response) => {
+    const tableId = request.cookies?.alliva_table as string | undefined;
+    const visit = await floor.currentVisit(tableId, request.cookies?.alliva_visit as string | undefined);
+    if (visit.id !== request.cookies?.alliva_visit) response.cookie('alliva_visit', visit.id, { ...cookieBase(), httpOnly: true, maxAge: 12 * 3600000 });
+    const view = await floor.tableService(tableId, visit.id);
+    // Once the table paid, whatever was left in the diner's cart goes too: the next visit starts clean.
+    if (view.visitEnded) await commerce.clearTableCart(await viewerFor(request, request.user), view.merchantId);
+    return view;
+  });
 
   routes.post('/table-service/calls', { public: true, throttle: 10 }, (request) => {
     const body = validate<{ kind: 'WAITER' | 'BILL' | 'HELP' }>(serviceRequestCreateSchema, request.body);
-    return floor.callStaff(request.cookies?.alliva_table as string | undefined, body.kind);
+    return floor.callStaff(request.cookies?.alliva_table as string | undefined, body.kind, request.cookies?.alliva_visit as string | undefined);
   });
 
   routes.post('/table-service/calls/:id/end', { public: true, throttle: 10 }, (request) =>
-    floor.endCall(request.cookies?.alliva_table as string | undefined, request.params.id as string),
+    floor.endCall(request.cookies?.alliva_table as string | undefined, request.params.id as string, request.cookies?.alliva_visit as string | undefined),
   );
+
+  /** The diner sends their cart to the kitchen. No sign-in or payment: the table pays at the till. */
+  routes.post('/table-service/orders', { public: true, throttle: 10 }, async (request) => {
+    const visitId = request.cookies?.alliva_visit as string | undefined;
+    const table = await floor.assertOpenVisit(request.cookies?.alliva_table as string | undefined, visitId);
+    const body = validate<{ notes?: string | null }>(tableOrderSchema, request.body ?? {});
+    const order = await commerce.tableOrder(await viewerFor(request, request.user), table.id, body.notes);
+    return { order, service: await floor.tableService(table.id, visitId) };
+  });
+
+  /** A diner rates ordering with the app, right after placing an order. Answering again for the same order replaces it. */
+  routes.post('/feedback', { public: true, throttle: 5 }, async (request) => {
+    const body = validate<{ rating: number; comment?: string | null; source: 'TABLE_ORDER'; orderId?: string | null }>(appFeedbackSchema, request.body);
+    const viewer = await viewerFor(request, request.user);
+    const order = body.orderId ? await prisma.order.findUnique({ where: { id: body.orderId }, select: { id: true, merchantId: true } }) : null;
+    const data = { rating: body.rating, comment: body.comment || null, source: body.source, merchantId: order?.merchantId ?? null, customerId: viewer.customerId, guestId: viewer.guestId };
+    if (order) await prisma.appFeedback.upsert({ where: { orderId: order.id }, update: data, create: { ...data, orderId: order.id } });
+    else await prisma.appFeedback.create({ data });
+    return { ok: true };
+  });
 
   routes.get('/cart', { public: true }, async (request) => commerce.cartFor(await viewerFor(request, request.user)));
 
@@ -170,6 +210,14 @@ export function storefrontRoutes({ prisma, jwt, crypto, commerce, floor }: Conta
     }
     return commerce.cartFor({ customerId: user.customerId });
   });
+
+  async function raterFor(request: Request, user?: RequestUser) {
+    const [viewer, visit] = await Promise.all([
+      viewerFor(request, user),
+      floor.dinerVisit(request.cookies?.alliva_table as string | undefined, request.cookies?.alliva_visit as string | undefined),
+    ]);
+    return { ...viewer, visit };
+  }
 
   async function viewerFor(request: Request, user?: RequestUser) {
     const token = request.cookies?.alliva_guest as string | undefined;

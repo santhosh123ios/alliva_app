@@ -690,12 +690,62 @@
       "add": "أضف {name}",
       "verified": "طاولة موثّقة",
       "openCalls": "نداء الموظف أو الفاتورة أو المساعدة",
-      "closeCalls": "إغلاق"
+      "closeCalls": "إغلاق",
+      "yourOrder": "طلبك",
+      "storeTable": "{store} · طاولة {table}",
+      "kitchenNote": "ملاحظة للمطبخ",
+      "kitchenNotePlaceholder": "حساسية، بدون بصل، حار جداً…",
+      "placeOrder": "إرسال الطلب · {amount}",
+      "payLater": "لا دفع الآن. تدفع طاولتك مرة واحدة في النهاية.",
+      "sentTitle": "تم إرسال الطلب",
+      "sentBody": "الطلب {number} لدى فريقنا. سيؤكدونه ويرسلونه إلى المطبخ. اطلب المزيد في أي وقت وادفع في النهاية.",
+      "orderMore": "اطلب المزيد",
+      "alreadyOrdered": "تم طلبه",
+      "ordersSent": "{count, plural, one {طلب واحد مُرسل} two {طلبان مُرسلان} few {# طلبات مُرسلة} many {# طلباً مُرسلاً} other {# طلب مُرسل}} · {amount}",
+      "visitEndedTitle": "تم دفع حساب هذه الطاولة",
+      "visitEndedBody": "شكراً لزيارتك! امسح رمز QR على طاولتك لبدء طلب جديد.",
+      "removeLine": "إزالة {name}",
+      "quantity": "الكمية",
+      "scanToOrder": "امسح رمز QR على طاولتك لطلب الموظفين وإرسال طلبك.",
+      "feedback": {
+        "title": "كيف كانت تجربة الطلب عبر أليفا؟",
+        "subtitle": "رأيك يساعدنا في تسهيل الطلب من الطاولة.",
+        "ratings": {
+          "1": "سيئة جداً",
+          "2": "سيئة",
+          "3": "مقبولة",
+          "4": "جيدة",
+          "5": "رائعة"
+        },
+        "commentGood": "ما الذي أعجبك؟ (اختياري)",
+        "commentBad": "ما الذي يمكن تحسينه؟ (اختياري)",
+        "send": "إرسال الرأي",
+        "notNow": "ليس الآن",
+        "thanksTitle": "شكراً على رأيك!",
+        "thanksBody": "بالهناء والشفاء."
+      },
+      "paidScanAgain": "تم الدفع · امسح الرمز للطلب",
+      "settingUp": "يتم تجهيز طاولتك. يمكنك الطلب فور أن يحددها الموظفون كجاهزة."
     },
     "comboIncludes": "مشمول في هذا الكومبو",
     "soldOut": "نفدت الكمية",
     "optionalUpTo": "اختياري • حتى {count}",
-    "addMoreForDelivery": "أضف {shortBy} للتوصيل"
+    "addMoreForDelivery": "أضف {shortBy} للتوصيل",
+    "dishReviews": {
+      "count": "{count, plural, =0 {لا تقييمات} one {تقييم واحد} two {تقييمان} few {# تقييمات} many {# تقييمًا} other {# تقييم}}",
+      "guest": "زبون",
+      "yourRating": "تقييمك",
+      "edit": "تعديل",
+      "rateTitle": "كيف كان الطبق؟",
+      "rateBody": "طلبت هذا الطبق في الطلب {number}. قيّمه لمساعدة الزبائن الآخرين.",
+      "stars": "{count, plural, one {نجمة واحدة} two {نجمتان} few {# نجوم} many {# نجمة} other {# نجمة}}",
+      "commentPlaceholder": "ما الذي أعجبك؟ هل من شيء يمكن تحسينه؟ (اختياري)",
+      "send": "إرسال التقييم",
+      "thanks": "شكرًا لتقييمك هذا الطبق",
+      "title": "التقييمات والآراء",
+      "noneYet": "لا تقييمات بعد. يمكن للزبائن تقييم هذا الطبق بعد تقديمه لهم.",
+      "noneYetMine": "لا تقييمات بعد. كن أول من يقيّمه أعلاه."
+    }
   },
   "workspace": {
     "openMenu": "فتح القائمة",
@@ -3281,7 +3331,9 @@
       },
       "readyTable": "طعام طاولة {table} جاهز",
       "ready": "الطلب {number} جاهز",
-      "enableVoice": "اضغط لتشغيل الإعلانات الصوتية"
+      "enableVoice": "اضغط لتشغيل الإعلانات الصوتية",
+      "newTableOrder": "طاولة {table} أرسلت طلبًا جديدًا",
+      "needsCleaning": "طاولة {table} دفعت. يرجى تنظيفها وتجهيزها"
     },
     "home": {
       "loadFailed": "تعذّر تحميل الصالة",
@@ -3304,7 +3356,17 @@
       "mineTitle": "طلباتي قيد التحضير",
       "allOrders": "كل الطلبات",
       "noMine": "ليس لديك طلبات في المطبخ.",
-      "takeOrder": "خذ طلبًا"
+      "takeOrder": "خذ طلبًا",
+      "newTitle": "طلبات جديدة من الطاولات",
+      "summaryNew": "{count, plural, one {طلب طاولة واحد} two {طلبا طاولة} few {# طلبات طاولات} many {# طلب طاولة} other {# طلب طاولة}} بانتظار تأكيدك.",
+      "confirm": "تأكيد وإرسال إلى المطبخ",
+      "confirmedToast": "طلب طاولة {table} لدى المطبخ",
+      "rejectReason": "رفضه الموظف",
+      "rejectedToast": "تم رفض الطلب",
+      "cleanTitle": "طاولات بحاجة إلى تنظيف",
+      "cleanBody": "تم الدفع. نظّف الطاولة وجهّزها، ثم حدّدها كجاهزة.",
+      "markReady": "جاهزة للضيوف",
+      "readyToast": "طاولة {table} جاهزة للضيوف"
     },
     "tables": {
       "loadFailed": "تعذّر تحميل الطاولات",

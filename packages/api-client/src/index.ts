@@ -39,7 +39,7 @@ import type {
   StorefrontHome,
   SubscriptionBoard,
   StorePaymentMethod,
-  SubscriptionPlanView, BillingBoard, CashDrawerView, PaidBill } from '@alliva/types';
+  SubscriptionPlanView, BillingBoard, CashDrawerView, PaidBill, ProductReviews } from '@alliva/types';
 
 export class ApiError extends Error {
   constructor(
@@ -441,6 +441,10 @@ export function createApiClient(baseUrl = '', portal?: AuthPortal) {
     tableService: () => request<TableServiceView>('/api/table-service'),
     callStaff: (kind: ServiceRequestKind) => send<TableServiceView>('/api/table-service/calls', 'POST', { kind }),
     endStaffCall: (id: string) => send<TableServiceView>(`/api/table-service/calls/${encodeURIComponent(id)}/end`, 'POST'),
+    productReviews: (productId: string) => send<ProductReviews>(`/api/storefront/products/${productId}/reviews`, 'GET'),
+    rateProduct: (productId: string, body: { rating: number; comment?: string | null }) => send<ProductReviews>(`/api/storefront/products/${productId}/reviews`, 'POST', body),
+    sendFeedback: (body: { rating: number; comment?: string | null; source: 'TABLE_ORDER'; orderId?: string | null }) => send<{ ok: true }>('/api/feedback', 'POST', body),
+    placeTableOrder: (notes?: string | null) => send<{ order: OrderView; service: TableServiceView }>('/api/table-service/orders', 'POST', { notes: notes || null }),
     customer: () => request<Json>('/api/customers/me'),
     customerWallet: () => request<PortalWallet>('/api/customers/me/wallet'),
     requestCustomerWithdrawal: (amount: string) => send<{ id: string; amount: string; status: string }>('/api/customers/me/wallet/withdrawals', 'POST', { amount }),

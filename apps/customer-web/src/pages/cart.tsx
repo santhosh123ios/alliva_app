@@ -2,8 +2,8 @@ import { CartButtonSpinner, flyFromButton } from '@/components/cart-motion';
 import { api } from '@/components/providers';
 import { beginCartChange, bumpCart, cartQueryOptions, clearCartLines, failCartChange, optimisticLine, setLineQuantity, settleCartChange } from '@/lib/cart-cache';
 import { categoryIcon } from '@/components/storefront';
-import { storeHref } from '@/components/table-call';
-import { Link } from '@/i18n/navigation';
+import { scannedTable, storeHref } from '@/components/table-call';
+import { Link, useRouter } from '@/i18n/navigation';
 import { areas, usePlace, type FulfillmentMode } from '@/lib/place';
 import { chooseAddress, chooseLocation, useLocationStore } from '@/lib/location';
 import { deliveryProblem, deliveryShortfall } from '@/lib/checkout-errors';
@@ -76,6 +76,12 @@ export default function CartPage() {
   }, [revision, client]);
 
   const slug = cart.data?.merchant?.slug;
+  const router = useRouter();
+  const atTable = Boolean(slug && fulfillment === 'DINE_IN' && scannedTable());
+  useEffect(() => {
+    // A diner at a scanned table orders from the table's own cart: no sign-in or payment, the table pays at the till.
+    if (atTable) router.replace(`/table/${slug}/cart`);
+  }, [atTable, router, slug]);
   const store = useQuery({
     queryKey: ['merchant', slug],
     queryFn: () => api.merchant(slug!),

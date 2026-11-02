@@ -870,9 +870,25 @@ export type FloorMenuProduct = {
 
 export type FloorMenu = { categories: { id: string; name: LocalizedText; products: FloorMenuProduct[] }[] };
 
+/** What people who ate a dish think of it, and the viewer's own rating when they may give one. */
+export type ProductReviews = {
+  /** Out of 5, to one decimal; null until someone rates it. */
+  average: number | null;
+  count: number;
+  /** Latest ratings, newest first; the comment is optional. */
+  recent: { id: string; rating: number; comment: string | null; author: string | null; createdAt: string }[];
+  /** Set when the viewer's order with this dish was served, so they can rate it (again). */
+  mine: { orderNumber: string; rating: number | null; comment: string | null } | null;
+};
+
 /** The diner's table, from the QR they scanned, and any call still open there. */
 export type TableServiceView = {
   table: { id: string; number: string; name: string };
+  merchantId: string;
+  /** The table paid since this diner scanned in: their visit is over, and they scan again to order more. */
+  visitEnded: boolean;
+  /** The last guests paid and staff have not marked the table ready yet, so ordering waits. */
+  cleaning: boolean;
   requests: ServiceRequestView[];
   /** What the table has ordered so far and what is still to pay, or the bill just paid. */
   bill: DinerBill | null;

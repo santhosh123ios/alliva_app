@@ -167,11 +167,15 @@ export class BillingService {
         }
         if (tableId) {
           await tx.tableSession.updateMany({ where: { tableId, closedAt: null }, data: { closedAt: now } });
-          await tx.diningTable.update({ where: { id: tableId }, data: { status: 'AVAILABLE' } });
+          // Paid tables go to Cleaning; the order taker marks them ready once they are set for the next guests.
+          await tx.diningTable.update({ where: { id: tableId }, data: { status: 'INACTIVE' } });
+          // Every call from this visit is over; the next guests start with a quiet table and empty carts.
           await tx.serviceRequest.updateMany({
-            where: { tableId, kind: 'BILL', status: { in: ['OPEN', 'ACKNOWLEDGED'] } },
+            where: { tableId, status: { in: ['OPEN', 'ACKNOWLEDGED'] } },
             data: { status: 'RESOLVED', resolvedAt: now, resolvedById: user.id },
           });
+          await tx.cartItem.deleteMany({ where: { cart: { tableId, fulfillmentType: 'DINE_IN' } } });
+          await tx.cart.updateMany({ where: { tableId, fulfillmentType: 'DINE_IN' }, data: { tableId: null, promoCodeId: null, notes: null } });
         }
         return tx.bill.findUniqueOrThrow({ where: { id: created.id }, include: billInclude });
       }),
@@ -212,13 +216,20 @@ export class BillingService {
     return { drawers: await Promise.all(rows.map((row) => this.presentDrawer(row))) };
   }
 
-  /** What a diner's table has ordered and still owes, or the receipt for a few minutes after paying. */
-  async dinerBill(tableId: string, now = new Date()): Promise<DinerBill | null> {
+  /**
+   * What a diner's table has ordered and still owes, or the receipt for a few minutes after paying.
+   * With a visit, the receipt is only theirs: one paid before they sat down is never shown to the next guests.
+   */
+  async dinerBill(tableId: string, now = new Date(), visit?: { openedAt: Date; closedAt: Date | null }): Promise<DinerBill | null> {
     const table = await this.prisma.diningTable.findUnique({ where: { id: tableId }, select: { merchantId: true } });
     if (!table) return null;
-    const orders = await this.openOrders(table.merchantId, { tableId }, now);
-    if (orders.length) return this.dinerSummary(orders, null);
-    const last = await this.prisma.bill.findFirst({ where: { tableId, settledAt: { gte: new Date(now.getTime() - RECEIPT_WINDOW_MS) } }, include: billInclude, orderBy: { settledAt: 'desc' } });
+    if (!visit?.closedAt) {
+      const orders = await this.openOrders(table.merchantId, { tableId }, now);
+      if (orders.length) return this.dinerSummary(orders, null);
+      if (visit) return null;
+    }
+    const since = Math.max(now.getTime() - RECEIPT_WINDOW_MS, visit?.openedAt.getTime() ?? 0);
+    const last = await this.prisma.bill.findFirst({ where: { tableId, settledAt: { gte: new Date(since) } }, include: billInclude, orderBy: { settledAt: 'desc' } });
     if (!last) return null;
     return this.dinerSummary(last.orders, { number: last.number, method: billMethod(last), settledAt: last.settledAt.toISOString() });
   }

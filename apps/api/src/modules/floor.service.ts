@@ -36,7 +36,8 @@ export class FloorService {
       }),
       this.prisma.serviceRequest.findMany({ where: { merchantId, status: { in: [...OPEN_CALLS] } }, include: requestInclude, orderBy: { createdAt: 'asc' }, take: 100 }),
       this.prisma.order.findMany({
-        where: { merchantId, ...(branchId ? { branchId } : {}), status: { in: LIVE } },
+        // A table order nobody confirmed but the table already paid for has nothing left to confirm.
+        where: { merchantId, ...(branchId ? { branchId } : {}), status: { in: LIVE }, NOT: { status: 'PENDING', billId: { not: null } } },
         include: {
           items: { include: { addons: { select: { name: true } } } },
           events: { where: { status: 'READY_FOR_PICKUP' }, select: { createdAt: true }, take: 1 },
@@ -147,36 +148,78 @@ export class FloorService {
     return { layout };
   }
 
-  /** The diner's table, from the QR cookie, with any call still open there and the bill so far. */
-  async tableService(tableId: string | undefined): Promise<TableServiceView> {
+  /**
+   * The diner's table, from the QR cookie, with any call still open there and the bill so far.
+   * A visit that ended (the table paid) shows only its receipt, and nothing more can be ordered on it.
+   */
+  async tableService(tableId: string | undefined, visitId?: string): Promise<TableServiceView> {
     const table = await this.dinerTable(tableId);
+    const visit = visitId ? await this.visit(table.id, visitId) : null;
+    const ended = Boolean(visit?.closedAt);
     const [requests, bill] = await Promise.all([
-      this.prisma.serviceRequest.findMany({ where: { tableId: table.id, status: { in: [...OPEN_CALLS] } }, include: requestInclude, orderBy: { createdAt: 'asc' } }),
-      this.billing.dinerBill(table.id),
+      ended ? [] : this.prisma.serviceRequest.findMany({ where: { tableId: table.id, status: { in: [...OPEN_CALLS] } }, include: requestInclude, orderBy: { createdAt: 'asc' } }),
+      this.billing.dinerBill(table.id, new Date(), visit ?? undefined),
     ]);
-    return { table: { id: table.id, number: table.number, name: table.name }, requests: await this.present(requests), bill };
+    return { table: { id: table.id, number: table.number, name: table.name }, merchantId: table.merchantId, visitEnded: ended, cleaning: !ended && table.status === 'INACTIVE', requests: await this.present(requests), bill };
+  }
+
+  /**
+   * The visit a diner joins when they scan: the table's open one, so everyone at the table and anyone
+   * who closes the app and scans again sees the same orders, or a new one once the last guests paid.
+   */
+  async openVisit(tableId: string) {
+    const table = await this.dinerTable(tableId);
+    const open = await this.prisma.tableSession.findFirst({ where: { tableId: table.id, closedAt: null }, orderBy: { openedAt: 'desc' } });
+    return open ?? this.prisma.tableSession.create({ data: { tableId: table.id, merchantId: table.merchantId } });
+  }
+
+  /** The diner's visit if it belongs to this table, else the table's open one. */
+  async currentVisit(tableId: string | undefined, visitId?: string) {
+    const table = await this.dinerTable(tableId);
+    return (visitId ? await this.visit(table.id, visitId) : null) ?? this.openVisit(table.id);
+  }
+
+  /** Ordering needs a visit still running: once the table paid, the diner scans again to start a new one. */
+  async assertOpenVisit(tableId: string | undefined, visitId: string | undefined) {
+    const table = await this.dinerTable(tableId);
+    const visit = visitId ? await this.visit(table.id, visitId) : null;
+    if (!visit || visit.closedAt) throw badRequest('This table has paid. Scan the QR code on the table to order again.');
+    if (table.status === 'INACTIVE') throw badRequest('Your table is being set up. You can order as soon as staff mark it ready.');
+    return table;
+  }
+
+  /** The diner's visit, open or paid, when it belongs to the table they scanned; null otherwise. */
+  async dinerVisit(tableId: string | undefined, visitId: string | undefined) {
+    if (!tableId || !visitId) return null;
+    const table = await this.prisma.diningTable.findFirst({ where: { id: tableId, deletedAt: null }, select: { id: true } }).catch(() => null);
+    return table ? this.visit(table.id, visitId) : null;
+  }
+
+  private visit(tableId: string, visitId: string) {
+    if (!/^[0-9a-f-]{36}$/i.test(visitId)) return null;
+    return this.prisma.tableSession.findFirst({ where: { id: visitId, tableId } });
   }
 
   /** A diner asks for staff. Asking again for the same thing while it is still open returns the open call. */
-  async callStaff(tableId: string | undefined, kind: ServiceRequestKind) {
+  async callStaff(tableId: string | undefined, kind: ServiceRequestKind, visitId?: string) {
     const table = await this.dinerTable(tableId);
     const open = await this.prisma.serviceRequest.findFirst({ where: { tableId: table.id, kind, status: { in: [...OPEN_CALLS] } } });
     if (!open) {
       const created = await this.prisma.serviceRequest.create({ data: { merchantId: table.merchantId, tableId: table.id, kind }, include: requestInclude });
       this.gateway.emitServiceRequest(created);
     }
-    return this.tableService(table.id);
+    return this.tableService(table.id, visitId);
   }
 
   /** The diner no longer needs staff: end their call. Ending one that staff already closed is not an error. */
-  async endCall(tableId: string | undefined, id: string) {
+  async endCall(tableId: string | undefined, id: string, visitId?: string) {
     const table = await this.dinerTable(tableId);
     const open = await this.prisma.serviceRequest.findFirst({ where: { id, tableId: table.id, status: { in: [...OPEN_CALLS] } } });
     if (open) {
       const ended = await this.prisma.serviceRequest.update({ where: { id }, data: { status: 'RESOLVED', resolvedAt: new Date() }, include: requestInclude });
       this.gateway.emitServiceRequest(ended);
     }
-    return this.tableService(table.id);
+    return this.tableService(table.id, visitId);
   }
 
   private async dinerTable(tableId: string | undefined) {

@@ -3,8 +3,9 @@ import { usePlace } from '@/lib/place';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { cn, Dialog, DialogContent, DialogDescription, DialogTitle, toast } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BellRing, Check, CircleCheck, HandHelping, Loader2, Receipt, UserRound } from 'lucide-react';
-import { useState } from 'react';
+import { BadgeCheck, Bell, BellRing, Check, CircleCheck, CircleHelp, HandHelping, Loader2, QrCode, Receipt, ReceiptText, UserRound, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 
 type TableServiceView = Awaited<ReturnType<typeof api.tableService>>;
@@ -32,6 +33,30 @@ export function storeHref(slug: string) {
   return scannedTable() && usePlace.getState().fulfillment === 'DINE_IN' ? `/table/${slug}` : `/merchants/${slug}`;
 }
 
+/**
+ * Table links carry the table's QR code (`?qr=`), so a diner who reopens the link after the scan cookie
+ * expired, or on another browser, is put back at their table. Returns the query to keep on table links.
+ */
+export function useTableLink() {
+  const [params] = useSearchParams();
+  const qr = params.get('qr');
+  const client = useQueryClient();
+  const [, setRestored] = useState(0);
+  useEffect(() => {
+    if (!qr || scannedTable()) return;
+    void api
+      .enterQr(qr)
+      .then(() => {
+        client.removeQueries({ queryKey: ['table-service'] });
+        void client.invalidateQueries({ queryKey: ['cart'] });
+        // The cookie is set now; render again so the table query starts.
+        setRestored((count) => count + 1);
+      })
+      .catch(() => undefined);
+  }, [client, qr]);
+  return qr ? `?qr=${encodeURIComponent(qr)}` : '';
+}
+
 /** The scanned table's staff calls and running bill, with the dialogs that show them. Shared by the floating button and the table page. */
 export function useTableService() {
   const t = useTranslations('customer.tableCall');
@@ -48,7 +73,8 @@ export function useTableService() {
     // Poll quickly only while a call is waiting, so diners see "on the way" without a socket; a running bill every 30s.
     refetchInterval: (query) => {
       const data = query.state.data as TableServiceView | undefined;
-      return data?.requests.length ? 10_000 : data?.bill && !data.bill.settled ? 30_000 : 60_000;
+      // A table being set up checks often too, so ordering opens soon after staff mark it ready.
+      return data?.requests.length || data?.cleaning ? 10_000 : data?.bill && !data.bill.settled ? 30_000 : 60_000;
     },
   });
   const call = useMutation({
@@ -154,6 +180,8 @@ export function useTableService() {
 
   return {
     tableId,
+    /** Why the table could not be loaded, e.g. the diner never scanned or the scan expired. */
+    missing: !tableId || Boolean(service.error),
     data,
     bill,
     billAsked,
@@ -256,5 +284,142 @@ function BillSummary({ bill, locale }: { bill: DinerBill; locale: 'en' | 'ar' })
         {row(t('due'), money(bill.due), 'text-lg font-bold')}
       </div>
     </div>
+  );
+}
+
+/** Shown once the table paid: this visit is closed, and scanning the table again starts the next one. */
+export function VisitEnded({ title, body }: { title: string; body: string }) {
+  return (
+    <section className="flex gap-3 rounded-[20px] bg-[#e3f5ea] p-4 text-[#11663d]">
+      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-white"><QrCode className="size-6" /></span>
+      <div className="min-w-0">
+        <h2 className="text-[15px] font-extrabold">{title}</h2>
+        <p className="mt-0.5 text-[13px] leading-relaxed">{body}</p>
+      </div>
+    </section>
+  );
+}
+
+/** The page cannot tell which table the diner is at, so ordering and staff calls wait for a scan. */
+export function ScanNotice({ body }: { body: string }) {
+  return (
+    <p className="flex items-center gap-3 rounded-2xl bg-[#fff3c9] px-3.5 py-3 text-[13px] leading-snug font-medium text-[#5c4300]">
+      <QrCode className="size-5 shrink-0" />
+      {body}
+    </p>
+  );
+}
+
+/** How far the bell sits above whatever bar is pinned to the bottom of the page. */
+const LIFT = {
+  none: 'bottom-[max(1.25rem,env(safe-area-inset-bottom))]',
+  /** The table menu's cart pill. */
+  cartBar: 'bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4rem)]',
+  /** The Your order page's pay-later note and Place order button. */
+  orderBar: 'bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+6.5rem)]',
+} as const;
+
+/**
+ * A floating bell that opens the table's three staff actions: call staff, the bill and help.
+ * A pending call opens its status, where it can be ended; the bell rings while staff are called.
+ */
+export function TableCallButton({ table, lift = 'none' }: { table: ReturnType<typeof useTableService>; lift?: keyof typeof LIFT }) {
+  const t = useTranslations('customer.tablePage');
+  const [open, setOpen] = useState(false);
+  const data = table.data!;
+  const request = (kind: 'WAITER' | 'BILL' | 'HELP') => data.requests.find((row) => row.kind === kind);
+  const pending = data.requests.length > 0;
+  const press = (kind: 'WAITER' | 'BILL' | 'HELP') => {
+    setOpen(false);
+    if (kind === 'BILL' && table.bill) return table.openBill();
+    if (request(kind)) return table.openCalls();
+    table.call.mutate(kind);
+  };
+  const actions = [
+    { kind: 'WAITER', icon: Bell, label: t('callStaff') },
+    { kind: 'BILL', icon: ReceiptText, label: table.bill ? t('viewBill') : t('requestBill') },
+    { kind: 'HELP', icon: CircleHelp, label: t('help') },
+  ] as const;
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: KeyboardEvent) => event.key === 'Escape' && setOpen(false);
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [open]);
+
+  return (
+    <>
+      {open ? <button type="button" aria-label={t('closeCalls')} tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default bg-black/20" /> : null}
+      <div className={cn('fixed end-4 z-50 flex flex-col items-end gap-3 transition-[bottom] lg:end-[max(1rem,calc((100vw-880px)/2))]', LIFT[lift])}>
+        {open ? (
+          <div id="table-calls" role="menu" className="w-[260px] origin-bottom-right overflow-hidden rounded-[20px] bg-white p-2 shadow-[0_18px_40px_rgba(17,17,17,0.22)] rtl:origin-bottom-left">
+            <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-2.5">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#fff3c9]">
+                <DiningTableIcon className="size-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="flex items-center gap-1 text-[14px] leading-tight font-bold text-[#111]">
+                  {t('diningAt', { table: tableNo(data.table.number) })}
+                  <BadgeCheck aria-label={t('verified')} className="size-4 shrink-0 fill-primary text-white" strokeWidth={2.2} />
+                </span>
+                <span className="block text-[11.5px] leading-snug text-[#6f6f6a]">{t('diningNote')}</span>
+              </span>
+            </div>
+            {actions.map(({ kind, icon: ActionIcon, label }) => {
+              const row = request(kind);
+              const busy = table.call.isPending && table.call.variables === kind;
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  role="menuitem"
+                  disabled={table.call.isPending}
+                  onClick={() => press(kind)}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-[14px] px-2 py-2 text-start hover:bg-[#fafaf6] disabled:opacity-60',
+                    row?.status === 'ACKNOWLEDGED' ? 'bg-[#e3f5ea]' : row ? 'bg-[#fff8dc]' : '',
+                  )}
+                >
+                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-[#111]">
+                    {busy ? <Loader2 className="size-[18px] animate-spin" /> : row?.status === 'ACKNOWLEDGED' ? <Check className="size-[18px]" strokeWidth={2.4} /> : <ActionIcon className="size-[18px]" strokeWidth={2} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14px] font-semibold text-[#111]">{label}</span>
+                    {row ? <span className="block text-[11.5px] text-[#5c5c58]">{row.status === 'ACKNOWLEDGED' ? t('onTheWay') : t('staffCalled')}</span> : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls="table-calls"
+          aria-label={open ? t('closeCalls') : t('openCalls')}
+          onClick={() => setOpen((value) => !value)}
+          className="relative grid size-14 place-items-center rounded-full bg-[#141416] text-primary ring-4 ring-white shadow-[0_10px_28px_rgba(0,0,0,0.25)] active:scale-95"
+        >
+          {open ? <X className="size-6" strokeWidth={2.4} /> : pending ? <BellRing className="size-6 animate-pulse" strokeWidth={2.2} /> : <Bell className="size-6" strokeWidth={2.2} />}
+          {pending && !open ? <span className="absolute top-0 end-0 size-3.5 rounded-full border-2 border-[#141416] bg-[#22a85a]" /> : null}
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** A dining table with two chairs, as in the design; lucide has no such icon. */
+function DiningTableIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden className={className}>
+      <path d="M7 9h10" />
+      <path d="M12 9v10" />
+      <path d="M9 19h6" />
+      <path d="M3 5v14" />
+      <path d="M3 13h3v6" />
+      <path d="M21 5v14" />
+      <path d="M21 13h-3v6" />
+    </svg>
   );
 }

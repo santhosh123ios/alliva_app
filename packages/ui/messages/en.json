@@ -690,12 +690,62 @@
       "add": "Add {name}",
       "verified": "Verified table",
       "openCalls": "Call staff, bill or help",
-      "closeCalls": "Close"
+      "closeCalls": "Close",
+      "yourOrder": "Your order",
+      "storeTable": "{store} · Table {table}",
+      "kitchenNote": "Note for the kitchen",
+      "kitchenNotePlaceholder": "Allergies, no onions, extra spicy…",
+      "placeOrder": "Place order · {amount}",
+      "payLater": "No payment now. Your table pays once, at the end.",
+      "sentTitle": "Order sent",
+      "sentBody": "Order {number} is with our staff. They’ll confirm it and send it to the kitchen. Order more any time and pay at the end.",
+      "orderMore": "Order more",
+      "alreadyOrdered": "Already ordered",
+      "ordersSent": "{count, plural, one {# order sent} other {# orders sent}} · {amount}",
+      "visitEndedTitle": "This table has paid",
+      "visitEndedBody": "Thank you for dining with us! Scan the QR code on your table to start a new order.",
+      "removeLine": "Remove {name}",
+      "quantity": "Quantity",
+      "scanToOrder": "Scan the QR code on your table to call staff and send your order.",
+      "feedback": {
+        "title": "How was ordering with Alliva?",
+        "subtitle": "Your answer helps us make ordering at the table easier.",
+        "ratings": {
+          "1": "Terrible",
+          "2": "Bad",
+          "3": "Okay",
+          "4": "Good",
+          "5": "Great"
+        },
+        "commentGood": "What did you like? (optional)",
+        "commentBad": "What could be better? (optional)",
+        "send": "Send feedback",
+        "notNow": "Not now",
+        "thanksTitle": "Thanks for your feedback!",
+        "thanksBody": "Enjoy your meal."
+      },
+      "paidScanAgain": "Table paid · scan to order",
+      "settingUp": "Your table is being set up. You can order as soon as staff mark it ready."
     },
     "comboIncludes": "Included in this combo",
     "soldOut": "Sold out",
     "optionalUpTo": "Optional • Up to {count}",
-    "addMoreForDelivery": "Add {shortBy} more for delivery"
+    "addMoreForDelivery": "Add {shortBy} more for delivery",
+    "dishReviews": {
+      "count": "{count, plural, one {# rating} other {# ratings}}",
+      "guest": "Diner",
+      "yourRating": "Your rating",
+      "edit": "Edit",
+      "rateTitle": "How was it?",
+      "rateBody": "You had this in order {number}. Rate it for other diners.",
+      "stars": "{count, plural, one {# star} other {# stars}}",
+      "commentPlaceholder": "What did you like? Anything to improve? (optional)",
+      "send": "Send rating",
+      "thanks": "Thanks for rating this dish",
+      "title": "Ratings & reviews",
+      "noneYet": "No ratings yet. Diners can rate this dish once it’s served to them.",
+      "noneYetMine": "No ratings yet. Be the first to rate it above."
+    }
   },
   "workspace": {
     "openMenu": "Open menu",
@@ -3281,7 +3331,9 @@
       },
       "readyTable": "Table {table}’s food is ready",
       "ready": "Order {number} is ready",
-      "enableVoice": "Tap to turn on announcements"
+      "enableVoice": "Tap to turn on announcements",
+      "newTableOrder": "Table {table} sent a new order",
+      "needsCleaning": "Table {table} paid. Please clean and set it up"
     },
     "home": {
       "loadFailed": "Could not load the floor",
@@ -3304,7 +3356,17 @@
       "mineTitle": "My orders in progress",
       "allOrders": "All orders",
       "noMine": "You have no orders in the kitchen.",
-      "takeOrder": "Take an order"
+      "takeOrder": "Take an order",
+      "newTitle": "New from tables",
+      "summaryNew": "{count, plural, one {# table order} other {# table orders}} waiting for you to confirm.",
+      "confirm": "Confirm and send to kitchen",
+      "confirmedToast": "Table {table}’s order is with the kitchen",
+      "rejectReason": "Rejected by staff",
+      "rejectedToast": "Order rejected",
+      "cleanTitle": "Tables to clean",
+      "cleanBody": "Paid. Clean and set the table, then mark it ready.",
+      "markReady": "Ready for guests",
+      "readyToast": "Table {table} is ready for guests"
     },
     "tables": {
       "loadFailed": "Could not load the tables",

@@ -10,3 +10,38 @@
   --font-arabic: "Noto Sans Arabic Variable";
   --font-kufi: "Noto Kufi Arabic";
 }
+
+/* Order sent: the badge pops in, its ring and tick draw, sparks fly out once. */
+@keyframes order-pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  55% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes order-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes order-ripple {
+  0% { transform: scale(0.85); opacity: 0.55; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+@keyframes order-spark {
+  0% { transform: rotate(var(--spark-angle)) translateY(-30px) scale(1); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: rotate(var(--spark-angle)) translateY(-70px) scale(0.2); opacity: 0; }
+}
+@keyframes rise-in {
+  from { transform: translateY(14px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.order-pop { animation: order-pop 520ms cubic-bezier(0.2, 0.9, 0.3, 1.25) both; }
+.order-ring { stroke-dasharray: 152; stroke-dashoffset: 152; animation: order-draw 600ms 120ms cubic-bezier(0.65, 0, 0.35, 1) forwards; }
+.order-tick { stroke-dasharray: 40; stroke-dashoffset: 40; animation: order-draw 360ms 560ms cubic-bezier(0.65, 0, 0.35, 1) forwards; }
+.order-ripple { animation: order-ripple 900ms 450ms ease-out both; }
+.order-spark { animation: order-spark 700ms 520ms cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.rise-in { animation: rise-in 420ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .order-pop, .order-ripple, .order-spark, .rise-in { animation: none; }
+  .order-ripple, .order-spark { opacity: 0; }
+  .order-ring, .order-tick { animation: none; stroke-dashoffset: 0; }
+}

@@ -1,11 +1,12 @@
 import { api } from '@/components/providers';
 import { Link } from '@/i18n/navigation';
-import type { FloorOrder, ServiceRequestView } from '@alliva/types';
-import { cn, ErrorState, Skeleton } from '@alliva/ui';
+import type { FloorOrder, FloorTable, ServiceRequestView } from '@alliva/types';
+import { cn, ErrorState, Skeleton, toast } from '@alliva/ui';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, BellRing, Check, ChefHat, CircleCheck, HandHelping, Receipt, UserRound, UtensilsCrossed } from 'lucide-react';
+import { ArrowRight, BellRing, Check, ChefHat, CircleCheck, HandHelping, Inbox, Receipt, Sparkles, StickyNote, UserRound, UtensilsCrossed, X } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { itemLine, tableNo, StagePill, useAge, useAnswerCall, useFloorBoard, useFloorLocale, useNow, useOrderStep } from './shared';
+import { awaitingConfirm, itemLine, money, tableNo, StagePill, useAge, useAnswerCall, useFloorBoard, useFloorLocale, useNow, useOrderStep, useTableStatus } from './shared';
 
 const callIcon = { WAITER: UserRound, BILL: Receipt, HELP: HandHelping } as const;
 
@@ -19,19 +20,28 @@ export default function FloorHome() {
   if (board.error && !board.data) return <ErrorState title={t('loadFailed')} body={(board.error as Error).message} />;
   const data = board.data!;
   const calls = data.requests;
+  const fresh = awaitingConfirm(data.orders);
   // Riders collect delivery orders, so the floor only serves dine-in and takeaway.
   const ready = data.orders.filter((order) => order.status === 'READY_FOR_PICKUP' && order.fulfillmentType !== 'DELIVERY');
   const mine = data.orders.filter((order) => order.takenByMe && order.status !== 'READY_FOR_PICKUP');
   const free = data.tables.filter((table) => table.status === 'AVAILABLE').length;
   const seated = data.tables.filter((table) => table.status === 'OCCUPIED').length;
+  const cleaning = data.tables.filter((table) => table.status === 'INACTIVE');
   const hour = new Date(now).getHours();
 
   return (
     <div className="space-y-4">
       <section>
         <h1 className="text-2xl font-semibold tracking-tight">{t(hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening', { name: me.data?.firstName ?? '' })}</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{calls.length || ready.length ? t('summaryBusy', { calls: calls.length, ready: ready.length }) : t('summaryQuiet')}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{calls.length || ready.length ? t('summaryBusy', { calls: calls.length, ready: ready.length }) : fresh.length ? null : t('summaryQuiet')}</p>
+        {fresh.length ? <p className="mt-0.5 text-sm font-semibold text-destructive">{t('summaryNew', { count: fresh.length })}</p> : null}
       </section>
+
+      {fresh.length ? (
+        <Card title={t('newTitle')} icon={Inbox} count={fresh.length}>
+          <ul className="divide-y divide-border">{fresh.map((order) => <NewOrderRow key={order.id} order={order} now={now} />)}</ul>
+        </Card>
+      ) : null}
 
       <section className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <Stat label={t('stats.calls')} value={calls.length} tone={calls.some((row) => row.status === 'OPEN') ? 'alert' : 'plain'} />
@@ -39,6 +49,12 @@ export default function FloorHome() {
         <Stat label={t('stats.tables')} value={`${free}/${data.tables.length}`} detail={t('stats.seated', { count: seated })} />
         <Stat label={t('stats.served')} value={data.servedToday} />
       </section>
+
+      {cleaning.length ? (
+        <Card title={t('cleanTitle')} icon={Sparkles} count={cleaning.length}>
+          <ul className="divide-y divide-border">{cleaning.map((table) => <CleanRow key={table.id} table={table} />)}</ul>
+        </Card>
+      ) : null}
 
       <Card title={t('callsTitle')} icon={BellRing} count={calls.length}>
         {calls.length ? <ul className="divide-y divide-border">{calls.map((call) => <CallRow key={call.id} call={call} now={now} />)}</ul> : <Empty text={t('noCalls')} />}
@@ -113,6 +129,78 @@ export function CallRow({ call, now }: { call: ServiceRequestView; now: number }
       ) : null}
       <button type="button" disabled={answer.isPending} onClick={() => answer.mutate({ id: call.id, status: 'RESOLVED' })} aria-label={t('doneAria', { table: tableNo(call.table.number) })} className="grid size-10 shrink-0 place-items-center rounded-xl border border-border text-success disabled:opacity-50">
         <Check className="size-5" />
+      </button>
+    </li>
+  );
+}
+
+/** A table order a diner sent from the QR menu: nothing reaches the kitchen until the order taker confirms it. */
+function NewOrderRow({ order, now }: { order: FloorOrder; now: number }) {
+  const t = useTranslations('floor');
+  const locale = useFloorLocale();
+  const age = useAge();
+  const step = useOrderStep();
+  const [rejecting, setRejecting] = useState(false);
+  const confirm = () => step.mutate({ order, status: 'ACCEPTED' }, { onSuccess: () => toast.success(t('home.confirmedToast', { table: tableNo(order.tableNumber ?? '') })) });
+  const reject = () => step.mutate({ order, status: 'CANCELLED', cancellationReason: t('home.rejectReason') }, { onSuccess: () => toast(t('home.rejectedToast')) });
+  return (
+    <li className="px-4 py-3 sm:px-5">
+      <div className="flex items-start gap-3">
+        <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-destructive-soft text-sm font-bold text-destructive">{tableNo(order.tableNumber ?? '')}</span>
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-2 font-semibold">
+            <span className="truncate">{t('tableNumber', { table: tableNo(order.tableNumber ?? '') })}</span>
+            <span className="ms-auto shrink-0 text-sm tabular-nums">{money(order.total, locale)}</span>
+          </p>
+          <p className="text-xs text-muted-foreground"><bdi>{order.number}</bdi> · {t('placedAgo', { age: age(order.createdAt, now) })}</p>
+          <ul className="mt-1.5 space-y-0.5 text-sm">
+            {order.items.map((item, index) => (
+              <li key={index}>
+                <span className="font-semibold tabular-nums">{item.quantity}×</span> {itemLine(item, locale)}
+                {item.notes ? <span className="block text-xs text-warning"><bdi>{item.notes}</bdi></span> : null}
+              </li>
+            ))}
+          </ul>
+          {order.notes ? <p className="mt-2 flex items-start gap-1.5 rounded-xl bg-primary-soft px-3 py-2 text-xs"><StickyNote className="mt-0.5 size-3.5 shrink-0" /><bdi>{order.notes}</bdi></p> : null}
+        </div>
+      </div>
+      {rejecting ? (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button type="button" disabled={step.isPending} onClick={() => setRejecting(false)} className="h-11 rounded-xl border border-border text-sm font-semibold disabled:opacity-50">{t('orders.keep')}</button>
+          <button type="button" disabled={step.isPending} onClick={reject} className="h-11 rounded-xl bg-destructive text-sm font-semibold text-white disabled:opacity-50">{t('orders.confirmReject')}</button>
+        </div>
+      ) : (
+        <div className="mt-3 flex gap-2">
+          <button type="button" disabled={step.isPending} onClick={() => setRejecting(true)} aria-label={t('orders.reject')} className="grid size-11 shrink-0 place-items-center rounded-xl border border-border text-destructive disabled:opacity-50">
+            <X className="size-5" />
+          </button>
+          <button type="button" disabled={step.isPending} onClick={confirm} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-secondary text-sm font-semibold text-secondary-foreground disabled:opacity-50">
+            <ChefHat className="size-4" />{t('home.confirm')}
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** A table whose guests paid: it stays out of use until the order taker has cleaned and set it, then marks it ready. */
+function CleanRow({ table }: { table: FloorTable }) {
+  const t = useTranslations('floor');
+  const setStatus = useTableStatus();
+  return (
+    <li className="flex items-center gap-3 px-4 py-3 sm:px-5">
+      <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary-soft text-sm font-bold text-warning">{tableNo(table.number)}</span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-semibold">{t('tableNumber', { table: tableNo(table.number) })}</p>
+        <p className="truncate text-xs text-muted-foreground">{t('home.cleanBody')}</p>
+      </div>
+      <button
+        type="button"
+        disabled={setStatus.isPending}
+        onClick={() => setStatus.mutate({ table, status: 'AVAILABLE' }, { onSuccess: () => toast.success(t('home.readyToast', { table: tableNo(table.number) })) })}
+        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-success px-3.5 text-sm font-semibold text-white disabled:opacity-50"
+      >
+        <Check className="size-4" />{t('home.markReady')}
       </button>
     </li>
   );

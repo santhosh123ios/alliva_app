@@ -578,7 +578,8 @@ export class CommerceService {
     await this.capturePayment(order.id, input.paymentMethod, input.idempotencyKey, owner.userId);
     if (input.tableId) {
       await this.prisma.diningTable.update({ where: { id: input.tableId }, data: { status: 'OCCUPIED' } });
-      await this.prisma.tableSession.create({ data: { tableId: input.tableId, merchantId: merchant.id } });
+      const open = await this.prisma.tableSession.findFirst({ where: { tableId: input.tableId, closedAt: null } });
+      if (!open) await this.prisma.tableSession.create({ data: { tableId: input.tableId, merchantId: merchant.id } });
     }
     return this.publish(order.id);
   }
@@ -586,10 +587,12 @@ export class CommerceService {
   /**
    * An order floor staff take at a table or the counter. Priced like checkout, booked under the store's walk-in guest,
    * paid at the till, and sent straight to the kitchen: the person taking it has already accepted it.
+   * A diner ordering from their table (`diner`) books it the same way, but it waits for the store to accept it.
    */
   async staffOrder(
-    actor: { id: string; merchantId: string },
+    actor: { id: string | null; merchantId: string },
     input: { fulfillmentType: 'DINE_IN' | 'TAKEAWAY'; tableId?: string | null; branchId?: string; notes?: string; items: { productId: string; variantId?: string | null; addonIds: string[]; quantity: number; notes?: string }[] },
+    diner?: { customerId: string | null },
   ) {
     const merchant = await this.prisma.merchant.findUnique({ where: { id: actor.merchantId }, include: { branches: { where: { active: true }, orderBy: { createdAt: 'asc' } } } });
     if (!merchant || merchant.deletedAt || merchant.status !== 'ACTIVE') throw badRequest('This store is not taking orders right now');
@@ -608,7 +611,7 @@ export class CommerceService {
 
     const products = await this.prisma.product.findMany({ where: { id: { in: [...new Set(input.items.map((item) => item.productId))] }, merchantId: merchant.id, deletedAt: null }, select: { id: true } });
     if (products.length !== new Set(input.items.map((item) => item.productId)).size) throw badRequest('An item is not on this store’s menu');
-    const customerId = await this.walkInCustomer(merchant.id);
+    const customerId = diner?.customerId ?? (await this.walkInCustomer(merchant.id));
     // An in-memory cart, so pricing runs exactly as it does at checkout without touching anyone's saved cart.
     const cart = {
       id: 'staff',
@@ -656,7 +659,7 @@ export class CommerceService {
           merchantId: merchant.id,
           branchId: branch.id,
           fulfillmentType: input.fulfillmentType,
-          status: 'ACCEPTED',
+          status: diner ? 'PENDING' : 'ACCEPTED',
           tableId: table?.id ?? null,
           notes: input.notes || null,
           subtotal: priced.pricing.subtotal,
@@ -670,7 +673,7 @@ export class CommerceService {
           platformCommission: moneyString(commission),
           merchantNet: moneyString(food.minus(commission)),
           preparationMinutes: prep,
-          estimatedReadyAt: new Date(Date.now() + prep * 60000),
+          estimatedReadyAt: diner ? null : new Date(Date.now() + prep * 60000),
           createdById: actor.id,
           items: {
             create: priced.lines.map((line) => ({
@@ -686,10 +689,12 @@ export class CommerceService {
             })),
           },
           events: {
-            create: [
-              { status: 'PENDING', actorId: actor.id, note: 'Order taken by staff' },
-              { status: 'ACCEPTED', actorId: actor.id, note: null },
-            ],
+            create: diner
+              ? [{ status: 'PENDING', actorId: null, note: 'Ordered from the table' }]
+              : [
+                  { status: 'PENDING', actorId: actor.id, note: 'Order taken by staff' },
+                  { status: 'ACCEPTED', actorId: actor.id, note: null },
+                ],
           },
         },
       });
@@ -706,8 +711,45 @@ export class CommerceService {
       }
       return created;
     });
-    await this.capturePayment(order.id, 'CASH', `staff:${order.id}`, actor.id);
+    await this.capturePayment(order.id, 'CASH', `${diner ? 'table' : 'staff'}:${order.id}`, actor.id ?? undefined);
     return this.publish(order.id);
+  }
+
+  /**
+   * A diner at a scanned table sends their cart straight to the store: no sign-in and no payment step,
+   * because the whole table pays at the till. The cart is emptied so they can order another round.
+   */
+  async tableOrder(owner: { customerId?: string | null; guestId?: string | null }, tableId: string, notes?: string | null) {
+    const cart = await this.loadCartRecord(owner);
+    if (!cart?.items.length) throw badRequest('Your cart is empty');
+    const table = await this.prisma.diningTable.findFirst({ where: { id: tableId, deletedAt: null, active: true } });
+    if (!table) throw notFound('Scan the QR code on your table first');
+    if (cart.merchantId !== table.merchantId) throw badRequest('Your cart has dishes from another store');
+    // Claims the cart, so a double tap cannot send the same round twice.
+    const claimed = await this.prisma.cart.updateMany({ where: { id: cart.id, updatedAt: cart.updatedAt }, data: { updatedAt: new Date() } });
+    if (!claimed.count) throw badRequest('Your cart changed. Check it and send it again.');
+    const order = await this.staffOrder(
+      { id: null, merchantId: table.merchantId },
+      {
+        fulfillmentType: 'DINE_IN',
+        tableId: table.id,
+        notes: (notes ?? cart.notes)?.trim() || undefined,
+        items: cart.items.map((item) => ({ productId: item.productId, variantId: item.variantId, addonIds: item.addons.map((addon) => addon.addonId), quantity: item.quantity, notes: item.notes ?? undefined })),
+      },
+      { customerId: owner.customerId ?? null },
+    );
+    await this.prisma.cartItem.deleteMany({ where: { cartId: cart.id, id: { in: cart.items.map((item) => item.id) } } });
+    // Tied to the table, so paying the bill also empties anything added after this round.
+    await this.prisma.cart.update({ where: { id: cart.id }, data: { promoCodeId: null, notes: null, fulfillmentType: 'DINE_IN', tableId: table.id } });
+    return order;
+  }
+
+  /** Empties a diner's cart once their table has paid, so nothing carries over to their next visit. */
+  async clearTableCart(owner: { customerId?: string | null; guestId?: string | null }, merchantId: string) {
+    const cart = await this.loadCartRecord(owner);
+    if (!cart?.items.length || cart.merchantId !== merchantId || (cart.fulfillmentType && cart.fulfillmentType !== 'DINE_IN')) return;
+    await this.prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+    await this.prisma.cart.update({ where: { id: cart.id }, data: { promoCodeId: null, merchantId: null, branchId: null, notes: null, tableId: null } });
   }
 
   /** The guest every staff-taken order is booked under, made the first time a store needs one. */

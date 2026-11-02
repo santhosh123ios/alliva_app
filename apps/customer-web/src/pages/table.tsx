@@ -3,7 +3,7 @@ import { ProductSheet } from '@/components/product-sheet';
 import { api } from '@/components/providers';
 import { useCartAdd } from '@/components/store-switch';
 import { categoryIcon, StoreUnavailable } from '@/components/storefront';
-import { tableNo, useTableService } from '@/components/table-call';
+import { ScanNotice, TableCallButton, tableNo, useTableLink, useTableService, VisitEnded } from '@/components/table-call';
 import { Link, useRouter } from '@/i18n/navigation';
 import { beginCartChange, cartQueryOptions, failCartChange, optimisticLine, setLineQuantity, settleCartChange } from '@/lib/cart-cache';
 import { ensureGuest } from '@/lib/location';
@@ -11,7 +11,7 @@ import { usePlace } from '@/lib/place';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { cn, ErrorState } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, BadgeCheck, Bell, BellRing, Check, CircleHelp, Heart, Loader2, Minus, Plus, ReceiptText, Share2, ShoppingCart, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Heart, Minus, Plus, ReceiptText, Share2, ShoppingCart } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { toast } from 'sonner';
@@ -36,6 +36,7 @@ export default function TablePage() {
   const merchant = useQuery({ queryKey: ['merchant', slug], queryFn: () => api.merchant(slug) });
   const cart = useQuery(cartQueryOptions());
   const cartAdd = useCartAdd();
+  const link = useTableLink();
   const table = useTableService();
   const edit = useMutation({
     mutationFn: async ({ id, quantity }: { id: string; quantity: number }) => {
@@ -74,6 +75,10 @@ export default function TablePage() {
   const count = sameStore ? (cart.data?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0) : 0;
   const Icon = categoryIcon(data.categorySlugs[0] ?? '');
   const lines = sameStore ? (cart.data?.items ?? []) : [];
+  // Once the table paid, this visit is over: the menu stays to browse, and scanning again starts a new order.
+  const ended = Boolean(table.data?.visitEnded);
+  const sentBill = table.bill && !table.bill.settled && table.bill.orders.length ? table.bill : null;
+  const cartHref = `/table/${slug}/cart${link}`;
 
   /** Switching category while scrolled down starts the new list right under the pinned chips. */
   const selectTab = (next: string) => {
@@ -130,6 +135,29 @@ export default function TablePage() {
             {data.logoUrl ? <img src={data.logoUrl} alt="" className="size-full object-cover" /> : <Icon className="size-7" />}
           </div>
 
+          {table.missing && !table.data ? (
+            <div className="mt-3">
+              <ScanNotice body={t('customer.tablePage.scanToOrder')} />
+            </div>
+          ) : ended ? (
+            <div className="mt-3">
+              <VisitEnded title={t('customer.tablePage.visitEndedTitle')} body={t('customer.tablePage.visitEndedBody')} />
+            </div>
+          ) : table.data?.cleaning ? (
+            <div className="mt-3">
+              <ScanNotice body={t('customer.tablePage.settingUp')} />
+            </div>
+          ) : sentBill ? (
+            <button type="button" onClick={table.openBill} className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-[#f6f6f3] px-3.5 py-2.5 text-start">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary"><ReceiptText className="size-[18px]" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13.5px] font-bold text-[#111]">{t('customer.tablePage.alreadyOrdered')}</span>
+                <span className="block truncate text-[12px] text-[#6f6f6a]">{t('customer.tablePage.ordersSent', { count: sentBill.orders.length, amount: formatMoney(sentBill.total, locale) })}</span>
+              </span>
+              <span className="shrink-0 text-[13px] font-bold text-[#111] underline underline-offset-2">{t('customer.tablePage.viewBill')}</span>
+            </button>
+          ) : null}
+
           {/* The chips stay pinned while the dishes scroll underneath. */}
           <div className="sticky top-0 z-20 -mx-[22px] mt-1.5 flex gap-2 overflow-x-auto bg-white px-[22px] py-2 shadow-[0_6px_10px_-8px_rgba(0,0,0,0.15)] [scrollbar-width:none] lg:mx-0 lg:px-0">
             <Chip selected={tab === 'popular'} onClick={() => selectTab('popular')}>{t('customer.storePopular')}</Chip>
@@ -147,12 +175,12 @@ export default function TablePage() {
                 <ProductCard
                   key={product.id}
                   product={product}
-                  slug={slug}
                   locale={locale}
                   addLabel={t('customer.tablePage.add', { name: pickLocalized(product.name, locale) })}
                   pending={cartAdd.pendingId === product.id}
+                  disabled={ended}
                   lines={lines.filter((line) => line.productId === product.id)}
-                  labels={{ less: t('customer.remove'), quantity: t('customer.quantity') }}
+                  labels={{ less: t('customer.remove'), quantity: t('customer.tablePage.quantity') }}
                   onAdd={() => {
                     // Dishes with sizes, options or combo picks are customised in a sheet, not on their own page.
                     if (product.customizable || product.needsChoice) {
@@ -162,7 +190,8 @@ export default function TablePage() {
                     return cartAdd.addCard(product);
                   }}
                   onQty={(id, quantity) => edit.mutate({ id, quantity })}
-                  onCart={() => router.push('/cart')}
+                  onCart={() => router.push(cartHref)}
+                  onOpen={() => setChoosing(product.id)}
                 />
               ))}
             </ul>
@@ -172,7 +201,7 @@ export default function TablePage() {
         </div>
       </div>
 
-      {count > 0 && cart.data ? (
+      {count > 0 && cart.data && !ended ? (
         <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="mx-auto flex max-w-[640px] items-center justify-between gap-3 rounded-full bg-[#141416] py-1.5 ps-5 pe-1.5 text-white shadow-[0_10px_28px_rgba(0,0,0,0.25)]">
             <div className="flex min-w-0 items-center gap-4">
@@ -184,123 +213,18 @@ export default function TablePage() {
                 {t('customer.cartItems', { count })} · {formatMoney(cart.data.pricing.total, locale)}
               </span>
             </div>
-            <Link href="/cart" className="inline-flex h-[38px] shrink-0 items-center gap-2 rounded-full bg-primary px-4 text-[15px] font-bold text-[#111]">
+            <Link href={cartHref} className="inline-flex h-[38px] shrink-0 items-center gap-2 rounded-full bg-primary px-4 text-[15px] font-bold text-[#111]">
               {t('customer.viewCart')}
               <ArrowRight className="size-[18px] rtl:rotate-180" strokeWidth={2.4} />
             </Link>
           </div>
         </div>
       ) : null}
-      {table.data ? <TableCallButton table={table} raised={count > 0 && Boolean(cart.data)} /> : null}
-      <ProductSheet productId={choosing} onClose={() => setChoosing(null)} cartAdd={cartAdd} />
+      {table.data && !ended ? <TableCallButton table={table} lift={count > 0 && cart.data ? 'cartBar' : 'none'} /> : null}
+      <ProductSheet productId={choosing} onClose={() => setChoosing(null)} cartAdd={cartAdd} viewOnly={ended} />
       {cartAdd.dialog}
       {table.dialogs}
     </div>
-  );
-}
-
-/**
- * A floating bell that opens the table's three staff actions: call staff, the bill and help.
- * A pending call opens its status, where it can be ended; the bell rings while staff are called.
- */
-function TableCallButton({ table, raised }: { table: ReturnType<typeof useTableService>; raised: boolean }) {
-  const t = useTranslations('customer.tablePage');
-  const [open, setOpen] = useState(false);
-  const data = table.data!;
-  const request = (kind: 'WAITER' | 'BILL' | 'HELP') => data.requests.find((row) => row.kind === kind);
-  const pending = data.requests.length > 0;
-  const press = (kind: 'WAITER' | 'BILL' | 'HELP') => {
-    setOpen(false);
-    if (kind === 'BILL' && table.bill) return table.openBill();
-    if (request(kind)) return table.openCalls();
-    table.call.mutate(kind);
-  };
-  const actions = [
-    { kind: 'WAITER', icon: Bell, label: t('callStaff') },
-    { kind: 'BILL', icon: ReceiptText, label: table.bill ? t('viewBill') : t('requestBill') },
-    { kind: 'HELP', icon: CircleHelp, label: t('help') },
-  ] as const;
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: KeyboardEvent) => event.key === 'Escape' && setOpen(false);
-    window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
-  }, [open]);
-
-  return (
-    <>
-      {open ? <button type="button" aria-label={t('closeCalls')} tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default bg-black/20" /> : null}
-      <div className={cn('fixed end-4 z-50 flex flex-col items-end gap-3 transition-[bottom] lg:end-[max(1rem,calc((100vw-880px)/2))]', raised ? 'bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4rem)]' : 'bottom-[max(1.25rem,env(safe-area-inset-bottom))]')}>
-        {open ? (
-          <div id="table-calls" role="menu" className="w-[260px] origin-bottom-right overflow-hidden rounded-[20px] bg-white p-2 shadow-[0_18px_40px_rgba(17,17,17,0.22)] rtl:origin-bottom-left">
-            <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-2.5">
-              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#fff3c9]">
-                <DiningTableIcon className="size-5" />
-              </span>
-              <span className="min-w-0">
-                <span className="flex items-center gap-1 text-[14px] leading-tight font-bold text-[#111]">
-                  {t('diningAt', { table: tableNo(data.table.number) })}
-                  <BadgeCheck aria-label={t('verified')} className="size-4 shrink-0 fill-primary text-white" strokeWidth={2.2} />
-                </span>
-                <span className="block text-[11.5px] leading-snug text-[#6f6f6a]">{t('diningNote')}</span>
-              </span>
-            </div>
-            {actions.map(({ kind, icon: ActionIcon, label }) => {
-              const row = request(kind);
-              const busy = table.call.isPending && table.call.variables === kind;
-              return (
-                <button
-                  key={kind}
-                  type="button"
-                  role="menuitem"
-                  disabled={table.call.isPending}
-                  onClick={() => press(kind)}
-                  className={cn(
-                    'flex w-full items-center gap-3 rounded-[14px] px-2 py-2 text-start hover:bg-[#fafaf6] disabled:opacity-60',
-                    row?.status === 'ACKNOWLEDGED' ? 'bg-[#e3f5ea]' : row ? 'bg-[#fff8dc]' : '',
-                  )}
-                >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-[#111]">
-                    {busy ? <Loader2 className="size-[18px] animate-spin" /> : row?.status === 'ACKNOWLEDGED' ? <Check className="size-[18px]" strokeWidth={2.4} /> : <ActionIcon className="size-[18px]" strokeWidth={2} />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[14px] font-semibold text-[#111]">{label}</span>
-                    {row ? <span className="block text-[11.5px] text-[#5c5c58]">{row.status === 'ACKNOWLEDGED' ? t('onTheWay') : t('staffCalled')}</span> : null}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls="table-calls"
-          aria-label={open ? t('closeCalls') : t('openCalls')}
-          onClick={() => setOpen((value) => !value)}
-          className="relative grid size-14 place-items-center rounded-full bg-[#141416] text-primary ring-4 ring-white shadow-[0_10px_28px_rgba(0,0,0,0.25)] active:scale-95"
-        >
-          {open ? <X className="size-6" strokeWidth={2.4} /> : pending ? <BellRing className="size-6 animate-pulse" strokeWidth={2.2} /> : <Bell className="size-6" strokeWidth={2.2} />}
-          {pending && !open ? <span className="absolute top-0 end-0 size-3.5 rounded-full border-2 border-[#141416] bg-[#22a85a]" /> : null}
-        </button>
-      </div>
-    </>
-  );
-}
-
-/** A dining table with two chairs, as in the design; lucide has no such icon. */
-function DiningTableIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden className={className}>
-      <path d="M7 9h10" />
-      <path d="M12 9v10" />
-      <path d="M9 19h6" />
-      <path d="M3 5v14" />
-      <path d="M3 13h3v6" />
-      <path d="M21 5v14" />
-      <path d="M21 13h-3v6" />
-    </svg>
   );
 }
 
@@ -328,28 +252,30 @@ type CartLine = NonNullable<Awaited<ReturnType<typeof api.cart>>>['items'][numbe
  */
 function ProductCard({
   product,
-  slug,
   locale,
   addLabel,
   pending,
+  disabled,
   lines,
   labels,
   onAdd,
   onQty,
   onCart,
+  onOpen,
 }: {
   product: MenuProduct;
-  slug: string;
   locale: 'en' | 'ar';
   addLabel: string;
   pending: boolean;
+  disabled: boolean;
   lines: CartLine[];
   labels: { less: string; quantity: string };
   onAdd: () => boolean | void;
   onQty: (id: string, quantity: number) => void;
   onCart: () => void;
+  /** Details open in the bottom sheet, so the diner never leaves the table menu. */
+  onOpen: () => void;
 }) {
-  const href = `/merchants/${slug}/products/${product.id}`;
   const image = product.imageUrl || '/no-image-16x9.jpg';
   const quantity = lines.reduce((sum, line) => sum + line.quantity, 0);
   const single = lines.length === 1 ? lines[0] : null;
@@ -364,15 +290,15 @@ function ProductCard({
   };
   return (
     <li className="flex flex-col overflow-hidden rounded-[12px] border border-[#ececE6] bg-white">
-      <Link href={href} className="block aspect-[178/82] overflow-hidden bg-[#f3f3ef]">
+      <button type="button" tabIndex={-1} aria-hidden onClick={onOpen} className="block aspect-[178/82] w-full overflow-hidden bg-[#f3f3ef]">
         <img src={image} alt="" loading="lazy" className="size-full object-cover" />
-      </Link>
+      </button>
       <div className="flex flex-1 flex-col px-2.5 pt-2 pb-2.5">
-        <Link href={href} className="line-clamp-1 text-[13.5px] leading-snug font-bold text-[#111]">{pickLocalized(product.name, locale)}</Link>
+        <button type="button" onClick={onOpen} className="line-clamp-1 text-start text-[13.5px] leading-snug font-bold text-[#111]">{pickLocalized(product.name, locale)}</button>
         <p className="mt-0.5 line-clamp-2 min-h-[2.5em] text-[11.5px] leading-[1.25] text-[#6f6f6a]">{pickLocalized(product.description, locale)}</p>
         <div className="mt-auto flex items-center justify-between gap-1.5 pt-1">
           <p className="min-w-0 truncate text-[12.5px] font-bold text-[#111]">{formatMoney(product.price, locale)}</p>
-          {quantity > 0 ? (
+          {disabled ? null : quantity > 0 ? (
             <div role="group" aria-label={labels.quantity} className="flex h-[30px] shrink-0 items-center rounded-full bg-primary text-[#111] shadow-sm">
               <button
                 type="button"

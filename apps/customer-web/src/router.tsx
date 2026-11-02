@@ -18,6 +18,7 @@ const Profile = lazy(() => import('@/pages/profile'));
 const Qr = lazy(() => import('@/pages/qr'));
 const Reset = lazy(() => import('@/pages/reset'));
 const Table = lazy(() => import('@/pages/table'));
+const TableCart = lazy(() => import('@/pages/table-cart'));
 
 function ShellLayout() {
   return (
@@ -59,6 +60,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<Loading />}>
             <Table />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'table/:slug/cart',
+        element: (
+          <Suspense fallback={<Loading />}>
+            <TableCart />
           </Suspense>
         ),
       },

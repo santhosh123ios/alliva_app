@@ -118,6 +118,43 @@ model Review {
   @@index([merchantId])
 }
 
+/// What a diner thinks of ordering with the app, asked right after they place an order. Guests can answer too.
+model AppFeedback {
+  id         String   @id @default(uuid()) @db.Uuid
+  rating     Int
+  comment    String?
+  /// Where it was asked, e.g. TABLE_ORDER.
+  source     String
+  /// The order it was asked after; one answer per order.
+  orderId    String?  @unique @db.Uuid
+  merchantId String?  @db.Uuid
+  customerId String?  @db.Uuid
+  guestId    String?  @db.Uuid
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([merchantId, createdAt])
+}
+
+/// What someone who ate a dish thinks of it. Asked in the dish's sheet once their order was served or delivered:
+/// table diners by their visit (guests too), signed-in customers by their own orders. One rating per dish per order.
+model ProductReview {
+  id         String   @id @default(uuid()) @db.Uuid
+  productId  String   @db.Uuid
+  merchantId String   @db.Uuid
+  orderId    String   @db.Uuid
+  rating     Int
+  comment    String?
+  customerId String?  @db.Uuid
+  guestId    String?  @db.Uuid
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([orderId, productId])
+  @@index([productId, createdAt])
+  @@index([merchantId, createdAt])
+}
+
 model Notification {
   id        String              @id @default(uuid()) @db.Uuid
   userId    String              @db.Uuid
