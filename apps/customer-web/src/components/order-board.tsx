@@ -1,4 +1,5 @@
 import { api } from '@/components/providers';
+import { MascotCard, SignInLink } from '@/components/mascot-card';
 import { Link, useRouter } from '@/i18n/navigation';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { cn, ErrorState, Skeleton } from '@alliva/ui';
@@ -104,13 +105,9 @@ export function OrdersBoard() {
   if (me.isLoading || (me.data?.kind === 'CUSTOMER' && orders.isLoading)) return <OrdersSkeleton />;
   if (me.data?.kind !== 'CUSTOMER') {
     return (
-      <div className="mx-auto max-w-lg rounded-[28px] border border-[#ecece6] bg-white px-6 py-12 text-center">
-        <h1 className="text-2xl">{t('customer.orders.signInTitle')}</h1>
-        <p className="mt-2 text-sm text-[#6f6f6a]">{t('customer.orders.signInBody')}</p>
-        <Link href="/login" className="mt-5 inline-flex h-11 items-center rounded-full bg-primary px-6 text-sm font-bold text-[#111]">
-          {t('auth.signIn')}
-        </Link>
-      </div>
+      <MascotCard title={t('customer.orders.signInTitle')} body={t('customer.orders.signInBody')}>
+        <SignInLink />
+      </MascotCard>
     );
   }
   if (orders.error || !orders.data) {

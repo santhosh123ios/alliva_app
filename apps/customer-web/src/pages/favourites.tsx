@@ -1,4 +1,5 @@
 import { CartButtonSpinner, flyFromButton } from '@/components/cart-motion';
+import { MascotCard, SignInLink } from '@/components/mascot-card';
 import { api } from '@/components/providers';
 import { useCartAdd } from '@/components/store-switch';
 import { categoryIcon } from '@/components/storefront';
@@ -175,15 +176,9 @@ export default function FavouritesPage() {
     return (
       <div className="space-y-4">
         <PageIntro />
-        <EmptyState
-          title={t('customer.favourites')}
-          body={t('customer.signInFavourites')}
-          action={
-            <Link href="/login" className="inline-flex h-11 items-center rounded-full bg-primary px-6 text-sm font-bold text-[#111]">
-              {t('auth.signIn')}
-            </Link>
-          }
-        />
+        <MascotCard title={t('customer.favourites')} body={t('customer.signInFavourites')}>
+          <SignInLink />
+        </MascotCard>
       </div>
     );
   }

@@ -216,7 +216,7 @@ export function usePlaceName(point: LatLng | null, locale: 'en' | 'ar') {
 
 export function LocationNotice({ status }: { status: LocationStatus }) {
   const t = useTranslations('customer.locationFlow');
-  const key = status === 'denied' ? 'denied' : status === 'unavailable' ? 'gpsOff' : status === 'unsupported' ? 'unsupported' : 'failed';
+  const key = status === 'denied' ? 'denied' : status === 'unavailable' ? 'gpsOff' : status === 'unsupported' ? 'unsupported' : status === 'insecure' ? 'insecure' : 'failed';
   return (
     <div role="alert" className="mt-4 flex gap-3 rounded-2xl bg-[#fff6d0] px-4 py-3 text-sm text-[#5c4700]">
       <MapPinOff className="mt-0.5 size-4 shrink-0" />

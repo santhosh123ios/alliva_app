@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
+    "dev:https": "DEV_HTTPS=1 vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "start": "vite preview",

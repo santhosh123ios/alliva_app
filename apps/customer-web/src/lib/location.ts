@@ -7,7 +7,7 @@ export type LatLng = { lat: number; lng: number };
 export type LocationSource = 'GPS' | 'SEARCH' | 'PIN' | 'AREA' | 'ADDRESS';
 
 /** What happened the last time we tried to read the device location. */
-export type LocationStatus = 'idle' | 'locating' | 'ready' | 'denied' | 'unavailable' | 'timeout' | 'unsupported' | 'error';
+export type LocationStatus = 'idle' | 'locating' | 'ready' | 'denied' | 'unavailable' | 'timeout' | 'unsupported' | 'insecure' | 'error';
 
 /** Used to show stores before the customer picks a location. Never treated as their real location. */
 export const DEFAULT_POINT: LatLng = { lat: 26.2285, lng: 50.586 };
@@ -70,6 +70,11 @@ export function readDevicePosition(timeoutMs = 12_000): Promise<LatLng> {
   return new Promise((resolve, reject) => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       reject(new LocationError('unsupported'));
+      return;
+    }
+    // Browsers only share location over https (or on localhost); on a plain-http address they refuse without asking.
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      reject(new LocationError('insecure'));
       return;
     }
     navigator.geolocation.getCurrentPosition(

@@ -136,7 +136,7 @@ export function AddressForm({
         <p className="text-sm font-semibold">{t('pinTitle')}</p>
         <p className="text-xs text-[#6f6f6a]">{t('pinBody')}</p>
       </div>
-      {gps === 'denied' || gps === 'unavailable' || gps === 'timeout' || gps === 'unsupported' ? <LocationNotice status={gps} /> : null}
+      {gps === 'denied' || gps === 'unavailable' || gps === 'timeout' || gps === 'unsupported' || gps === 'insecure' ? <LocationNotice status={gps} /> : null}
       <div className="relative overflow-hidden rounded-2xl border border-[#e6e6e0]">
         {pin ? (
           <LocationMap

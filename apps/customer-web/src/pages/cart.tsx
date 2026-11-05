@@ -1,4 +1,5 @@
 import { CartButtonSpinner, flyFromButton } from '@/components/cart-motion';
+import { MascotCard, SignInLink } from '@/components/mascot-card';
 import { api } from '@/components/providers';
 import { beginCartChange, bumpCart, cartQueryOptions, clearCartLines, failCartChange, optimisticLine, setLineQuantity, settleCartChange } from '@/lib/cart-cache';
 import { categoryIcon } from '@/components/storefront';
@@ -8,7 +9,7 @@ import { areas, usePlace, type FulfillmentMode } from '@/lib/place';
 import { chooseAddress, chooseLocation, useLocationStore } from '@/lib/location';
 import { deliveryProblem, deliveryShortfall } from '@/lib/checkout-errors';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
-import { cn, EmptyState, ErrorState, Skeleton } from '@alliva/ui';
+import { cn, ErrorState, Skeleton } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
@@ -185,15 +186,14 @@ export default function CartPage() {
     return (
       <>
         <CartHeader backHref="/" />
-        <EmptyState
-          title={t('customer.yourCart')}
-          body={t('common.empty')}
-          action={
-            <Link href="/" className="inline-flex h-11 items-center rounded-full bg-primary px-5 text-sm font-bold text-[#111]">
+        <div className="pt-2">
+          <MascotCard title={t('customer.yourCart')} body={t('common.empty')}>
+            {me.data?.kind === 'CUSTOMER' ? null : <SignInLink />}
+            <Link href="/" className={cn('inline-flex h-11 items-center rounded-full px-5 text-sm font-bold text-[#111]', me.data?.kind === 'CUSTOMER' ? 'bg-primary' : 'border border-[#e3e3de] bg-white')}>
               {t('customer.exploreNearby')}
             </Link>
-          }
-        />
+          </MascotCard>
+        </div>
       </>
     );
   }
@@ -274,7 +274,7 @@ export default function CartPage() {
     />
   );
 
-  const banner = freeDelivery ? <DeliveryBanner title={t('customer.freeDeliveryBadge')} body={t('customer.freeDeliveryNote')} /> : null;
+  const banner = freeDelivery ? <FreeDeliveryTag label={t('customer.freeDeliveryTag')} /> : null;
 
   const address = delivering ? (
     <AddressRow
@@ -891,17 +891,12 @@ function Tip({ text }: { text: string }) {
   );
 }
 
-function DeliveryBanner({ title, body }: { title: string; body: string }) {
+function FreeDeliveryTag({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-[#fff6d0] px-3 py-3">
-      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary">
-        <Bike className="size-5" />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-bold">{title}</span>
-        <span className="mt-0.5 block text-xs text-[#6f6f6a]">{body}</span>
-      </span>
-    </div>
+    <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-[#fff6d0] px-2.5 text-xs font-bold text-[#111]">
+      <Bike className="size-3.5" />
+      {label}
+    </span>
   );
 }
 

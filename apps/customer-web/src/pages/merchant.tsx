@@ -202,6 +202,7 @@ export default function MerchantPage() {
             distance={distance ? t('customer.distanceKm', { km: distance }) : null}
             infoOpen={infoOpen}
             moreInfo={t('customer.moreInfo')}
+            freeDelivery={data.freeDelivery ? t('customer.freeDeliveryTag') : null}
             onToggle={() => setInfoOpen((value) => !value)}
           />
         </div>
@@ -221,19 +222,6 @@ export default function MerchantPage() {
                 reviews={data.reviews}
                 locale={locale}
               />
-            ) : null}
-
-            {data.freeDelivery ? (
-              <button type="button" onClick={() => setInfoOpen(true)} className="mt-4 flex w-full items-center gap-3 rounded-2xl bg-[#fff6d0] px-3 py-3 text-start">
-                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white">
-                  <Bike className="size-5" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold">{t('customer.freeDeliveryBadge')}</span>
-                  <span className="mt-0.5 block text-xs text-[#6f6f6a]">{t('customer.freeDeliveryNote')}</span>
-                </span>
-                <ChevronRight className="size-4 shrink-0 rtl:rotate-180" />
-              </button>
             ) : null}
 
             {modes.length ? (
@@ -420,6 +408,7 @@ function MetaRow({
   distance,
   infoOpen,
   moreInfo,
+  freeDelivery,
   onToggle,
 }: {
   rating: number;
@@ -428,6 +417,8 @@ function MetaRow({
   distance: string | null;
   infoOpen: boolean;
   moreInfo: string;
+  /** The "Free delivery" tag, shown at the end of the line when the store delivers free here. */
+  freeDelivery: string | null;
   onToggle: () => void;
 }) {
   const facts = [
@@ -452,6 +443,12 @@ function MetaRow({
       {moreInfo}
       <ChevronRight className={cn('size-4 rtl:rotate-180', infoOpen && 'rotate-90 rtl:rotate-90')} />
     </button>,
+    freeDelivery ? (
+      <span key="free" className="inline-flex h-6 items-center gap-1 rounded-full bg-[#fff6d0] px-2 text-xs font-bold text-[#111]">
+        <Bike className="size-3.5" />
+        {freeDelivery}
+      </span>
+    ) : null,
   ].filter((item) => item != null);
   return (
     <div className="mt-3 flex items-center overflow-x-auto text-[13px] whitespace-nowrap">
