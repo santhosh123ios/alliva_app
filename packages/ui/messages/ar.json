@@ -1916,7 +1916,12 @@
     "heightenZone": "زيادة ارتفاع المنطقة",
     "resizeWidth": "اسحب لتغيير عرض المنطقة",
     "resizeHeight": "اسحب لتغيير ارتفاع المنطقة",
-    "resizeBoth": "اسحب لتغيير عرض وارتفاع المنطقة"
+    "resizeBoth": "اسحب لتغيير عرض وارتفاع المنطقة",
+    "posterHeadline": "اطلب من طاولتك",
+    "posterTagline": "امسح. اختر. استمتع.",
+    "posterDineIn": "داخل المطعم",
+    "posterPoweredBy": "مدعوم من Alliva",
+    "posterOpen": "مفتوح"
   },
   "merchantOrders": {
     "title": "الطلبات",

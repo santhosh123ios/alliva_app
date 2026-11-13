@@ -1916,7 +1916,12 @@
     "heightenZone": "Make zone taller",
     "resizeWidth": "Drag to resize zone width",
     "resizeHeight": "Drag to resize zone height",
-    "resizeBoth": "Drag to resize zone width and height"
+    "resizeBoth": "Drag to resize zone width and height",
+    "posterHeadline": "Order from your table",
+    "posterTagline": "Scan. Choose. Enjoy.",
+    "posterDineIn": "Dine-in",
+    "posterPoweredBy": "Powered by Alliva",
+    "posterOpen": "Open"
   },
   "merchantOrders": {
     "title": "Orders",

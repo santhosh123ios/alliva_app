@@ -1,5 +1,6 @@
 import { api } from '@/components/providers';
 import { qrSvg } from '@/lib/qr';
+import { customerOrigin, printQrCards } from '@/lib/print-qr';
 import { tableNo } from '@/lib/table-number';
 import { Link } from '@/i18n/navigation';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
@@ -24,6 +25,14 @@ type DiningTable = {
   order: { id: string; number: string; status: string; total: string; itemCount: number } | null;
 };
 
+/** The parts of the merchant profile the printed table poster shows. */
+type PosterProfile = {
+  name: { en?: string; ar?: string };
+  logoUrl: string | null;
+  availability?: 'OPEN' | 'CLOSED' | 'BUSY';
+  branches?: { id: string; name: { en?: string; ar?: string } }[];
+};
+
 const statusTone: Record<TableStatus, string> = {
   AVAILABLE: 'bg-success-soft text-success',
   OCCUPIED: 'bg-primary-soft text-warning',
@@ -46,6 +55,7 @@ export function TablesPage({ tables: rows, canManage = true }: { tables: DiningT
   const t = useTranslations('merchantTables');
   const locale = useLocale() as 'en' | 'ar';
   const client = useQueryClient();
+  const profile = useQuery({ queryKey: ['merchant', 'business'], queryFn: () => api.profile() as Promise<PosterProfile>, retry: false, staleTime: 300_000 });
   const tables = useMemo(
     () => rows.slice().sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true })),
     [rows],
@@ -168,7 +178,35 @@ export function TablesPage({ tables: rows, canManage = true }: { tables: DiningT
   };
   function menuUrl(code: string | null) {
     if (!code || typeof window === 'undefined') return '';
-    return `http://${window.location.hostname}:3000/${locale}/q/${code}`;
+    return `${customerOrigin()}/${locale}/q/${encodeURIComponent(code)}`;
+  }
+  function printPosters(list: DiningTable[], documentTitle: string) {
+    const merchant = profile.data;
+    const branches = merchant?.branches ?? [];
+    // A table without a branch belongs to the merchant's only branch when there is just one.
+    const branchOf = (table: DiningTable) => branches.find((item) => item.id === table.branchId) ?? (branches.length === 1 ? branches[0] : undefined);
+    const posters = list
+      .filter((table) => table.qrCode)
+      .map((table) => {
+        const branch = branchOf(table);
+        // Under the merchant name: the branch, or the table's area when the table has no branch.
+        const subtitle = branch ? pickLocalized(branch.name, locale) : pickLocalized(table.floor.name, locale);
+        return { table: t('tableLabel', { number: table.number }), branch: subtitle || undefined, url: menuUrl(table.qrCode) };
+      });
+    const printed = printQrCards(posters, {
+      documentTitle,
+      dir: locale === 'ar' ? 'rtl' : 'ltr',
+      merchant: {
+        name: (merchant && pickLocalized(merchant.name, locale)) || 'Alliva',
+        logoUrl: merchant?.logoUrl,
+        open: merchant?.availability === 'OPEN',
+      },
+      labels: { headline: t('posterHeadline'), tagline: t('posterTagline'), dineIn: t('posterDineIn'), poweredBy: t('posterPoweredBy'), open: t('posterOpen') },
+    });
+    if (!printed) toast.error(t('none'));
+  }
+  function printAllQr() {
+    printPosters(tables, t('printAll'));
   }
   function positionFor(table: DiningTable, index: number) {
     const saved = positions[table.id];
@@ -281,7 +319,7 @@ export function TablesPage({ tables: rows, canManage = true }: { tables: DiningT
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div><h1 className="text-2xl font-bold tracking-[-0.03em]">{t('seatingTitle')}</h1><p className="mt-0.5 text-sm text-muted-foreground">{t('seatingSubtitle')}</p></div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => window.print()} className="inline-flex h-10 items-center gap-2 rounded-lg border border-border-strong bg-card px-3 text-xs font-semibold"><Printer className="size-4" />{t('printAll')}</button>
+          <button type="button" onClick={printAllQr} className="inline-flex h-10 items-center gap-2 rounded-lg border border-border-strong bg-card px-3 text-xs font-semibold"><Printer className="size-4" />{t('printAll')}</button>
           {canManage ? (
             <>
               <button type="button" onClick={() => setEditing('new')} className="inline-flex h-10 items-center gap-2 rounded-lg border border-border-strong bg-card px-3 text-xs font-semibold"><Plus className="size-4" />{t('addZone')}</button>
@@ -359,7 +397,7 @@ export function TablesPage({ tables: rows, canManage = true }: { tables: DiningT
             <MiniPanel title={t('serviceRequests')} action={t('viewAll')}><div className="grid gap-2 sm:grid-cols-2"><MiniItem title="T06 · Wants bill" detail="12 minutes ago" danger /><MiniItem title="T11 · Needs assistance" detail="8 minutes ago" /></div></MiniPanel>
           </div>
         </div>
-        {selected ? <TablePanel table={selected} status={tableStatus(selected)} locale={locale} menuUrl={menuUrl(selected.qrCode)} position={positionFor(selected, visible.findIndex((table) => table.id === selected.id))} onClose={() => setSelectedId(null)} onEdit={canManage ? () => setEditing(selected) : undefined} onStatus={(status) => {
+        {selected ? <TablePanel table={selected} status={tableStatus(selected)} locale={locale} menuUrl={menuUrl(selected.qrCode)} position={positionFor(selected, visible.findIndex((table) => table.id === selected.id))} onClose={() => setSelectedId(null)} onEdit={canManage ? () => setEditing(selected) : undefined} onPrint={() => printPosters([selected], t('tableLabel', { number: selected.number }))} onStatus={(status) => {
           const id = selected.id;
           const before = statusOverrides[id];
           setStatusOverrides((current) => ({ ...current, [id]: status }));
@@ -522,8 +560,9 @@ function MiniItem({ title, detail, danger = false }: { title: string; detail: st
 }
 
 function TablePanel({
-  table, status, locale, menuUrl, position, onClose, onEdit, onStatus, labels,
+  table, status, locale, menuUrl, position, onClose, onEdit, onStatus, onPrint, labels,
 }: {
+  onPrint: () => void;
   table: DiningTable;
   status: TableStatus;
   locale: 'en' | 'ar';
@@ -537,13 +576,6 @@ function TablePanel({
     currentOrder: string; items: string; inProgress: string; viewOrder: string; noOrder: string;
   };
 }) {
-  function printQr() {
-    const popup = window.open('', '_blank', 'noopener,noreferrer,width=420,height=640');
-    if (!popup) return;
-    const markup = qrSvg(menuUrl || table.number, 220);
-    popup.document.write(`<!doctype html><title>${labels.table}</title><body style="font-family:sans-serif;text-align:center;padding:32px"><h1>${labels.table}</h1>${markup}<p>${labels.qrHint}</p><script>onload=()=>print()</script></body>`);
-    popup.document.close();
-  }
   return (
     <div className="min-h-0 self-stretch xl:h-full">
       <aside className="flex h-full min-h-[36rem] w-full flex-col overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -583,7 +615,7 @@ function TablePanel({
             {menuUrl ? <QrMark value={menuUrl} /> : <QrCode className="size-14 text-faint" />}
           </div>
           <div className={`mt-3 grid gap-2 ${onEdit ? 'grid-cols-2' : 'grid-cols-1'}`}>
-            <button type="button" className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-card text-xs font-semibold text-foreground" onClick={printQr}>
+            <button type="button" className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-card text-xs font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-50" disabled={!menuUrl} onClick={onPrint}>
               <Printer className="size-4" /> {labels.print}
             </button>
             {onEdit ? (

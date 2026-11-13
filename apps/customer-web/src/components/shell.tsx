@@ -36,7 +36,10 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     void ensureGuest().catch(() => undefined);
-    if ('serviceWorker' in navigator) void navigator.serviceWorker.register('/sw.js');
+    if (!('serviceWorker' in navigator)) return;
+    if (import.meta.env.PROD) void navigator.serviceWorker.register('/sw.js');
+    // In development the worker only gets in the way (Safari cannot fetch through it on the self-signed https server).
+    else void navigator.serviceWorker.getRegistrations().then((list) => list.forEach((registration) => void registration.unregister()));
   }, []);
 
   // Ask once, on first open. After the customer answers we never prompt again; the header offers "Change location".
