@@ -79,7 +79,8 @@ export default function TableCartPage() {
 
   const service = table.data;
   const ended = Boolean(service?.visitEnded);
-  const sameStore = cart.data?.merchant?.slug === slug;
+  // A first dish still saving has no store on the cart yet; it can only be this table's store.
+  const sameStore = !cart.data?.merchant || cart.data.merchant.slug === slug;
   const lines = sameStore && !ended ? (cart.data?.items ?? []) : [];
   const pricing = cart.data?.pricing;
   const storeName = cart.data?.merchant ? pickLocalized(cart.data.merchant.name, locale) : '';

@@ -17,6 +17,10 @@ export function cartQueryOptions() {
     queryKey: cartQueryKey,
     queryFn: ({ signal }: { signal: AbortSignal }) => fetchCart(signal),
     retry: false as const,
+    // While an add or edit is still saving, the server's cart is behind the screen: reloading it on a new page
+    // would drop the dish just added (and the table cart would bounce back to the menu as empty).
+    refetchOnMount: () => !cartChangesPending(),
+    refetchOnWindowFocus: () => !cartChangesPending(),
   };
 }
 
