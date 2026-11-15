@@ -196,47 +196,6 @@ export function useTableService() {
   };
 }
 
-/** For diners who scanned a table QR: call a waiter, ask for the bill or for help, and see when staff are on the way. */
-export function TableCall() {
-  const t = useTranslations('customer.tableCall');
-  const { data, bill, locale, dialogs, openCalls, openBill } = useTableService();
-  if (!data) return null;
-  const pending = data.requests.length > 0;
-  const onTheWay = data.requests.some((request) => request.status === 'ACKNOWLEDGED');
-
-  return (
-    <>
-      <div className="pointer-events-none mx-auto mb-2 flex max-w-[520px] justify-end gap-2">
-        {bill ? (
-          <button
-            type="button"
-            onClick={openBill}
-            className={cn(
-              'pointer-events-auto flex h-11 min-w-0 items-center gap-2 rounded-full ps-3 pe-4 text-sm font-semibold shadow-[0_10px_28px_rgba(0,0,0,0.18)]',
-              bill.settled ? 'bg-[#168A52] text-white' : 'bg-white text-[#111111]',
-            )}
-          >
-            {bill.settled ? <CircleCheck className="size-4 shrink-0" /> : <Receipt className="size-4 shrink-0" />}
-            <span className="truncate">{bill.settled ? t('bill.paidShort') : t('bill.button', { amount: formatMoney(bill.due, locale) })}</span>
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={openCalls}
-          className={cn(
-            'pointer-events-auto flex h-11 shrink-0 items-center gap-2 rounded-full ps-3 pe-4 text-sm font-semibold shadow-[0_10px_28px_rgba(0,0,0,0.18)]',
-            onTheWay ? 'bg-[#168A52] text-white' : pending ? 'bg-[#111111] text-white' : 'bg-white text-[#111111]',
-          )}
-        >
-          <BellRing className={cn('size-4', pending && !onTheWay && 'animate-pulse')} />
-          <span>{onTheWay ? t('onTheWayShort') : pending ? t('waitingShort') : bill ? t('buttonShort') : t('button', { table: tableNo(data.table.number) })}</span>
-        </button>
-      </div>
-      {dialogs}
-    </>
-  );
-}
-
 const STATUS_TONE: Record<string, string> = {
   PENDING: 'bg-[#F0F0EC] text-[#4A4A46]',
   ACCEPTED: 'bg-[#FFF4D6] text-[#8A5A00]',
@@ -317,6 +276,10 @@ const LIFT = {
   cartBar: 'bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4rem)]',
   /** The Your order page's pay-later note and Place order button. */
   orderBar: 'bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+6.5rem)]',
+  /** The store page: above the app's tab bar. */
+  dock: 'bottom-[calc(max(0.7rem,env(safe-area-inset-bottom))+6.75rem)]',
+  /** The store page with its View cart bar above the tab bar (that bar is phone-only). */
+  dockCart: 'bottom-[calc(max(0.7rem,env(safe-area-inset-bottom))+10.75rem)] lg:bottom-[calc(max(0.7rem,env(safe-area-inset-bottom))+6.75rem)]',
 } as const;
 
 /**
@@ -326,6 +289,7 @@ const LIFT = {
 export function TableCallButton({ table, lift = 'none' }: { table: ReturnType<typeof useTableService>; lift?: keyof typeof LIFT }) {
   const t = useTranslations('customer.tablePage');
   const [open, setOpen] = useState(false);
+  const fulfillment = usePlace((state) => state.fulfillment);
   const data = table.data!;
   const request = (kind: 'WAITER' | 'BILL' | 'HELP') => data.requests.find((row) => row.kind === kind);
   const pending = data.requests.length > 0;
@@ -347,6 +311,8 @@ export function TableCallButton({ table, lift = 'none' }: { table: ReturnType<ty
     window.addEventListener('keydown', close);
     return () => window.removeEventListener('keydown', close);
   }, [open]);
+  // Staff calls belong to a dine-in visit; ordering delivery or pickup never shows the bell.
+  if (fulfillment !== 'DINE_IN') return null;
 
   return (
     <>

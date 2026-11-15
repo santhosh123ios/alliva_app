@@ -5,6 +5,7 @@ import { useCartAdd } from '@/components/store-switch';
 import { useCategorySpy } from '@/lib/category-spy';
 import { beginCartChange, cartQueryOptions, clearCartLines, failCartChange, optimisticLine, setLineQuantity, settleCartChange } from '@/lib/cart-cache';
 import { categoryIcon, StoreUnavailable, useStoreDistance } from '@/components/storefront';
+import { TableCallButton, useTableService } from '@/components/table-call';
 import { Link, useRouter } from '@/i18n/navigation';
 import { usePlace, type FulfillmentMode } from '@/lib/place';
 import { useAreaPoint } from '@/lib/location';
@@ -68,6 +69,7 @@ export default function MerchantPage() {
     .filter((category) => category.products.length > 0);
   const spy = useCategorySpy(sections.map((category) => category.id));
   const headerHeight = useShellHeaderHeight();
+  const table = useTableService();
   const favouriteIds = new Set(
     ((customer.data as { favourites?: { merchantId: string }[] } | undefined)?.favourites ?? []).map((row) => row.merchantId),
   );
@@ -361,6 +363,11 @@ export default function MerchantPage() {
           </div>
         </div>
       ) : null}
+      {/* Dining in at a table of this store (scanned, visit still open): the same staff bell as the table menu. */}
+      {fulfillment === 'DINE_IN' && table.data && !table.data.visitEnded && table.data.merchantId === data.id ? (
+        <TableCallButton table={table} lift={count > 0 && cart.data ? 'dockCart' : 'dock'} />
+      ) : null}
+      {table.dialogs}
       <ProductSheet productId={choosing} onClose={() => setChoosing(null)} cartAdd={cartAdd} />
       {cartAdd.dialog}
     </div>
