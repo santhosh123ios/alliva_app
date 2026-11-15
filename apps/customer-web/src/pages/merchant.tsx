@@ -2,6 +2,7 @@ import { CartButtonSpinner, flyFromButton } from '@/components/cart-motion';
 import { ProductSheet } from '@/components/product-sheet';
 import { api } from '@/components/providers';
 import { useCartAdd } from '@/components/store-switch';
+import { useCategorySpy } from '@/lib/category-spy';
 import { beginCartChange, cartQueryOptions, clearCartLines, failCartChange, optimisticLine, setLineQuantity, settleCartChange } from '@/lib/cart-cache';
 import { categoryIcon, StoreUnavailable, useStoreDistance } from '@/components/storefront';
 import { Link, useRouter } from '@/i18n/navigation';
@@ -35,7 +36,6 @@ export default function MerchantPage() {
   const fulfillment = usePlace((state) => state.fulfillment);
   const setFulfillment = usePlace((state) => state.setFulfillment);
   const area = useAreaPoint();
-  const [tab, setTab] = useState('popular');
   const [search, setSearch] = useState('');
   const [infoOpen, setInfoOpen] = useState(false);
   const [choosing, setChoosing] = useState<string | null>(null);
@@ -56,6 +56,18 @@ export default function MerchantPage() {
   const distance = useStoreDistance(slug, area);
   const cart = useQuery(cartQueryOptions());
   const cartAdd = useCartAdd();
+  const needle = search.trim().toLowerCase();
+  // The whole menu, one section per category in the store's order; a search keeps only the matching dishes.
+  const sections = (merchant.data?.categories ?? [])
+    .map((category) => ({
+      ...category,
+      products: needle
+        ? category.products.filter((product) => `${pickLocalized(product.name, locale)} ${pickLocalized(product.description, locale)}`.toLowerCase().includes(needle))
+        : category.products,
+    }))
+    .filter((category) => category.products.length > 0);
+  const spy = useCategorySpy(sections.map((category) => category.id));
+  const headerHeight = useShellHeaderHeight();
   const favouriteIds = new Set(
     ((customer.data as { favourites?: { merchantId: string }[] } | undefined)?.favourites ?? []).map((row) => row.merchantId),
   );
@@ -113,14 +125,6 @@ export default function MerchantPage() {
   const rating = Number(data.rating);
   const modes = fulfillmentOptions.filter(([id]) => data.fulfillment.includes(id));
   const catalog = data.categories.flatMap((category) => category.products.map((product) => ({ ...product, categoryId: category.id })));
-  const needle = search.trim().toLowerCase();
-  const inTab = tab === 'popular' ? catalog : catalog.filter((product) => product.categoryId === tab);
-  const visible = (needle
-    ? inTab.filter((product) => `${pickLocalized(product.name, locale)} ${pickLocalized(product.description, locale)}`.toLowerCase().includes(needle))
-    : inTab
-  ).slice();
-  if (tab === 'popular') visible.sort((a, b) => Number(b.rating) - Number(a.rating) || b.reviewCount - a.reviewCount);
-  const heading = tab === 'popular' ? t('customer.popularAt', { name }) : pickLocalized(data.categories.find((category) => category.id === tab)?.name ?? { en: '', ar: '' }, locale);
   const offer = data.offers?.[0];
   const count = cart.data?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
   const sameStore = !cart.data?.merchant || cart.data.merchant.id === data.id;
@@ -258,10 +262,10 @@ export default function MerchantPage() {
               />
             </label>
 
-            <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:px-0">
-              <CategoryChip selected={tab === 'popular'} onClick={() => setTab('popular')}>{t('customer.storePopular')}</CategoryChip>
-              {data.categories.filter((category) => category.products.length > 0).map((category) => (
-                <CategoryChip key={category.id} selected={tab === category.id} onClick={() => setTab(category.id)}>
+            {/* Pinned under the app header while the dishes scroll underneath. */}
+            <div ref={spy.strip} style={{ top: headerHeight }} className="sticky z-20 -mx-4 mt-4 flex gap-2 overflow-x-auto bg-white px-4 py-2 [scrollbar-width:none] lg:mx-0 lg:px-0">
+              {sections.map((category) => (
+                <CategoryChip key={category.id} ref={spy.chipRef(category.id)} selected={spy.active === category.id} onClick={() => spy.select(category.id)}>
                   {pickLocalized(category.name, locale)}
                 </CategoryChip>
               ))}
@@ -280,20 +284,22 @@ export default function MerchantPage() {
               </div>
             ) : null}
 
-            <h2 className="mt-6 text-lg font-bold">{heading}</h2>
-            {visible.length ? (
-              <>
-                <ul className="lg:hidden">
-                  {visible.map((product) => (
-                    <DishRow key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={cartAdd.pendingId === product.id} onAdd={() => addOrChoose(product)} />
-                  ))}
-                </ul>
-                <ul className="mt-3 hidden gap-3 lg:grid lg:grid-cols-2">
-                  {visible.map((product) => (
-                    <DishCard key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={cartAdd.pendingId === product.id} onAdd={() => addOrChoose(product)} />
-                  ))}
-                </ul>
-              </>
+            {sections.length ? (
+              sections.map((category) => (
+                <section key={category.id} ref={spy.sectionRef(category.id)} className="pt-4">
+                  <h2 className="text-lg font-bold">{pickLocalized(category.name, locale)}</h2>
+                  <ul className="lg:hidden">
+                    {category.products.map((product) => (
+                      <DishRow key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={cartAdd.pendingId === product.id} onAdd={() => addOrChoose(product)} />
+                    ))}
+                  </ul>
+                  <ul className="mt-3 hidden gap-3 lg:grid lg:grid-cols-2">
+                    {category.products.map((product) => (
+                      <DishCard key={product.id} product={product} slug={slug} locale={locale} addLabel={t('customer.addShort')} pending={cartAdd.pendingId === product.id} onAdd={() => addOrChoose(product)} />
+                    ))}
+                  </ul>
+                </section>
+              ))
             ) : (
               <p className="py-8 text-sm text-[#6f6f6a]">{t('customer.noMatches')}</p>
             )}
@@ -462,9 +468,10 @@ function MetaRow({
   );
 }
 
-function CategoryChip({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: React.ReactNode }) {
+function CategoryChip({ selected, onClick, children, ref }: { selected: boolean; onClick: () => void; children: React.ReactNode; ref?: React.Ref<HTMLButtonElement> }) {
   return (
     <button
+      ref={ref}
       type="button"
       aria-pressed={selected}
       onClick={onClick}
@@ -831,4 +838,19 @@ function StoreSkeleton() {
       </div>
     </div>
   );
+}
+
+/** The shell's sticky header height, so the chip bar can pin right under it. */
+function useShellHeaderHeight() {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const header = document.querySelector('header');
+    if (!header) return;
+    const measure = () => setHeight(header.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+  return height;
 }

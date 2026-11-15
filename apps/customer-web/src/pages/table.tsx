@@ -6,13 +6,14 @@ import { categoryIcon, StoreUnavailable } from '@/components/storefront';
 import { ScanNotice, TableCallButton, tableNo, useTableLink, useTableService, VisitEnded } from '@/components/table-call';
 import { Link, useRouter } from '@/i18n/navigation';
 import { beginCartChange, cartQueryOptions, failCartChange, optimisticLine, setLineQuantity, settleCartChange } from '@/lib/cart-cache';
+import { useCategorySpy } from '@/lib/category-spy';
 import { ensureGuest } from '@/lib/location';
 import { usePlace } from '@/lib/place';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { cn, ErrorState } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, Heart, Minus, Plus, ReceiptText, Share2, ShoppingCart } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { toast } from 'sonner';
 import { useLocale, useTranslations } from 'use-intl';
@@ -28,9 +29,7 @@ export default function TablePage() {
   const router = useRouter();
   const client = useQueryClient();
   const setFulfillment = usePlace((state) => state.setFulfillment);
-  const [tab, setTab] = useState('popular');
   const [choosing, setChoosing] = useState<string | null>(null);
-  const headingRef = useRef<HTMLHeadingElement>(null);
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.me(), retry: false });
   const customer = useQuery({ queryKey: ['customer'], queryFn: () => api.customer(), enabled: me.data?.kind === 'CUSTOMER', retry: false });
   const merchant = useQuery({ queryKey: ['merchant', slug], queryFn: () => api.merchant(slug) });
@@ -38,6 +37,9 @@ export default function TablePage() {
   const cartAdd = useCartAdd();
   const link = useTableLink();
   const table = useTableService();
+  // The whole menu, one section per category in the store's order; empty categories are left out.
+  const sections = (merchant.data?.categories ?? []).filter((category) => category.products.length > 0);
+  const spy = useCategorySpy(sections.map((category) => category.id));
   const edit = useMutation({
     mutationFn: async ({ id, quantity }: { id: string; quantity: number }) => {
       await api.guest().catch(() => undefined);
@@ -67,10 +69,6 @@ export default function TablePage() {
   }
   const favourites = (customer.data as { favourites?: { merchantId: string }[] } | undefined)?.favourites ?? [];
   const saved = favourites.some((row) => row.merchantId === data.id);
-  const catalog = data.categories.flatMap((category) => category.products.map((product) => ({ ...product, categoryId: category.id })));
-  const visible = tab === 'popular' ? catalog.slice() : catalog.filter((product) => product.categoryId === tab);
-  if (tab === 'popular') visible.sort((a, b) => Number(b.rating) - Number(a.rating) || b.reviewCount - a.reviewCount);
-  const heading = tab === 'popular' ? t('customer.popularAt', { name }) : pickLocalized(data.categories.find((category) => category.id === tab)?.name ?? { en: '', ar: '' }, locale);
   const sameStore = !cart.data?.merchant || cart.data.merchant.id === data.id;
   const count = sameStore ? (cart.data?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0) : 0;
   const Icon = categoryIcon(data.categorySlugs[0] ?? '');
@@ -79,12 +77,6 @@ export default function TablePage() {
   const ended = Boolean(table.data?.visitEnded);
   const sentBill = table.bill && !table.bill.settled && table.bill.orders.length ? table.bill : null;
   const cartHref = `/table/${slug}/cart${link}`;
-
-  /** Switching category while scrolled down starts the new list right under the pinned chips. */
-  const selectTab = (next: string) => {
-    setTab(next);
-    if ((headingRef.current?.getBoundingClientRect().top ?? 0) < 60) headingRef.current?.scrollIntoView({ block: 'start' });
-  };
 
   const toggleSave = () => {
     if (me.data?.kind !== 'CUSTOMER') {
@@ -159,42 +151,45 @@ export default function TablePage() {
           ) : null}
 
           {/* The chips stay pinned while the dishes scroll underneath. */}
-          <div className="sticky top-0 z-20 -mx-[22px] mt-1.5 flex gap-2 overflow-x-auto bg-white px-[22px] py-2 shadow-[0_6px_10px_-8px_rgba(0,0,0,0.15)] [scrollbar-width:none] lg:mx-0 lg:px-0">
-            <Chip selected={tab === 'popular'} onClick={() => selectTab('popular')}>{t('customer.storePopular')}</Chip>
-            {data.categories.filter((category) => category.products.length > 0).map((category) => (
-              <Chip key={category.id} selected={tab === category.id} onClick={() => selectTab(category.id)}>
+          <div ref={spy.strip} className="sticky top-0 z-20 -mx-[22px] mt-1.5 flex gap-2 overflow-x-auto bg-white px-[22px] py-2 shadow-[0_6px_10px_-8px_rgba(0,0,0,0.15)] [scrollbar-width:none] lg:mx-0 lg:px-0">
+            {sections.map((category) => (
+              <Chip key={category.id} ref={spy.chipRef(category.id)} selected={spy.active === category.id} onClick={() => spy.select(category.id)}>
                 {pickLocalized(category.name, locale)}
               </Chip>
             ))}
           </div>
 
-          <h2 ref={headingRef} className="mt-2 scroll-mt-[60px] text-[20px] font-extrabold tracking-[-0.01em] text-[#111]">{heading}</h2>
-          {visible.length ? (
-            <ul className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:gap-4">
-              {visible.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  locale={locale}
-                  addLabel={t('customer.tablePage.add', { name: pickLocalized(product.name, locale) })}
-                  pending={cartAdd.pendingId === product.id}
-                  disabled={ended}
-                  lines={lines.filter((line) => line.productId === product.id)}
-                  labels={{ less: t('customer.remove'), quantity: t('customer.tablePage.quantity') }}
-                  onAdd={() => {
-                    // Dishes with sizes, options or combo picks are customised in a sheet, not on their own page.
-                    if (product.customizable || product.needsChoice) {
-                      setChoosing(product.id);
-                      return false;
-                    }
-                    return cartAdd.addCard(product);
-                  }}
-                  onQty={(id, quantity) => edit.mutate({ id, quantity })}
-                  onCart={() => router.push(cartHref)}
-                  onOpen={() => setChoosing(product.id)}
-                />
-              ))}
-            </ul>
+          {sections.length ? (
+            sections.map((category) => (
+              <section key={category.id} ref={spy.sectionRef(category.id)} className="pt-2 pb-3">
+                <h2 className="text-[20px] font-extrabold tracking-[-0.01em] text-[#111]">{pickLocalized(category.name, locale)}</h2>
+                <ul className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:gap-4">
+                  {category.products.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      locale={locale}
+                      addLabel={t('customer.tablePage.add', { name: pickLocalized(product.name, locale) })}
+                      pending={cartAdd.pendingId === product.id}
+                      disabled={ended}
+                      lines={lines.filter((line) => line.productId === product.id)}
+                      labels={{ less: t('customer.remove'), quantity: t('customer.tablePage.quantity') }}
+                      onAdd={() => {
+                        // Dishes with sizes, options or combo picks are customised in a sheet, not on their own page.
+                        if (product.customizable || product.needsChoice) {
+                          setChoosing(product.id);
+                          return false;
+                        }
+                        return cartAdd.addCard(product);
+                      }}
+                      onQty={(id, quantity) => edit.mutate({ id, quantity })}
+                      onCart={() => router.push(cartHref)}
+                      onOpen={() => setChoosing(product.id)}
+                    />
+                  ))}
+                </ul>
+              </section>
+            ))
           ) : (
             <p className="py-8 text-sm text-[#6f6f6a]">{t('customer.noMatches')}</p>
           )}
@@ -228,9 +223,10 @@ export default function TablePage() {
   );
 }
 
-function Chip({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: React.ReactNode }) {
+function Chip({ selected, onClick, children, ref }: { selected: boolean; onClick: () => void; children: React.ReactNode; ref?: React.Ref<HTMLButtonElement> }) {
   return (
     <button
+      ref={ref}
       type="button"
       aria-pressed={selected}
       onClick={onClick}
