@@ -3,6 +3,7 @@ import { MascotCard, SignInLink } from '@/components/mascot-card';
 import { api } from '@/components/providers';
 import { useCartAdd } from '@/components/store-switch';
 import { categoryIcon } from '@/components/storefront';
+import { WasPrice } from '@/components/was-price';
 import { Link } from '@/i18n/navigation';
 import { useAreaPoint } from '@/lib/location';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
@@ -584,7 +585,7 @@ function FavouriteProductCard({
           </p>
         ) : null}
         <div className="mt-2 flex items-center justify-between gap-2">
-          <p className="text-sm font-bold">{formatMoney(product.price, locale)}</p>
+          <p className="text-sm font-bold">{formatMoney(product.price, locale)}<WasPrice price={product.price} compareAtPrice={product.compareAtPrice} locale={locale} className="text-xs" /></p>
           <button
             type="button"
             disabled={!product.available || pending}

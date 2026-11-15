@@ -4,6 +4,7 @@ import { api } from '@/components/providers';
 import { beginCartChange, bumpCart, cartQueryOptions, clearCartLines, failCartChange, optimisticLine, setLineQuantity, settleCartChange } from '@/lib/cart-cache';
 import { categoryIcon } from '@/components/storefront';
 import { scannedTable, storeHref } from '@/components/table-call';
+import { WasPrice } from '@/components/was-price';
 import { Link, useRouter } from '@/i18n/navigation';
 import { areas, usePlace, type FulfillmentMode } from '@/lib/place';
 import { chooseAddress, chooseLocation, useLocationStore } from '@/lib/location';
@@ -429,7 +430,7 @@ export default function CartPage() {
                       <p className="mt-2 line-clamp-1 text-sm font-semibold">{pickLocalized(product.name, locale)}</p>
                       <p className="mt-1 line-clamp-2 text-xs leading-snug text-[#6f6f6a]">{pickLocalized(product.description, locale)}</p>
                       <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-                        <span className="text-sm font-bold">{formatMoney(product.price, locale)}</span>
+                        <span className="text-sm font-bold">{formatMoney(product.price, locale)}<WasPrice price={product.price} compareAtPrice={product.compareAtPrice} locale={locale} className="text-xs" /></span>
                         <button
                           type="button"
                           disabled={add.isPending && add.variables?.productId === product.id}

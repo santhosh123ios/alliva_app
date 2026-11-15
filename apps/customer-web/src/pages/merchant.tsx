@@ -6,6 +6,7 @@ import { useCategorySpy } from '@/lib/category-spy';
 import { beginCartChange, cartQueryOptions, clearCartLines, failCartChange, optimisticLine, setLineQuantity, settleCartChange } from '@/lib/cart-cache';
 import { categoryIcon, StoreUnavailable, useStoreDistance } from '@/components/storefront';
 import { TableCallButton, useTableService } from '@/components/table-call';
+import { WasPrice } from '@/components/was-price';
 import { Link, useRouter } from '@/i18n/navigation';
 import { usePlace, type FulfillmentMode } from '@/lib/place';
 import { useAreaPoint } from '@/lib/location';
@@ -545,7 +546,7 @@ function DishFacts({ product, locale }: { product: MenuProduct; locale: 'en' | '
           {product.reviewCount > 0 ? <span className="text-[#6f6f6a]">({product.reviewCount})</span> : null}
         </span>
       ) : null}
-      <span className="font-bold">{formatMoney(product.price, locale)}</span>
+      <span className="font-bold">{formatMoney(product.price, locale)}<WasPrice price={product.price} compareAtPrice={product.compareAtPrice} locale={locale} className="text-xs" /></span>
     </p>
   );
 }

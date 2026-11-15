@@ -3,6 +3,7 @@ import { DishRatingSummary, DishReviews, useDishReviews } from '@/components/dis
 import { NoteField, ProductOptions, Quantity, runningTotal, toggleAddonIn, type ProductPayload } from '@/components/product-options';
 import { api } from '@/components/providers';
 import type { useCartAdd } from '@/components/store-switch';
+import { WasPrice } from '@/components/was-price';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { cn, DialogDescription, DialogTitle, Sheet, SheetContent, Skeleton } from '@alliva/ui';
 import { useQuery } from '@tanstack/react-query';
@@ -99,7 +100,11 @@ function SheetBody({ data, cartAdd, onClose, viewOnly }: { data: ProductPayload;
         </div>
         <div className="px-5 pt-4 pb-5">
           <DialogTitle className="text-[22px] leading-tight font-extrabold tracking-[-0.02em] text-[#111]">{name}</DialogTitle>
-          <p className="mt-1 text-lg font-bold text-[#111]">{formatMoney(variant?.price ?? data.price, locale)}</p>
+          <p className="mt-1 text-lg font-bold text-[#111]">
+            {formatMoney(variant?.price ?? data.price, locale)}
+            {/* A deal is on the dish's own price; sizes carry their own prices. */}
+            {variant ? null : <WasPrice price={data.price} compareAtPrice={data.compareAtPrice} locale={locale} className="text-sm" />}
+          </p>
           <DishRatingSummary reviews={reviews.data} />
           {description ? <DialogDescription className="mt-2 text-[14px] leading-relaxed text-[#6f6f6a]">{description}</DialogDescription> : null}
 

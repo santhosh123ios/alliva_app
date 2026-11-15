@@ -349,6 +349,16 @@ export const productImportRowSchema = z.object({
 export const offerSchema = z.object({
   title: localizedSchema,
   productId: z.uuid().optional(),
+  startsAt: z.iso.datetime().optional(),
+  endsAt: z.iso.datetime().optional(),
+  active: z.boolean().optional(),
+});
+
+export const offerUpdateSchema = z.object({
+  title: localizedSchema.optional(),
+  startsAt: z.iso.datetime().optional(),
+  endsAt: z.iso.datetime().optional(),
+  active: z.boolean().optional(),
 });
 
 export const addonGroupSchema = z.object({

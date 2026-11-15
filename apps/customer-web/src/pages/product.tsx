@@ -4,6 +4,7 @@ import { useCartAdd } from '@/components/store-switch';
 import { categoryIcon, StoreUnavailable, useStoreDistance } from '@/components/storefront';
 import { NoteField, ProductOptions, Quantity, runningTotal, toggleAddonIn } from '@/components/product-options';
 import { storeHref } from '@/components/table-call';
+import { WasPrice } from '@/components/was-price';
 import { Link } from '@/i18n/navigation';
 import { useAreaPoint } from '@/lib/location';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
@@ -212,7 +213,7 @@ export default function ProductPage() {
               </span>
             ) : null}
           </div>
-          <p className="mt-1 text-2xl font-extrabold tracking-[-0.03em]">{formatMoney(data.price, locale)}</p>
+          <p className="mt-1 text-2xl font-extrabold tracking-[-0.03em]">{formatMoney(data.price, locale)}<WasPrice price={data.price} compareAtPrice={data.compareAtPrice} locale={locale} className="ms-2 text-base" /></p>
           {rating > 0 || popular ? (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
               {rating > 0 ? (
@@ -545,7 +546,7 @@ function AlsoLike({
               <Link href={`/merchants/${slug}/products/${product.id}`} className="mt-2 block truncate text-sm font-semibold">
                 {pickLocalized(product.name, locale)}
               </Link>
-              <p className="text-sm font-bold">{formatMoney(product.price, locale)}</p>
+              <p className="text-sm font-bold">{formatMoney(product.price, locale)}<WasPrice price={product.price} compareAtPrice={product.compareAtPrice} locale={locale} className="text-xs" /></p>
             </li>
           );
         })}

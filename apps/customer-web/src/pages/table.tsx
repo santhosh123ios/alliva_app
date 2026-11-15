@@ -4,6 +4,7 @@ import { api } from '@/components/providers';
 import { useCartAdd } from '@/components/store-switch';
 import { categoryIcon, StoreUnavailable } from '@/components/storefront';
 import { ScanNotice, TableCallButton, tableNo, useTableLink, useTableService, VisitEnded } from '@/components/table-call';
+import { WasPrice } from '@/components/was-price';
 import { Link, useRouter } from '@/i18n/navigation';
 import { beginCartChange, cartQueryOptions, failCartChange, optimisticLine, setLineQuantity, settleCartChange } from '@/lib/cart-cache';
 import { useCategorySpy } from '@/lib/category-spy';
@@ -293,7 +294,7 @@ function ProductCard({
         <button type="button" onClick={onOpen} className="line-clamp-1 text-start text-[13.5px] leading-snug font-bold text-[#111]">{pickLocalized(product.name, locale)}</button>
         <p className="mt-0.5 line-clamp-2 min-h-[2.5em] text-[11.5px] leading-[1.25] text-[#6f6f6a]">{pickLocalized(product.description, locale)}</p>
         <div className="mt-auto flex items-center justify-between gap-1.5 pt-1">
-          <p className="min-w-0 truncate text-[12.5px] font-bold text-[#111]">{formatMoney(product.price, locale)}</p>
+          <p className="min-w-0 truncate text-[12.5px] font-bold text-[#111]">{formatMoney(product.price, locale)}<WasPrice price={product.price} compareAtPrice={product.compareAtPrice} locale={locale} className="ms-1 text-[11px]" /></p>
           {disabled ? null : quantity > 0 ? (
             <div role="group" aria-label={labels.quantity} className="flex h-[30px] shrink-0 items-center rounded-full bg-primary text-[#111] shadow-sm">
               <button

@@ -1,6 +1,7 @@
 import { CartButtonSpinner, flyFromButton } from '@/components/cart-motion';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/components/providers';
+import { WasPrice } from '@/components/was-price';
 import { useQuery } from '@tanstack/react-query';
 import type { ApiClient } from '@alliva/api-client';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
@@ -244,7 +245,7 @@ export function ProductTile({
           </p>
         ) : null}
         <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-          <p className="text-sm font-bold">{formatMoney(product.price, locale)}</p>
+          <p className="text-sm font-bold">{formatMoney(product.price, locale)}<WasPrice price={product.price} compareAtPrice={product.compareAtPrice} locale={locale} className="text-xs" /></p>
           <button
             type="button"
             disabled={!product.available || pending}

@@ -69,6 +69,16 @@ export type MerchantPromo = {
   active: boolean;
 };
 
+/** A store offer: the banner customers see on the store and home pages between its start and end. */
+export type MerchantOffer = {
+  id: string;
+  title: { en: string; ar: string };
+  active: boolean;
+  startsAt: string;
+  endsAt: string;
+  createdAt: string;
+};
+
 export type SubscriptionQuote = {
   gross: string;
   discount: string;
@@ -409,7 +419,10 @@ export function createApiClient(baseUrl = '', portal?: AuthPortal) {
     adminCatalogProducts: () => request<Json[]>('/api/admin/catalog/products'),
     updateAdminCatalogProduct: (id: string, body: Json) => send(`/api/admin/catalog/products/${id}`, 'PATCH', body),
     mergeAdminCatalogProduct: (id: string, body: Json) => send(`/api/admin/catalog/products/${id}/merge`, 'POST', body),
-    createOffer: (body: Json) => send('/api/catalog/offers', 'POST', body),
+    offers: () => request<MerchantOffer[]>('/api/catalog/offers'),
+    createOffer: (body: Json) => send<MerchantOffer>('/api/catalog/offers', 'POST', body),
+    updateOffer: (id: string, body: Json) => send<MerchantOffer>(`/api/catalog/offers/${id}`, 'PATCH', body),
+    deleteOffer: (id: string) => send(`/api/catalog/offers/${id}`, 'DELETE'),
     profile: () => request<Json>('/api/merchant/profile'),
     updateProfile: (body: Json) => send('/api/merchant/profile', 'PATCH', body),
     completeBusinessSetup: (body: Json) => send('/api/merchant/business-setup', 'POST', body),

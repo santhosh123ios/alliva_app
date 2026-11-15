@@ -77,7 +77,7 @@ export class CommerceService {
     const [merchants, offers, banners, products] = await Promise.all([
       this.merchantCards(visible ? { id: { in: visible } } : { status: 'ACTIVE', deletedAt: null }, point && context ? { point, context } : undefined),
       this.prisma.offer.findMany({
-        where: { active: true, endsAt: { gt: new Date() }, ...scoped },
+        where: { active: true, startsAt: { lte: new Date() }, endsAt: { gt: new Date() }, ...scoped },
         include: { merchant: true },
         take: 8,
       }),

@@ -28,6 +28,7 @@ import {
   planSchema,
   reorderPlansSchema,
   offerSchema,
+  offerUpdateSchema,
   productSchema,
   productOptionGroupsSchema,
   productUpdateSchema,
@@ -1042,18 +1043,21 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
     return optionGroupLibrary(prisma, user.merchantId);
   });
 
+  routes.get('/catalog/offers', (request) => {
+    const user = request.user!;
+    if (!user.merchantId) throw badRequest('Merchant account required');
+    return prisma.offer.findMany({ where: { merchantId: user.merchantId }, orderBy: [{ endsAt: 'desc' }, { createdAt: 'desc' }] });
+  });
+
   routes.post('/catalog/offers', { permissions: ['catalog.manage'] }, async (request) => {
     const user = request.user!;
-    const body = validate<{ title: { en: string; ar: string }; productId?: string }>(offerSchema, request.body);
+    const body = validate<{ title: { en: string; ar: string }; productId?: string; startsAt?: string; endsAt?: string; active?: boolean }>(offerSchema, request.body);
     if (!user.merchantId) throw badRequest('Merchant account required');
+    const startsAt = body.startsAt ? new Date(body.startsAt) : new Date();
+    const endsAt = body.endsAt ? new Date(body.endsAt) : new Date(startsAt.getTime() + 30 * 86400000);
+    if (endsAt <= startsAt) throw badRequest('The offer must end after it starts');
     const offer = await prisma.offer.create({
-      data: {
-        merchantId: user.merchantId,
-        title: body.title,
-        active: true,
-        startsAt: new Date(),
-        endsAt: new Date(Date.now() + 30 * 86400000),
-      },
+      data: { merchantId: user.merchantId, title: body.title, active: body.active ?? true, startsAt, endsAt },
     });
     if (body.productId) {
       const product = await prisma.product.findFirst({ where: { id: body.productId, merchantId: user.merchantId, deletedAt: null } });
@@ -1063,6 +1067,25 @@ export function portalRoutes({ prisma, jwt, crypto, audit, platform, commerce, m
       }
     }
     return offer;
+  });
+
+  routes.patch('/catalog/offers/:id', { permissions: ['catalog.manage'] }, async (request) => {
+    const user = request.user!;
+    const body = validate<{ title?: { en: string; ar: string }; startsAt?: string; endsAt?: string; active?: boolean }>(offerUpdateSchema, request.body);
+    const existing = await prisma.offer.findFirst({ where: { id: param(request, 'id'), merchantId: user.merchantId ?? undefined } });
+    if (!existing) throw notFound('Offer not found');
+    const startsAt = body.startsAt ? new Date(body.startsAt) : existing.startsAt;
+    const endsAt = body.endsAt ? new Date(body.endsAt) : existing.endsAt;
+    if (endsAt <= startsAt) throw badRequest('The offer must end after it starts');
+    return prisma.offer.update({ where: { id: existing.id }, data: { title: body.title, active: body.active, startsAt, endsAt } });
+  });
+
+  routes.delete('/catalog/offers/:id', { permissions: ['catalog.manage'] }, async (request) => {
+    const user = request.user!;
+    const existing = await prisma.offer.findFirst({ where: { id: param(request, 'id'), merchantId: user.merchantId ?? undefined } });
+    if (!existing) throw notFound('Offer not found');
+    await prisma.offer.delete({ where: { id: existing.id } });
+    return { ok: true };
   });
 
   routes.post('/catalog/products/import', { permissions: ['catalog.manage'] }, async (request) => {

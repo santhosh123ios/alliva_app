@@ -2,10 +2,11 @@ import { api } from '@/components/providers';
 import { formatMoney, pickLocalized } from '@alliva/design-tokens';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, EmptyState, ErrorState, Skeleton } from '@alliva/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Box, CheckCircle2, ChevronDown, Coffee, Croissant, CupSoda, Download, Folder, ImageIcon, Layers, LayoutGrid, List, Package, Pencil, Plus, Search, Star, Tag, Trash2, Upload, UtensilsCrossed } from 'lucide-react';
+import { AlertCircle, Box, CheckCircle2, ChevronDown, Coffee, Croissant, CupSoda, Download, Folder, ImageIcon, Layers, LayoutGrid, List, Package, Pencil, Plus, Search, SlidersHorizontal, Star, Tag, Trash2, Upload, UtensilsCrossed, X } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SquareCropper } from '@/components/image-cropper';
+import { OffersSection } from '@/components/offers';
 import { draftsToBody, OptionGroupsEditor, SizesEditor, sizesFrom, sizesToBody, toDraftGroups, toDraftSizes, type DraftGroup, type DraftSize } from '@/components/product-options';
 import type { ProductKind } from '@alliva/types';
 import { Link } from '@/i18n/navigation';
@@ -13,7 +14,7 @@ import { useSearchParams } from 'react-router';
 
 type Status = 'active' | 'out' | 'draft';
 type InventoryMethod = 'daily' | 'stock';
-type CatalogTab = 'products' | 'categories';
+type CatalogTab = 'products' | 'categories' | 'offers';
 type CatalogProduct = {
   id: string;
   name: { en?: string; ar?: string };
@@ -84,14 +85,13 @@ export function ProductsPage() {
   const [tab, setTab] = useState<CatalogTab>('products');
   const [categoryView, setCategoryView] = useState<'grid' | 'list'>('grid');
   const [categoryQuery, setCategoryQuery] = useState('');
-  const [offerOpen, setOfferOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [params] = useSearchParams();
 
   useEffect(() => {
     if (params.get('new') === '1') setEditing('new');
-    if (params.get('offer') === '1') setOfferOpen(true);
+    if (params.get('offer') === '1') setTab('offers');
   }, [params]);
 
   const counts = useMemo(() => ({
@@ -155,7 +155,7 @@ export function ProductsPage() {
         <div className="flex h-11 shrink-0 items-center gap-2 text-sm font-semibold">
           <TabButton active={tab === 'products'} onClick={() => setTab('products')}>{t('all')}</TabButton>
           <TabButton active={tab === 'categories'} onClick={() => setTab('categories')}>{t('categories')}</TabButton>
-          <TabButton active={offerOpen} onClick={() => setOfferOpen(true)}>{t('modifiers')}</TabButton>
+          <TabButton active={tab === 'offers'} onClick={() => setTab('offers')}>{t('offers')}</TabButton>
         </div>
         <div className="ms-auto grid h-11 shrink-0 grid-cols-4 overflow-hidden rounded-xl border border-border bg-card shadow-xs">
           <Metric icon={<Box />} label={t('total')} value={counts.total} tone="bg-muted" />
@@ -166,6 +166,8 @@ export function ProductsPage() {
       </div>
 
       {notice ? <p className="text-sm font-medium text-destructive">{notice}</p> : null}
+
+      {tab === 'offers' ? <OffersSection products={products} /> : null}
 
       {tab === 'categories' ? <CategoriesSection categories={categories} products={products} view={categoryView} query={categoryQuery} onQuery={setCategoryQuery} onView={setCategoryView} /> : null}
 
@@ -179,14 +181,22 @@ export function ProductsPage() {
               </label>
               <Button type="button" variant="yellow" className="h-9 shrink-0 rounded-lg px-3" onClick={() => setEditing('new')}><Plus className="size-4" /> {t('add')}</Button>
               <button type="button" onClick={() => setImportOpen(true)} className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground"><Upload className="size-4" /> {t('bulkUpload')}</button>
-              <div className="flex gap-2 overflow-x-auto">
-                <SelectFilter value={categoryId} onChange={setCategoryId} label={t('category')}>
-                  <option value="all">{t('allCategories')}</option>
-                  {categories.map((category) => <option key={category.id} value={category.id}>{pickLocalized(category.name, locale)}</option>)}
-                </SelectFilter>
-                <SelectFilter value={status} onChange={(value) => setStatus(value as 'all' | Status)} label={t('status')}>
-                  <option value="all">{t('allStatus')}</option><option value="active">{t('active')}</option><option value="out">{t('out')}</option><option value="draft">{t('drafts')}</option>
-                </SelectFilter>
+              <div className="flex gap-2">
+                <FilterMenu
+                  label={t('filters')}
+                  clearLabel={t('clearFilters')}
+                  closeLabel={t('closeFilters')}
+                  active={(categoryId === 'all' ? 0 : 1) + (status === 'all' ? 0 : 1)}
+                  onClear={() => { setCategoryId('all'); setStatus('all'); }}
+                >
+                  <SelectFilter value={categoryId} onChange={setCategoryId} label={t('category')}>
+                    <option value="all">{t('allCategories')}</option>
+                    {categories.map((category) => <option key={category.id} value={category.id}>{pickLocalized(category.name, locale)}</option>)}
+                  </SelectFilter>
+                  <SelectFilter value={status} onChange={(value) => setStatus(value as 'all' | Status)} label={t('status')}>
+                    <option value="all">{t('allStatus')}</option><option value="active">{t('active')}</option><option value="out">{t('out')}</option><option value="draft">{t('drafts')}</option>
+                  </SelectFilter>
+                </FilterMenu>
                 <div className="flex h-9 overflow-hidden rounded-lg border border-border-strong bg-card">
                   <button type="button" aria-label={t('grid')} className={`grid w-9 place-items-center ${view === 'grid' ? 'bg-primary' : ''}`} onClick={() => setView('grid')}><LayoutGrid className="size-4" /></button>
                   <button type="button" aria-label={t('list')} className={`grid w-9 place-items-center border-s border-border-strong ${view === 'list' ? 'bg-primary' : ''}`} onClick={() => setView('list')}><List className="size-4" /></button>
@@ -265,7 +275,6 @@ export function ProductsPage() {
         onNeedCategory={() => { setEditing(null); setTab('categories'); }}
       />
       <InventoryMethodDialog open={needsMethod} />
-      <OfferDialog open={offerOpen} products={products} onClose={() => setOfferOpen(false)} />
       <BulkUploadDialog open={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   );
@@ -326,12 +335,76 @@ function InventoryChoice({ active, icon, title, body, onClick, compact = false }
   );
 }
 
+/** A filter icon that opens the list filters in a small panel, so the toolbar keeps room for search. Shows how many are on. */
+function FilterMenu({ label, clearLabel, closeLabel, active, onClear, children }: { label: string; clearLabel: string; closeLabel: string; active: number; onClear: () => void; children: React.ReactNode }) {
+  const [place, setPlace] = useState<{ top: number; left: number } | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const open = Boolean(place);
+  const toggle = () => {
+    if (place || !button.current) return setPlace(null);
+    // Fixed to the screen so the list's clipped box cannot cut it off. On phones the button starts the toolbar row, so the
+    // panel opens towards the page; on wide screens it ends the row. Always kept inside the screen.
+    const rect = button.current.getBoundingClientRect();
+    const width = 256;
+    const rtl = getComputedStyle(button.current).direction === 'rtl';
+    const fromStart = window.innerWidth < 1024;
+    const left = rtl === fromStart ? rect.right - width : rect.left;
+    setPlace({ top: rect.bottom + 6, left: Math.min(Math.max(8, left), window.innerWidth - width - 8) });
+  };
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setPlace(null); };
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setPlace(null); };
+    // The panel does not follow the button, so scrolling the page or resizing closes it.
+    const close = (event: Event) => { if (!root.current?.contains(event.target as Node)) setPlace(null); };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('keydown', escape);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [open]);
+  return (
+    <div ref={root} className="relative">
+      <button
+        ref={button}
+        type="button"
+        aria-label={label}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={toggle}
+        className={`relative grid size-9 place-items-center rounded-lg border ${active ? 'border-primary bg-primary-soft' : 'border-border-strong bg-card'}`}
+      >
+        <SlidersHorizontal className="size-4" />
+        {active ? <span className="absolute -top-1.5 -end-1.5 grid size-4 place-items-center rounded-full bg-primary text-[10px] font-bold text-[#111]">{active}</span> : null}
+      </button>
+      {place ? (
+        <div role="dialog" aria-label={label} style={{ top: place.top, left: place.left }} className="fixed z-50 w-64 rounded-xl border border-border-strong bg-card p-3 shadow-lg">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-bold">{label}</p>
+            <button type="button" aria-label={closeLabel} onClick={() => setPlace(null)} className="grid size-6 place-items-center rounded-md text-muted-foreground"><X className="size-3.5" /></button>
+          </div>
+          <div className="grid gap-2">{children}</div>
+          {active ? <button type="button" onClick={onClear} className="mt-3 text-xs font-semibold text-muted-foreground underline-offset-2 hover:underline">{clearLabel}</button> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SelectFilter({ value, onChange, label, children }: { value: string; onChange: (value: string) => void; label: string; children: React.ReactNode }) {
   return (
-    <label className="relative">
-      <span className="sr-only">{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="h-9 min-w-28 appearance-none rounded-lg border border-border-strong bg-card ps-3 pe-8 text-xs font-semibold outline-none">{children}</select>
-      <ChevronDown className="pointer-events-none absolute end-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+    <label className="grid gap-1">
+      <span className="text-[11px] font-semibold text-muted-foreground">{label}</span>
+      <span className="relative">
+        <select value={value} onChange={(event) => onChange(event.target.value)} className="h-9 w-full appearance-none rounded-lg border border-border-strong bg-card ps-3 pe-8 text-xs font-semibold outline-none">{children}</select>
+        <ChevronDown className="pointer-events-none absolute end-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+      </span>
     </label>
   );
 }
@@ -841,50 +914,6 @@ function CategoryActions({ editing, onEdit, onCancel, onSave, onDelete, saving, 
       <button type="button" onClick={onEdit} className="inline-flex h-8 items-center gap-1 rounded-lg border border-border-strong px-2 text-xs font-semibold"><Pencil className="size-3.5" /> {labels.rename}</button>
       <button type="button" onClick={onDelete} disabled={removing} className="inline-flex h-8 items-center gap-1 rounded-lg border border-destructive/30 px-2 text-xs font-semibold text-destructive"><Trash2 className="size-3.5" /> {labels.remove}</button>
     </div>
-  );
-}
-
-function OfferDialog({ open, products, onClose }: { open: boolean; products: CatalogProduct[]; onClose: () => void }) {
-  const t = useTranslations('merchantProducts');
-  const locale = useLocale() as 'en' | 'ar';
-  const client = useQueryClient();
-  const [title, setTitle] = useState('');
-  const [productId, setProductId] = useState('');
-  const [error, setError] = useState('');
-  useEffect(() => { if (open) { setTitle(''); setProductId(''); setError(''); } }, [open]);
-  const save = useMutation({
-    mutationFn: async () => {
-      const label = title.trim();
-      if (!label) throw new Error(t('offerRequired'));
-      await api.createOffer({ title: { en: label, ar: label }, ...(productId ? { productId } : {}) });
-    },
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['merchant', 'products'] });
-      onClose();
-    },
-    onError: (reason: Error) => setError(reason.message),
-  });
-  return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DialogContent className="w-[min(100%-2rem,28rem)]">
-        <DialogTitle>{t('createOffer')}</DialogTitle>
-        <DialogDescription>{t('subtitle')}</DialogDescription>
-        <div className="mt-4 grid gap-3">
-          <Field label={t('offerTitle')} value={title} onChange={setTitle} />
-          <label className="block text-sm font-semibold text-foreground">
-            {t('featureProduct')}
-            <select className="mt-1.5 h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none" value={productId} onChange={(event) => setProductId(event.target.value)}>
-              <option value="">{t('noFeature')}</option>
-              {products.map((product) => <option key={product.id} value={product.id}>{pickLocalized(product.name, locale)}</option>)}
-            </select>
-          </label>
-        </div>
-        {error ? <p className="mt-3 text-sm font-medium text-destructive">{error}</p> : null}
-        <div className="mt-4 flex justify-end">
-          <Button type="button" variant="yellow" className="h-11 rounded-xl px-4" loading={save.isPending} onClick={() => { setError(''); save.mutate(); }}>{t('saveOffer')}</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 
