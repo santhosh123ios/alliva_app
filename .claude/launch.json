@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "alliva-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "port": 3000
+    },
+    {
+      "name": "alliva-api-customer",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["turbo", "dev", "--filter=@alliva/api", "--filter=@alliva/customer-web"],
+      "port": 3000
+    }
+  ]
+}
